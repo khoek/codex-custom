@@ -4,12 +4,12 @@ set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 codex_dir="$repo_dir/codex"
-patch_file="$repo_dir/patches/auto-dismiss-safety-buffering-prompts.patch"
+patch_file="$repo_dir/patches/codex-customizations.patch"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
 launcher_dir="$HOME/.local/bin"
 launcher="$launcher_dir/codex"
-patch_applied=0
 stage_dir=
+build_tree=
 current_link=
 launcher_link=
 
@@ -22,12 +22,19 @@ cleanup() {
     exit_status=$?
     trap - EXIT HUP INT TERM
 
-    if [ "$patch_applied" -eq 1 ]; then
-        if ! git -C "$codex_dir" apply --reverse "$patch_file"; then
-            printf 'error: could not restore the clean Codex submodule; reverse this patch manually:\n' >&2
-            printf '  git -C %s apply --reverse %s\n' "$codex_dir" "$patch_file" >&2
-            exit_status=1
-        fi
+    if [ -n "$build_tree" ]; then
+        case "$build_tree" in
+            "$install_root"/.stage.*/source)
+                if ! git -C "$codex_dir" worktree remove --force "$build_tree"; then
+                    printf 'error: could not remove temporary Codex worktree: %s\n' "$build_tree" >&2
+                    exit_status=1
+                fi
+                ;;
+            *)
+                printf 'warning: refusing to remove unexpected build worktree: %s\n' "$build_tree" >&2
+                exit_status=1
+                ;;
+        esac
     fi
 
     if [ -n "$stage_dir" ]; then
@@ -40,6 +47,13 @@ cleanup() {
                 exit_status=1
                 ;;
         esac
+    fi
+
+    if [ -n "$build_tree" ]; then
+        if ! git -C "$codex_dir" worktree prune; then
+            printf 'warning: could not prune temporary worktree metadata\n' >&2
+            exit_status=1
+        fi
     fi
 
     if [ -n "$current_link" ]; then
@@ -115,19 +129,21 @@ fi
 
 install -d "$install_root/releases" "$launcher_dir"
 stage_dir=$(mktemp -d "$install_root/.stage.XXXXXX")
+build_tree="$stage_dir/source"
 package_dir="$stage_dir/package"
 
-git -C "$codex_dir" apply "$patch_file"
-patch_applied=1
+git -C "$codex_dir" worktree add --detach "$build_tree" HEAD
+git -C "$build_tree" apply "$patch_file"
 
-commit=$(git -C "$codex_dir" rev-parse HEAD)
+commit=$(git -C "$build_tree" rev-parse HEAD)
 patch_digest=$(sha256sum "$patch_file" | awk '{print $1}')
 build_stamp=$(date -u +%Y%m%dT%H%M%SZ)
 release_name="$build_stamp-$(printf '%s' "$commit" | cut -c1-12)-$(printf '%s' "$patch_digest" | cut -c1-12)"
 release_dir="$install_root/releases/$release_name"
 
 printf 'Building Codex %s with customization %s...\n' "$commit" "$patch_digest"
-python3 "$codex_dir/scripts/build_codex_package.py" \
+CARGO_TARGET_DIR="$codex_dir/codex-rs/target" \
+python3 "$build_tree/scripts/build_codex_package.py" \
     --target "$target" \
     --variant codex \
     --cargo-profile release \

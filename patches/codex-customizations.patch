@@ -189,3 +189,24 @@ index 3edeacf40d..6933ecc46f 100644
  }
 
  #[tokio::test]
+diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
+index 034c27fdda..1351799f97 100644
+--- a/codex-rs/cli/src/main.rs
++++ b/codex-rs/cli/src/main.rs
+@@ -93,7 +93,7 @@ use codex_terminal_detection::TerminalName;
+ #[derive(Debug, Parser)]
+ #[clap(
+     author,
+-    version,
++    version = concat!(env!("CARGO_PKG_VERSION"), "+k"),
+     // If a sub‑command is given, ignore requirements of the default args.
+     subcommand_negates_reqs = true,
+     // The executable is sometimes invoked via a platform‑specific name like
+diff --git a/codex-rs/tui/src/version.rs b/codex-rs/tui/src/version.rs
+index 8c8d108dc6..ada5b67880 100644
+--- a/codex-rs/tui/src/version.rs
++++ b/codex-rs/tui/src/version.rs
+@@ -1,2 +1,2 @@
+ /// The current Codex CLI version as embedded at compile time.
+-pub const CODEX_CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
++pub const CODEX_CLI_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "+k");
