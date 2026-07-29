@@ -4,17 +4,24 @@ This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex
 repository as a submodule and carries one small local patch:
 [`patches/codex-customizations.patch`](patches/codex-customizations.patch).
 
-The patch adds the downstream `+k` version marker and suppresses both
-safety-buffering selection boxes:
+The patch adds the downstream `+k` version marker and suppresses three
+selection boxes:
 
 - `Retry with a faster model` / `Dismiss and keep waiting` / `Learn more`
 - `Dismiss and keep waiting` / `Learn more`
+- `Approaching rate limits` / switch to a lower-cost model
 
-It does this at the TUI boundary, immediately after Codex creates the selection
-view, by dismissing that view exactly as the no-op `Dismiss and keep waiting`
-choice would. It deliberately does **not** disable or bypass server-side safety
-buffering, change models, cancel the turn, or hide the ordinary working status.
-Codex continues waiting for the original response.
+For the safety-buffering prompts, it acts at the TUI boundary immediately after
+Codex creates the selection view, dismissing that view exactly as the no-op
+`Dismiss and keep waiting` choice would. It deliberately does **not** disable or
+bypass server-side safety buffering, change models, cancel the turn, or hide the
+ordinary working status. Codex continues waiting for the original response.
+
+For the rate-limit model-switch prompt, it immediately performs the existing
+`Keep current model (never show again)` action: the current model is preserved,
+the view is dismissed, and `notice.hide_rate_limit_model_nudge = true` is
+persisted to `config.toml`. This does not change rate-limit accounting,
+informational threshold warnings, or hard-stop behavior.
 
 `+k` is SemVer build metadata. It visibly identifies the custom build without
 making it sort below the corresponding official release, as a `-k` prerelease
@@ -103,12 +110,12 @@ and testing.
 3. Run `git -C codex fetch origin tag <tag> --no-tags` and
    `git -C codex checkout --detach <tag>`.
 4. Run the `git apply --check` command above. If it fails, reproduce the same
-   one-view dismissal in
-   `codex-rs/tui/src/chatwidget/safety_buffering.rs`, update its focused tests
-   and snapshots, and regenerate the patch from the submodule's clean diff.
+   view dismissals in `codex-rs/tui/src/chatwidget/safety_buffering.rs` and
+   `codex-rs/tui/src/chatwidget/rate_limits.rs`, update their focused tests and
+   snapshots, and regenerate the patch from the submodule's clean diff.
 5. Apply the patch, run `just fmt` from `codex/codex-rs`, then run the focused
-   safety-buffering tests with the repository's required `RUST_MIN_STACK`
-   setting (and preferably run the complete `codex-tui` suite).
+   safety-buffering and rate-limit-switch tests with the repository's required
+   `RUST_MIN_STACK` setting (and preferably run the complete `codex-tui` suite).
 6. Reverse the patch again, verify the submodule is clean, update the release
    tag and commit in this README, and commit the new
    submodule pointer together with the refreshed patch and this README's pin.
