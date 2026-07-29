@@ -20,6 +20,48 @@ Codex continues waiting for the original response.
 The `codex` submodule is pinned to upstream commit
 `fe01054a28fa4bd04716d9ceadb410f2443a50ce` from `main`.
 
+## Install
+
+On Ubuntu or Debian, install the native build prerequisites once:
+
+```sh
+sudo apt install libssl-dev pkg-config
+```
+
+Then build and activate the custom Codex:
+
+```sh
+./install.sh
+```
+
+The installer:
+
+1. requires the pinned submodule to be clean;
+2. applies the patch only for the duration of the build;
+3. uses Codex's canonical package builder to include `codex-code-mode-host`,
+   `rg`, `zsh`, and `bwrap`;
+4. strips release debug information from the two locally built binaries;
+5. restores the submodule to its clean pinned state, including after failures;
+6. installs a timestamped package under
+   `~/.local/lib/codex-custom/releases/`; and
+7. atomically points `~/.local/bin/codex` at the new package.
+
+It uses the existing `~/.codex` directory, so authentication, configuration,
+sessions, skills, and plugins remain in place. The official standalone package
+is not modified.
+
+The pinned `main` revision identifies itself as `codex-cli 0.0.0`; the exact
+source commit and patch digest are recorded in the installed release directory
+name. Running `codex update` from this custom package does not replace it:
+Codex cannot detect a supported update method and asks for a manual update.
+Update this installation by bumping the pin as described below and running
+`./install.sh` again.
+
+Set `CODEX_CUSTOM_INSTALL_ROOT` to override the package location. The default is
+`~/.local/lib/codex-custom`.
+
+## Manual build
+
 Initialize a checkout and apply the customization:
 
 ```sh
@@ -28,11 +70,11 @@ git -C codex apply --check ../patches/auto-dismiss-safety-buffering-prompts.patc
 git -C codex apply ../patches/auto-dismiss-safety-buffering-prompts.patch
 ```
 
-Build from the upstream Cargo workspace:
+Build directly from the upstream Cargo workspace:
 
 ```sh
 cd codex/codex-rs
-cargo build
+cargo build --release --locked --bin codex --bin codex-code-mode-host
 ```
 
 To return the submodule to its pinned clean state:
