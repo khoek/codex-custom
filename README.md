@@ -34,6 +34,13 @@ commit `e363b08c9175ac1cbe5893615dd2cb9ddf95043b`.
 
 ## Install
 
+Native macOS builds require the Xcode Command Line Tools. Install them once if
+they are not already present:
+
+```sh
+xcode-select --install
+```
+
 On Ubuntu or Debian, install the native build prerequisites once:
 
 ```sh
@@ -46,13 +53,13 @@ Then build and activate the custom Codex:
 ./install.sh
 ```
 
-The installer:
+The installer supports native arm64 and x86_64 builds on macOS and Linux. It:
 
 1. requires the pinned submodule to be clean;
 2. creates a disposable Git worktree and applies the patch there, keeping the
    pinned submodule clean even when Cargo refreshes a release lockfile;
 3. uses Codex's canonical package builder to include `codex-code-mode-host`,
-   `rg`, `zsh`, and `bwrap`;
+   `rg`, `zsh`, and, on Linux, `bwrap`;
 4. strips release debug information from the two locally built binaries;
 5. restores the submodule to its clean pinned state, including after failures;
 6. installs a timestamped package under
