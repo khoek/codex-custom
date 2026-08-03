@@ -71,7 +71,7 @@ cleanup() {
         case "$build_tree" in
             "$install_root"/.stage.*/source)
                 if ! git -C "$codex_dir" worktree remove --force "$build_tree"; then
-                    printf 'error: could not remove temporary Codex worktree: %s\n' "$build_tree" >&2
+                    printf 'error: could not remove temporary codex worktree: %s\n' "$build_tree" >&2
                     exit_status=1
                 fi
                 ;;
@@ -131,21 +131,23 @@ for command_name in awk cut git readlink; do
 done
 
 [ -f "$codex_dir/codex-rs/Cargo.toml" ] ||
-    die "Codex submodule is not initialized; run: git -C \"$repo_dir\" submodule update --init --recursive"
+    die "codex submodule is not initialized; run: git -C \"$repo_dir\" submodule update --init --recursive"
 [ -f "$patch_file" ] || die "missing patch: $patch_file"
 
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
-    die "Codex submodule has local changes; restore it to the pinned clean state before installing"
+    die "codex submodule has local changes; restore it to the pinned clean state before installing"
 fi
 
 commit=$(git -C "$codex_dir" rev-parse HEAD)
 patch_digest=$(sha256_file "$patch_file")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
 patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
+commit_display=$(printf '%s' "$commit" | cut -c1-8)
+patch_digest_display=$(printf '%s' "$patch_digest" | cut -c1-8)
 
 if current_install_matches; then
-    printf 'Custom Codex %s with customization %s is already installed; skipping.\n' \
-        "$commit" "$patch_digest"
+    printf 'codex %s with customization %s is already installed; skipping.\n' \
+        "$commit_display" "$patch_digest_display"
     exit 0
 fi
 
@@ -155,7 +157,7 @@ for command_name in cargo chmod date install ln mktemp mv python3 strip uname; d
 done
 
 git -C "$codex_dir" apply --check "$patch_file" ||
-    die "the customization patch no longer applies to the pinned Codex revision"
+    die "the customization patch no longer applies to the pinned codex revision"
 
 host_platform="$(uname -s):$(uname -m)"
 case "$host_platform" in
@@ -212,7 +214,7 @@ build_stamp=$(date -u +%Y%m%dT%H%M%SZ)
 release_name="$build_stamp-$commit_short-$patch_digest_short"
 release_dir="$install_root/releases/$release_name"
 
-printf 'Building Codex %s with customization %s...\n' "$commit" "$patch_digest"
+printf 'Building codex %s with customization %s...\n' "$commit_display" "$patch_digest_display"
 CARGO_TARGET_DIR="$codex_dir/codex-rs/target" \
 python3 "$build_tree/scripts/build_codex_package.py" \
     --target "$target" \
@@ -264,7 +266,7 @@ replace_path_with_symlink \
     "$install_root/current/bin/codex" \
     "$launcher_link"
 
-printf '\nInstalled custom Codex:\n'
+printf '\nInstalled custom codex:\n'
 printf '  package: %s\n' "$release_dir"
 printf '  launcher: %s -> %s\n' "$launcher" "$install_root/current/bin/codex"
 "$launcher" --version
