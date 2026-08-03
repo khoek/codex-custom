@@ -71,6 +71,9 @@ The installer supports native arm64 and x86_64 builds on macOS and Linux. It:
    `~/.local/lib/codex-custom/releases/`; and
 7. atomically points `~/.local/bin/codex` at the new package.
 
+Rerunning the installer skips the build when the active package already matches both the pinned
+Codex commit and the customization patch digest and its launcher and bundled executables are intact.
+
 It uses the existing `~/.codex` directory, so authentication, configuration,
 sessions, skills, and plugins remain in place. The official standalone package
 is not modified.

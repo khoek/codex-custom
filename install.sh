@@ -28,6 +28,21 @@ sha256_file() {
     fi
 }
 
+current_install_matches() {
+    current_target=$(readlink "$install_root/current" 2>/dev/null) || return 1
+    case "$current_target" in
+        releases/*-"$commit_short"-"$patch_digest_short") ;;
+        *) return 1 ;;
+    esac
+
+    [ -x "$install_root/current/bin/codex" ] &&
+        [ -x "$install_root/current/bin/codex-code-mode-host" ] &&
+        [ -x "$install_root/current/codex-path/rg" ] &&
+        [ -L "$launcher" ] &&
+        [ "$(readlink "$launcher")" = "$install_root/current/bin/codex" ] &&
+        "$launcher" --version >/dev/null 2>&1
+}
+
 replace_path_with_symlink() {
     link_path=$1
     link_target=$2
@@ -110,7 +125,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-for command_name in awk cargo chmod cut date git install ln mktemp mv python3 strip uname; do
+for command_name in awk cut git readlink; do
     command -v "$command_name" >/dev/null 2>&1 ||
         die "missing required command: $command_name"
 done
@@ -122,6 +137,22 @@ done
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
     die "Codex submodule has local changes; restore it to the pinned clean state before installing"
 fi
+
+commit=$(git -C "$codex_dir" rev-parse HEAD)
+patch_digest=$(sha256_file "$patch_file")
+commit_short=$(printf '%s' "$commit" | cut -c1-12)
+patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
+
+if current_install_matches; then
+    printf 'Custom Codex %s with customization %s is already installed; skipping.\n' \
+        "$commit" "$patch_digest"
+    exit 0
+fi
+
+for command_name in cargo chmod date install ln mktemp mv python3 strip uname; do
+    command -v "$command_name" >/dev/null 2>&1 ||
+        die "missing required command: $command_name"
+done
 
 git -C "$codex_dir" apply --check "$patch_file" ||
     die "the customization patch no longer applies to the pinned Codex revision"
@@ -177,10 +208,8 @@ package_dir="$stage_dir/package"
 git -C "$codex_dir" worktree add --detach "$build_tree" HEAD
 git -C "$build_tree" apply "$patch_file"
 
-commit=$(git -C "$build_tree" rev-parse HEAD)
-patch_digest=$(sha256_file "$patch_file")
 build_stamp=$(date -u +%Y%m%dT%H%M%SZ)
-release_name="$build_stamp-$(printf '%s' "$commit" | cut -c1-12)-$(printf '%s' "$patch_digest" | cut -c1-12)"
+release_name="$build_stamp-$commit_short-$patch_digest_short"
 release_dir="$install_root/releases/$release_name"
 
 printf 'Building Codex %s with customization %s...\n' "$commit" "$patch_digest"
