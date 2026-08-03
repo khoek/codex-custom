@@ -11,6 +11,11 @@ selection boxes:
 - `Dismiss and keep waiting` / `Learn more`
 - `Approaching rate limits` / switch to a lower-cost model
 
+Upstream status: safety-buffering auto-dismiss remains open
+([#32139](https://github.com/openai/codex/issues/32139),
+[#32815](https://github.com/openai/codex/issues/32815)); the rate-limit nudge has
+a persistent opt-out ([#6433](https://github.com/openai/codex/pull/6433)).
+
 For the safety-buffering prompts, it acts at the TUI boundary immediately after
 Codex creates the selection view, dismissing that view exactly as the no-op
 `Dismiss and keep waiting` choice would. It deliberately does **not** disable or
