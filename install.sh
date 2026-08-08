@@ -63,6 +63,26 @@ replace_path_with_symlink() {
     mv -f -- "$temporary_link" "$link_path"
 }
 
+ensure_codex_on_bash_path() {
+    bashrc="$HOME/.bashrc"
+
+    if [ -f "$bashrc" ]; then
+        while IFS= read -r bashrc_line || [ -n "$bashrc_line" ]; do
+            if [ "$bashrc_line" = '# >>> Codex installer >>>' ]; then
+                return
+            fi
+        done <"$bashrc"
+    fi
+
+    if [ -s "$bashrc" ]; then
+        printf '\n' >>"$bashrc"
+    fi
+    printf '%s\n' \
+        '# >>> Codex installer >>>' \
+        'export PATH="/home/khoek/.local/bin:$PATH"' \
+        '# <<< Codex installer <<<' >>"$bashrc"
+}
+
 cleanup() {
     exit_status=$?
     trap - EXIT HUP INT TERM
@@ -148,6 +168,7 @@ patch_digest_display=$(printf '%s' "$patch_digest" | cut -c1-8)
 if current_install_matches; then
     printf 'codex %s with customization %s is already installed; skipping.\n' \
         "$commit_display" "$patch_digest_display"
+    ensure_codex_on_bash_path
     exit 0
 fi
 
@@ -270,4 +291,5 @@ printf '\nInstalled custom codex:\n'
 printf '  package: %s\n' "$release_dir"
 printf '  launcher: %s -> %s\n' "$launcher" "$install_root/current/bin/codex"
 "$launcher" --version
+ensure_codex_on_bash_path
 printf '\nRun `hash -r` in shells that cached the old command path.\n'
