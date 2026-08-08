@@ -32,11 +32,6 @@ informational threshold warnings, or hard-stop behavior.
 making it sort below the corresponding official release, as a `-k` prerelease
 suffix would.
 
-## Current pin
-
-The `codex` submodule is pinned to the official `rust-v0.146.0` release at
-commit `e363b08c9175ac1cbe5893615dd2cb9ddf95043b`.
-
 ## Install
 
 Native macOS builds require the Xcode Command Line Tools. Install them once if
@@ -78,10 +73,10 @@ It uses the existing `~/.codex` directory, so authentication, configuration,
 sessions, skills, and plugins remain in place. The official standalone package
 is not modified.
 
-The custom build identifies itself as `codex-cli 0.146.0+k`. The exact source
-commit and patch digest are also recorded in the installed release directory
-name. Running `codex update` from this custom package does not replace it:
-Codex cannot detect a supported update method and asks for a manual update.
+The custom build appends `+k` to the upstream `codex-cli` version. The exact
+source commit and patch digest are also recorded in the installed release
+directory name. Running `codex update` from this custom package does not replace
+it: Codex cannot detect a supported update method and asks for a manual update.
 Update this installation by bumping the pin as described below and running
 `./install.sh` again.
 
