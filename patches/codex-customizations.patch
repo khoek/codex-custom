@@ -356,3 +356,265 @@ index 5719e04dcb..3a7fc65948 100644
  }
 
  #[tokio::test]
+
+diff --git a/codex-rs/core/src/responses_retry.rs b/codex-rs/core/src/responses_retry.rs
+index dee517c985..5b244eda05 100644
+--- a/codex-rs/core/src/responses_retry.rs
++++ b/codex-rs/core/src/responses_retry.rs
+@@ -11,6 +11,9 @@ use codex_protocol::protocol::EventMsg;
+ use codex_protocol::protocol::WarningEvent;
+ use tracing::warn;
+ 
++const SERVER_OVERLOAD_INITIAL_RETRY_DELAY: Duration = Duration::from_secs(2);
++const SERVER_OVERLOAD_MAX_RETRY_DELAY: Duration = Duration::from_secs(60);
++
+ #[derive(Debug, Clone, Copy)]
+ pub(crate) enum ResponsesStreamRequest {
+     Sampling,
+@@ -73,6 +76,35 @@ pub(crate) async fn handle_retryable_response_stream_error(
+     Err(err)
+ }
+ 
++pub(crate) async fn handle_server_overload_retry(
++    retries: &mut u64,
++    err: CodexErr,
++    sess: &Session,
++    turn_context: &TurnContext,
++) {
++    *retries = retries.saturating_add(1);
++    let retry_count = *retries;
++    let exponent = retry_count.saturating_sub(1).min(5) as u32;
++    let delay = (SERVER_OVERLOAD_INITIAL_RETRY_DELAY * 2_u32.saturating_pow(exponent))
++        .min(SERVER_OVERLOAD_MAX_RETRY_DELAY);
++    warn!(
++        turn_id = %turn_context.sub_id,
++        retry_count,
++        ?delay,
++        "model at capacity; retrying sampling request"
++    );
++    sess.notify_stream_error(
++        turn_context,
++        format!(
++            "Model at capacity; retrying in {}s (attempt {retry_count})",
++            delay.as_secs()
++        ),
++        err,
++    )
++    .await;
++    tokio::time::sleep(delay).await;
++}
++
+ fn log_retry(
+     request: ResponsesStreamRequest,
+     turn_context: &TurnContext,
+diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
+index 0117b596ff..41799e8df3 100644
+--- a/codex-rs/core/src/session/mod.rs
++++ b/codex-rs/core/src/session/mod.rs
+@@ -3942,14 +3942,19 @@ impl Session {
+         message: impl Into<String>,
+         codex_error: CodexErr,
+     ) {
+-        let additional_details = codex_error.to_string();
+-        let codex_error_info = CodexErrorInfo::ResponseStreamDisconnected {
+-            http_status_code: codex_error.http_status_code_value(),
++        let (codex_error_info, additional_details) = match codex_error.details() {
++            CodexErrorDetails::ServerOverloaded => (codex_error.to_codex_protocol_error(), None),
++            _ => (
++                CodexErrorInfo::ResponseStreamDisconnected {
++                    http_status_code: codex_error.http_status_code_value(),
++                },
++                Some(codex_error.to_string()),
++            ),
+         };
+         let event = EventMsg::StreamError(StreamErrorEvent {
+             message: message.into(),
+             codex_error_info: Some(codex_error_info),
+-            additional_details: Some(additional_details),
++            additional_details,
+         });
+         self.send_event(turn_context, event).await;
+     }
+diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
+index 16ef4e7d36..898532e75e 100644
+--- a/codex-rs/core/src/session/turn.rs
++++ b/codex-rs/core/src/session/turn.rs
+@@ -37,6 +37,7 @@ use crate::responses_metadata::CodexResponsesMetadata;
+ use crate::responses_metadata::CodexResponsesRequestKind;
+ use crate::responses_retry::ResponsesStreamRequest;
+ use crate::responses_retry::handle_retryable_response_stream_error;
++use crate::responses_retry::handle_server_overload_retry;
+ use crate::session::PreviousTurnSettings;
+ use crate::session::TurnInput;
+ use crate::session::session::Session;
+@@ -1332,6 +1333,7 @@ async fn run_sampling_request(
+     );
+     let max_retries = turn_context.provider.info().stream_max_retries();
+     let mut retries = 0;
++    let mut server_overload_retries = 0;
+     let mut initial_input = Some(input);
+     let mut original_input = None;
+     let mut executed_tool_calls_by_output = HashMap::new();
+@@ -1392,6 +1394,13 @@ async fn run_sampling_request(
+             original_input = Some(prompt.input);
+         }
+ 
++        if matches!(err.details(), CodexErrorDetails::ServerOverloaded) {
++            handle_server_overload_retry(&mut server_overload_retries, err, &sess, &turn_context)
++                .await;
++            turn_context.turn_timing_state.record_sampling_retry();
++            continue;
++        }
++
+         if !err.is_retryable() {
+             return Err(err);
+         }
+diff --git a/codex-rs/core/tests/suite/client.rs b/codex-rs/core/tests/suite/client.rs
+index 345ca5ff4d..d966ab6002 100644
+--- a/codex-rs/core/tests/suite/client.rs
++++ b/codex-rs/core/tests/suite/client.rs
+@@ -45,6 +45,7 @@ use codex_protocol::models::ResponseItem;
+ use codex_protocol::models::WebSearchAction;
+ use codex_protocol::openai_models::InputModality;
+ use codex_protocol::openai_models::ReasoningEffort;
++use codex_protocol::protocol::CodexErrorInfo;
+ use codex_protocol::protocol::EventMsg;
+ use codex_protocol::protocol::Op;
+ use codex_protocol::protocol::RolloutItem;
+@@ -64,11 +65,13 @@ use core_test_support::responses::ev_function_call;
+ use core_test_support::responses::ev_message_item_added;
+ use core_test_support::responses::ev_output_text_delta;
+ use core_test_support::responses::ev_response_created;
++use core_test_support::responses::mount_response_sequence;
+ use core_test_support::responses::mount_sse_once;
+ use core_test_support::responses::mount_sse_once_match;
+ use core_test_support::responses::mount_sse_sequence;
+ use core_test_support::responses::sse;
+ use core_test_support::responses::sse_failed;
++use core_test_support::responses::sse_response;
+ use core_test_support::responses::strip_metadata_from_json;
+ use core_test_support::responses::strip_response_item_ids_from_json;
+ use core_test_support::responses_metadata as test_responses_metadata;
+@@ -83,6 +86,7 @@ use serde_json::json;
+ use std::io::Write;
+ use std::num::NonZeroU64;
+ use std::sync::Arc;
++use std::time::Duration;
+ use tempfile::TempDir;
+ use uuid::Uuid;
+ use wiremock::Mock;
+@@ -3467,6 +3471,114 @@ async fn usage_limit_error_emits_rate_limit_event() -> anyhow::Result<()> {
+     Ok(())
+ }
+ 
++#[tokio::test]
++async fn server_overload_uses_transport_budget_then_backs_off_and_resets() -> anyhow::Result<()> {
++    skip_if_no_network!(Ok(()));
++    let server = MockServer::start().await;
++    let overloaded = || {
++        ResponseTemplate::new(503).set_body_json(json!({
++            "error": {
++                "code": "server_is_overloaded",
++                "message": "selected model is at capacity",
++            }
++        }))
++    };
++    let plan_args = json!({
++        "plan": [{"step": "Continue after retry", "status": "completed"}],
++    })
++    .to_string();
++    let responses = mount_response_sequence(
++        &server,
++        vec![
++            overloaded(),
++            overloaded(),
++            sse_response(sse_failed(
++                "overloaded-2",
++                "server_is_overloaded",
++                "selected model is at capacity",
++            )),
++            sse_response(sse(vec![
++                ev_response_created("tool-response"),
++                ev_function_call("plan-call", "update_plan", &plan_args),
++                ev_completed("tool-response"),
++            ])),
++            overloaded(),
++            overloaded(),
++            sse_response(sse(vec![
++                ev_response_created("final-response"),
++                ev_assistant_message("final-message", "done"),
++                ev_completed("final-response"),
++            ])),
++        ],
++    )
++    .await;
++    let test = test_codex()
++        .with_config(|config| {
++            config.model_provider.request_max_retries = Some(1);
++            config.model_provider.stream_max_retries = Some(0);
++        })
++        .build_with_auto_env(&server)
++        .await?;
++    tokio::time::pause();
++
++    test.codex
++        .submit(Op::UserInput {
++            items: vec![UserInput::Text {
++                text: "keep working".into(),
++                text_elements: Vec::new(),
++            }],
++            final_output_json_schema: None,
++            responsesapi_client_metadata: None,
++            additional_context: Default::default(),
++            thread_settings: Default::default(),
++        })
++        .await?;
++
++    let mut retry_events = Vec::new();
++    let mut request_counts_at_retry = Vec::new();
++    loop {
++        match test.codex.next_event().await?.msg {
++            EventMsg::StreamError(event) => {
++                retry_events.push((
++                    event.message,
++                    event.codex_error_info,
++                    event.additional_details,
++                ));
++                request_counts_at_retry.push(responses.requests().len());
++                tokio::time::advance(Duration::from_secs(60)).await;
++            }
++            EventMsg::Error(event) => panic!("capacity retry aborted the turn: {event:?}"),
++            EventMsg::TurnComplete(_) => break,
++            _ => {}
++        }
++    }
++
++    assert_eq!(
++        retry_events,
++        vec![
++            (
++                "Model at capacity; retrying in 2s (attempt 1)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++            (
++                "Model at capacity; retrying in 4s (attempt 2)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++            (
++                "Model at capacity; retrying in 2s (attempt 1)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++        ]
++    );
++    assert_eq!(request_counts_at_retry, vec![2, 3, 6]);
++    assert_eq!(responses.requests().len(), 7);
++
++    Ok(())
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Result<()> {
+     skip_if_no_network!(Ok(()));
