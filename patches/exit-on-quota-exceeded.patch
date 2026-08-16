@@ -1,0 +1,426 @@
+diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
+index d68b3d510c..8fab2cb304 100644
+--- a/codex-rs/cli/src/main.rs
++++ b/codex-rs/cli/src/main.rs
+@@ -724,6 +724,9 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
+ }
+ 
+ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
++    if let ExitReason::QuotaExceeded(thread_id) = &exit_info.exit_reason {
++        return vec![format!("codex+k ({thread_id}): quota exceeded")];
++    }
+     let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
+     let AppExitInfo {
+         token_usage,
+@@ -753,11 +756,13 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+ 
+ /// Handle the app exit and print the results. Optionally run the update action.
+ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
++    let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded(_));
+     let is_fatal = match &exit_info.exit_reason {
+         ExitReason::Fatal(message) => {
+             eprintln!("ERROR: {message}");
+             true
+         }
++        ExitReason::QuotaExceeded(_) => false,
+         ExitReason::UserRequested => false,
+     };
+ 
+@@ -766,6 +771,10 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+     for line in format_exit_messages(exit_info, color_enabled) {
+         println!("{line}");
+     }
++    if quota_exceeded {
++        std::io::stdout().flush()?;
++        return Ok(());
++    }
+     if is_fatal {
+         std::io::stdout().flush()?;
+         std::process::exit(1);
+@@ -2595,6 +2604,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+         strict_config,
+         approval_policy,
+         web_search,
++        exit_on_quota_exceeded,
+         prompt,
+         mut config_overrides,
+         ..
+@@ -2614,6 +2624,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+     if web_search {
+         interactive.web_search = true;
+     }
++    if exit_on_quota_exceeded {
++        interactive.exit_on_quota_exceeded = true;
++    }
+     if strict_config {
+         interactive.strict_config = true;
+     }
+@@ -3473,6 +3486,23 @@ mod tests {
+         assert!(lines.is_empty());
+     }
+ 
++    #[test]
++    fn format_exit_messages_for_quota_exceeded_is_exact_and_unstyled() {
++        let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++        for color_enabled in [false, true] {
++            let mut exit_info = sample_exit_info(
++                Some("123e4567-e89b-12d3-a456-426614174000"),
++                /*thread_name*/ None,
++            );
++            exit_info.exit_reason = ExitReason::QuotaExceeded(thread_id);
++
++            assert_eq!(
++                format_exit_messages(exit_info, color_enabled),
++                vec!["codex+k (123e4567-e89b-12d3-a456-426614174000): quota exceeded".to_string()]
++            );
++        }
++    }
++
+     #[test]
+     fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
+         let exit_info = AppExitInfo {
+@@ -3631,6 +3661,22 @@ mod tests {
+         assert!(interactive.resume_show_all);
+     }
+ 
++    #[test]
++    fn exit_on_quota_exceeded_is_opt_in_and_merges_for_resume() {
++        let default_cli = MultitoolCli::try_parse_from(["codex"]).expect("parse default CLI");
++        assert!(!default_cli.interactive.exit_on_quota_exceeded);
++
++        let root_scoped = finalize_resume_from_args(
++            ["codex", "--exit-on-quota-exceeded", "resume", "sid"].as_ref(),
++        );
++        assert!(root_scoped.exit_on_quota_exceeded);
++
++        let resume_scoped = finalize_resume_from_args(
++            ["codex", "resume", "sid", "--exit-on-quota-exceeded"].as_ref(),
++        );
++        assert!(resume_scoped.exit_on_quota_exceeded);
++    }
++
+     #[test]
+     fn resume_include_non_interactive_flag_sets_source_filter_override() {
+         let interactive =
+diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
+index 1b3e6f2305..fb032ffa81 100644
+--- a/codex-rs/tui/src/app.rs
++++ b/codex-rs/tui/src/app.rs
+@@ -433,6 +433,7 @@ pub(crate) enum AppRunControl {
+ #[derive(Debug, Clone)]
+ pub enum ExitReason {
+     UserRequested,
++    QuotaExceeded(ThreadId),
+     Fatal(String),
+ }
+ 
+@@ -565,6 +566,11 @@ pub(crate) struct App {
+     /// Set when the user confirms an update; propagated on exit.
+     pub(crate) pending_update_action: Option<UpdateAction>,
+ 
++    /// Whether a terminal quota error in any tracked thread should shut down the TUI.
++    exit_on_quota_exceeded: bool,
++    /// The resumable primary thread recorded by the first quota error that requested shutdown.
++    quota_exceeded_exit_thread_id: Option<ThreadId>,
++
+     /// Tracks the thread we intentionally shut down while exiting the app.
+     ///
+     /// When this matches the active thread, its `ShutdownComplete` should lead to
+@@ -782,6 +788,7 @@ impl App {
+         cloud_config_bundle: CloudConfigBundleLoader,
+         initial_prompt: Option<String>,
+         initial_images: Vec<PathBuf>,
++        exit_on_quota_exceeded: bool,
+         session_selection: SessionSelection,
+         feedback: codex_feedback::CodexFeedback,
+         is_first_run: bool,
+@@ -1071,6 +1078,8 @@ See the Codex keymap documentation for supported actions and examples."
+             environment_manager,
+             app_server_target,
+             pending_update_action: None,
++            exit_on_quota_exceeded,
++            quota_exceeded_exit_thread_id: None,
+             pending_shutdown_exit_thread_id: None,
+             windows_sandbox: WindowsSandboxState::default(),
+             thread_event_channels: HashMap::new(),
+@@ -1276,6 +1285,10 @@ See the Codex keymap documentation for supported actions and examples."
+                 return Err(err);
+             }
+         };
++        let exit_reason = match app.quota_exceeded_exit_thread_id {
++            Some(thread_id) => ExitReason::QuotaExceeded(thread_id),
++            None => exit_reason,
++        };
+         let thread_id = app.chat_widget.thread_id().or(app.primary_thread_id);
+         let resume_hint = resume_hint_for_resumable_thread(
+             thread_id,
+diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
+index 2a8c26b458..f6016f48ff 100644
+--- a/codex-rs/tui/src/app/app_server_events.rs
++++ b/codex-rs/tui/src/app/app_server_events.rs
+@@ -7,11 +7,13 @@ use super::app_server_event_targets::server_request_thread_id;
+ use crate::app_command::AppCommand;
+ use crate::app_event::AppEvent;
+ use crate::app_event::ConnectorsSnapshot;
++use crate::app_event::ExitMode;
+ use crate::app_info::app_info_from_api;
+ use crate::app_server_session::AppServerSession;
+ use crate::app_server_session::status_account_display_from_auth_mode;
+ use codex_app_server_client::AppServerEvent;
+ use codex_app_server_protocol::AuthMode;
++use codex_app_server_protocol::CodexErrorInfo;
+ use codex_app_server_protocol::RateLimitReachedType;
+ use codex_app_server_protocol::ServerNotification;
+ use codex_app_server_protocol::ServerRequest;
+@@ -154,6 +156,17 @@ impl App {
+             _ => {}
+         }
+ 
++        let should_exit_on_quota_exceeded = self.exit_on_quota_exceeded
++            && matches!(
++                &notification,
++                ServerNotification::Error(notification)
++                    if !notification.will_retry
++                        && matches!(
++                            notification.error.codex_error_info.as_ref(),
++                            Some(CodexErrorInfo::UsageLimitExceeded)
++                        )
++            );
++
+         match server_notification_thread_target(&notification) {
+             ServerNotificationThreadTarget::Thread(thread_id) => {
+                 let result = if self.primary_thread_id == Some(thread_id)
+@@ -168,6 +181,15 @@ impl App {
+                 if let Err(err) = result {
+                     tracing::warn!("failed to enqueue app-server notification: {err}");
+                 }
++                if should_exit_on_quota_exceeded && self.quota_exceeded_exit_thread_id.is_none() {
++                    let resumable_thread_id = self
++                        .primary_thread_id
++                        .or_else(|| self.chat_widget.thread_id())
++                        .unwrap_or(thread_id);
++                    self.quota_exceeded_exit_thread_id = Some(resumable_thread_id);
++                    self.app_event_tx
++                        .send(AppEvent::Exit(ExitMode::ShutdownFirst));
++                }
+                 return;
+             }
+             ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
+diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
+index 9d80356d8b..8751bb362b 100644
+--- a/codex-rs/tui/src/app/test_support.rs
++++ b/codex-rs/tui/src/app/test_support.rs
+@@ -53,6 +53,8 @@ pub(super) async fn make_test_app() -> App {
+         environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
+         app_server_target: crate::AppServerTarget::Embedded,
+         pending_update_action: None,
++        exit_on_quota_exceeded: false,
++        quota_exceeded_exit_thread_id: None,
+         pending_shutdown_exit_thread_id: None,
+         windows_sandbox: WindowsSandboxState::default(),
+         thread_event_channels: HashMap::new(),
+diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
+index 2ef3387e32..e2ae8ddf94 100644
+--- a/codex-rs/tui/src/app/tests.rs
++++ b/codex-rs/tui/src/app/tests.rs
+@@ -4779,6 +4779,8 @@ async fn make_test_app() -> App {
+         environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
+         app_server_target: crate::AppServerTarget::Embedded,
+         pending_update_action: None,
++        exit_on_quota_exceeded: false,
++        quota_exceeded_exit_thread_id: None,
+         pending_shutdown_exit_thread_id: None,
+         windows_sandbox: WindowsSandboxState::default(),
+         thread_event_channels: HashMap::new(),
+@@ -4849,6 +4851,8 @@ async fn make_test_app_with_channels() -> (
+             environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
+             app_server_target: crate::AppServerTarget::Embedded,
+             pending_update_action: None,
++            exit_on_quota_exceeded: false,
++            quota_exceeded_exit_thread_id: None,
+             pending_shutdown_exit_thread_id: None,
+             windows_sandbox: WindowsSandboxState::default(),
+             thread_event_channels: HashMap::new(),
+diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
+index 21f0089f91..e32085ba32 100644
+--- a/codex-rs/tui/src/app/tests/rate_limits.rs
++++ b/codex-rs/tui/src/app/tests/rate_limits.rs
+@@ -100,6 +100,104 @@ fn deliver_usage_limit_error(app: &mut App) {
+     );
+ }
+ 
++fn turn_error_event(
++    thread_id: ThreadId,
++    will_retry: bool,
++    codex_error_info: CodexErrorInfo,
++) -> codex_app_server_client::AppServerEvent {
++    codex_app_server_client::AppServerEvent::ServerNotification(Box::new(
++        ServerNotification::Error(ErrorNotification {
++            error: AppServerTurnError {
++                message: "Usage limit reached.".to_string(),
++                codex_error_info: Some(codex_error_info),
++                additional_details: None,
++            },
++            will_retry,
++            thread_id: thread_id.to_string(),
++            turn_id: "turn-1".to_string(),
++        }),
++    ))
++}
++
++fn count_shutdown_first_exits(
++    app_event_rx: &mut tokio::sync::mpsc::UnboundedReceiver<AppEvent>,
++) -> usize {
++    let mut count = 0;
++    while let Ok(event) = app_event_rx.try_recv() {
++        if matches!(event, AppEvent::Exit(ExitMode::ShutdownFirst)) {
++            count += 1;
++        }
++    }
++    count
++}
++
++#[tokio::test]
++async fn terminal_quota_error_exits_once_for_main_or_subagent() -> Result<()> {
++    for error_from_subagent in [false, true] {
++        let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
++        let app_server = crate::start_embedded_app_server_for_picker(app.chat_widget.config_ref())
++            .await
++            .expect("embedded app server");
++        let primary_thread_id =
++            ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++        let subagent_thread_id =
++            ThreadId::from_string("123e4567-e89b-12d3-a456-426614174001").unwrap();
++        let error_thread_id = if error_from_subagent {
++            subagent_thread_id
++        } else {
++            primary_thread_id
++        };
++        app.primary_thread_id = Some(primary_thread_id);
++        app.exit_on_quota_exceeded = true;
++
++        for _ in 0..2 {
++            app.handle_app_server_event(
++                &app_server,
++                turn_error_event(
++                    error_thread_id,
++                    /*will_retry*/ false,
++                    CodexErrorInfo::UsageLimitExceeded,
++                ),
++            )
++            .await;
++        }
++
++        assert_eq!(count_shutdown_first_exits(&mut app_event_rx), 1);
++        assert_eq!(app.quota_exceeded_exit_thread_id, Some(primary_thread_id));
++        app_server.shutdown().await?;
++    }
++
++    Ok(())
++}
++
++#[tokio::test]
++async fn quota_exit_ignores_disabled_retryable_and_non_quota_errors() -> Result<()> {
++    let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
++    let app_server = crate::start_embedded_app_server_for_picker(app.chat_widget.config_ref())
++        .await
++        .expect("embedded app server");
++    let primary_thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++    app.primary_thread_id = Some(primary_thread_id);
++
++    for (enabled, will_retry, error_info) in [
++        (false, false, CodexErrorInfo::UsageLimitExceeded),
++        (true, true, CodexErrorInfo::UsageLimitExceeded),
++        (true, false, CodexErrorInfo::Other),
++    ] {
++        app.exit_on_quota_exceeded = enabled;
++        app.handle_app_server_event(
++            &app_server,
++            turn_error_event(primary_thread_id, will_retry, error_info),
++        )
++        .await;
++        assert_eq!(count_shutdown_first_exits(&mut app_event_rx), 0);
++        assert_eq!(app.quota_exceeded_exit_thread_id, None);
++    }
++
++    app_server.shutdown().await?;
++    Ok(())
++}
++
+ #[tokio::test]
+ async fn rolling_workspace_hard_stops_invalidate_older_rate_limit_reads() -> Result<()> {
+     let (mut app, _app_event_rx, _op_rx) = make_test_app_with_channels().await;
+diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
+index 7e10e0b110..a7957e07b9 100644
+--- a/codex-rs/tui/src/cli.rs
++++ b/codex-rs/tui/src/cli.rs
+@@ -69,6 +69,10 @@ pub struct Cli {
+     #[arg(long = "search", default_value_t = false)]
+     pub web_search: bool,
+ 
++    /// Exit cleanly when a terminal quota or usage-limit error stops any agent.
++    #[arg(long = "exit-on-quota-exceeded", default_value_t = false)]
++    pub exit_on_quota_exceeded: bool,
++
+     /// Disable alternate screen mode
+     ///
+     /// Runs the TUI in inline mode, preserving terminal scrollback history.
+diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
+index c79e6add72..e36034e283 100644
+--- a/codex-rs/tui/src/lib.rs
++++ b/codex-rs/tui/src/lib.rs
+@@ -1693,6 +1693,7 @@ async fn run_ratatui_app(
+         prompt,
+         shared,
+         no_alt_screen,
++        exit_on_quota_exceeded,
+         ..
+     } = cli;
+     let images = shared.into_inner().images;
+@@ -1769,6 +1770,7 @@ async fn run_ratatui_app(
+         cloud_config_bundle,
+         prompt,
+         images,
++        exit_on_quota_exceeded,
+         session_selection,
+         feedback,
+         should_show_trust_screen, // Proxy to: is it a first run in this directory?
+diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
+index 3092cc8c99..ea207a2146 100644
+--- a/codex-rs/tui/src/main.rs
++++ b/codex-rs/tui/src/main.rs
+@@ -11,6 +11,9 @@ use std::io::Write;
+ use supports_color::Stream;
+ 
+ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
++    if let ExitReason::QuotaExceeded(thread_id) = &exit_info.exit_reason {
++        return vec![format!("codex+k ({thread_id}): quota exceeded")];
++    }
+     let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
+     let AppExitInfo {
+         token_usage,
+@@ -66,11 +69,13 @@ fn main() -> anyhow::Result<()> {
+             /*explicit_remote_endpoint*/ None,
+         )
+         .await?;
++        let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded(_));
+         let is_fatal = match &exit_info.exit_reason {
+             ExitReason::Fatal(message) => {
+                 eprintln!("ERROR: {message}");
+                 true
+             }
++            ExitReason::QuotaExceeded(_) => false,
+             ExitReason::UserRequested => false,
+         };
+ 
+@@ -78,6 +83,10 @@ fn main() -> anyhow::Result<()> {
+         for line in format_exit_messages(exit_info, color_enabled) {
+             println!("{line}");
+         }
++        if quota_exceeded {
++            std::io::stdout().flush()?;
++            return Ok(());
++        }
+         if is_fatal {
+             std::io::stdout().flush()?;
+             std::process::exit(1);

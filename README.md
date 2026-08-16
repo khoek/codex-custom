@@ -1,11 +1,19 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule and carries one small local patch:
-[`patches/codex-customizations.patch`](patches/codex-customizations.patch).
+repository as a submodule and carries a small, ordered patch series:
 
-The patch adds the downstream `+k` version marker and suppresses three
-selection boxes:
+1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
+   contains only the original UI, version-marker, and capacity-retry code
+   changes.
+2. [`patches/codex-customizations-tests.patch`](patches/codex-customizations-tests.patch)
+   contains their corresponding test assertions and snapshots, including the
+   downstream version-marker snapshots.
+3. [`patches/exit-on-quota-exceeded.patch`](patches/exit-on-quota-exceeded.patch)
+   adds the opt-in quota-exit behavior described below.
+
+The original code patch adds the downstream `+k` version marker, retries typed
+model capacity errors, and suppresses three selection boxes:
 
 - `Retry with a faster model` / `Dismiss and keep waiting` / `Learn more`
 - `Dismiss and keep waiting` / `Learn more`
@@ -27,6 +35,30 @@ For the rate-limit model-switch prompt, it immediately performs the existing
 the view is dismissed, and `notice.hide_rate_limit_model_nudge = true` is
 persisted to `config.toml`. This does not change rate-limit accounting,
 informational threshold warnings, or hard-stop behavior.
+
+For typed `ServerOverloaded` model-capacity errors, it keeps retrying the
+sampling request with exponential delays from 2 seconds up to 60 seconds. The
+retry remains interruptible and is separate from quota and usage-limit errors.
+
+The companion test patch has no runtime effect. It keeps the original
+customizations' tests separate from their implementation and records the
+expected auto-dismissed UI and `0.147.0+k` snapshot output.
+
+The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
+flag present, a terminal typed `UsageLimitExceeded` error from either the main
+thread or any tracked subagent follows the normal notification path and then
+requests the same shutdown-first exit used by an ordinary interactive quit.
+After the app server, threads, terminal, and telemetry have been cleaned up,
+the CLI emits one final unstyled line and no other normal exit summary:
+
+```text
+codex+k (CODEX_UUID_WHICH_YOU_CAN_USE_TO_RESUME): quota exceeded
+```
+
+The UUID is the primary session ID accepted by `codex resume`. Retryable errors,
+model-capacity errors, and runs without the flag retain their existing behavior.
+The flag can be supplied to a fresh interactive run or to `codex resume` and
+`codex fork`.
 
 `+k` is SemVer build metadata. It visibly identifies the custom build without
 making it sort below the corresponding official release, as a `-k` prerelease
@@ -56,8 +88,9 @@ Then build and activate the custom Codex:
 The installer supports native arm64 and x86_64 builds on macOS and Linux. It:
 
 1. requires the pinned submodule to be clean;
-2. creates a disposable Git worktree and applies the patch there, keeping the
-   pinned submodule clean even when Cargo refreshes a release lockfile;
+2. creates a disposable Git worktree and applies the patches in order there,
+   keeping the pinned submodule clean even when Cargo refreshes a release
+   lockfile;
 3. uses Codex's canonical package builder to include `codex-code-mode-host`,
    `rg`, `zsh`, and, on Linux, `bwrap`;
 4. strips release debug information from the two locally built binaries;
@@ -66,8 +99,9 @@ The installer supports native arm64 and x86_64 builds on macOS and Linux. It:
    `~/.local/lib/codex-custom/releases/`; and
 7. atomically points `~/.local/bin/codex` at the new package.
 
-Rerunning the installer skips the build when the active package already matches both the pinned
-Codex commit and the customization patch digest and its launcher and bundled executables are intact.
+Rerunning the installer skips the build when the active package already matches
+both the pinned Codex commit and the ordered patch-series digest and its launcher
+and bundled executables are intact.
 
 It uses the existing `~/.codex` directory, so authentication, configuration,
 sessions, skills, and plugins remain in place. The official standalone package
@@ -89,8 +123,14 @@ Initialize a checkout and apply the customization:
 
 ```sh
 git submodule update --init --recursive
-git -C codex apply --check ../patches/codex-customizations.patch
-git -C codex apply ../patches/codex-customizations.patch
+git -C codex apply --check \
+    ../patches/codex-customizations.patch \
+    ../patches/codex-customizations-tests.patch \
+    ../patches/exit-on-quota-exceeded.patch
+git -C codex apply \
+    ../patches/codex-customizations.patch \
+    ../patches/codex-customizations-tests.patch \
+    ../patches/exit-on-quota-exceeded.patch
 ```
 
 Build directly from the upstream Cargo workspace:
@@ -103,29 +143,28 @@ cargo build --release --bin codex --bin codex-code-mode-host
 To return the submodule to its pinned clean state:
 
 ```sh
+git -C codex apply --reverse ../patches/exit-on-quota-exceeded.patch
+git -C codex apply --reverse ../patches/codex-customizations-tests.patch
 git -C codex apply --reverse ../patches/codex-customizations.patch
 ```
 
 ## Bumping Codex
 
-Keep the committed submodule checkout clean; apply the patch only for building
+Keep the committed submodule checkout clean; apply the patches only for building
 and testing.
 
-1. Reverse the patch if it is applied, then verify `git -C codex status --short`
-   is empty.
+1. Reverse the patches in reverse order if they are applied, then verify
+   `git -C codex status --short` is empty.
 2. Choose an official `rust-v...` tag from
    [OpenAI Codex releases](https://github.com/openai/codex/releases). Prefer the
    latest stable release; use the newest prerelease tag only when intentionally
    opting into an alpha.
 3. Run `git -C codex fetch origin tag <tag> --no-tags` and
    `git -C codex checkout --detach <tag>`.
-4. Run the `git apply --check` command above. If it fails, reproduce the same
-   view dismissals in `codex-rs/tui/src/chatwidget/safety_buffering.rs` and
-   `codex-rs/tui/src/chatwidget/rate_limits.rs`, update their focused tests and
-   snapshots, and regenerate the patch from the submodule's clean diff.
-5. Apply the patch, run `just fmt` from `codex/codex-rs`, then run the focused
-   safety-buffering and rate-limit-switch tests with the repository's required
-   `RUST_MIN_STACK` setting (and preferably run the complete `codex-tui` suite).
-6. Reverse the patch again, verify the submodule is clean, update the release
-   tag and commit in this README, and commit the new
-   submodule pointer together with the refreshed patch and this README's pin.
+4. Run the ordered `git apply --check` command above. If it fails, refresh only
+   the affected patch, preserving the same order and separation of concerns.
+5. Apply all three patches, run `just fmt` from `codex/codex-rs`, then run the
+   focused tests and the `codex-tui` and `codex-cli` crate suites.
+6. Reverse all three patches in reverse order, verify the submodule is clean,
+   update the release tag and commit in this README, and commit the new submodule
+   pointer together with the refreshed patches and this README's pin.

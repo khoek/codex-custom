@@ -4,7 +4,9 @@ set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 codex_dir="$repo_dir/codex"
-patch_file="$repo_dir/patches/codex-customizations.patch"
+code_patch_file="$repo_dir/patches/codex-customizations.patch"
+test_patch_file="$repo_dir/patches/codex-customizations-tests.patch"
+quota_patch_file="$repo_dir/patches/exit-on-quota-exceeded.patch"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
 launcher_dir="$HOME/.local/bin"
 launcher="$launcher_dir/codex"
@@ -18,11 +20,11 @@ die() {
     exit 1
 }
 
-sha256_file() {
+sha256_files() {
     if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1" | awk '{print $1}'
+        cat "$@" | sha256sum | awk '{print $1}'
     elif command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 "$1" | awk '{print $1}'
+        cat "$@" | shasum -a 256 | awk '{print $1}'
     else
         die "missing required command: sha256sum or shasum"
     fi
@@ -145,21 +147,23 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-for command_name in awk cut git readlink; do
+for command_name in awk cat cut git readlink; do
     command -v "$command_name" >/dev/null 2>&1 ||
         die "missing required command: $command_name"
 done
 
 [ -f "$codex_dir/codex-rs/Cargo.toml" ] ||
     die "codex submodule is not initialized; run: git -C \"$repo_dir\" submodule update --init --recursive"
-[ -f "$patch_file" ] || die "missing patch: $patch_file"
+[ -f "$code_patch_file" ] || die "missing patch: $code_patch_file"
+[ -f "$test_patch_file" ] || die "missing patch: $test_patch_file"
+[ -f "$quota_patch_file" ] || die "missing patch: $quota_patch_file"
 
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
     die "codex submodule has local changes; restore it to the pinned clean state before installing"
 fi
 
 commit=$(git -C "$codex_dir" rev-parse HEAD)
-patch_digest=$(sha256_file "$patch_file")
+patch_digest=$(sha256_files "$code_patch_file" "$test_patch_file" "$quota_patch_file")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
 patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
 commit_display=$(printf '%s' "$commit" | cut -c1-8)
@@ -177,8 +181,11 @@ for command_name in cargo chmod date install ln mktemp mv python3 strip uname; d
         die "missing required command: $command_name"
 done
 
-git -C "$codex_dir" apply --check "$patch_file" ||
-    die "the customization patch no longer applies to the pinned codex revision"
+git -C "$codex_dir" apply --check \
+    "$code_patch_file" \
+    "$test_patch_file" \
+    "$quota_patch_file" ||
+    die "the customization patch series no longer applies to the pinned codex revision"
 
 host_platform="$(uname -s):$(uname -m)"
 case "$host_platform" in
@@ -229,7 +236,10 @@ build_tree="$stage_dir/source"
 package_dir="$stage_dir/package"
 
 git -C "$codex_dir" worktree add --detach "$build_tree" HEAD
-git -C "$build_tree" apply "$patch_file"
+git -C "$build_tree" apply \
+    "$code_patch_file" \
+    "$test_patch_file" \
+    "$quota_patch_file"
 
 build_stamp=$(date -u +%Y%m%dT%H%M%SZ)
 release_name="$build_stamp-$commit_short-$patch_digest_short"

@@ -1,0 +1,794 @@
+diff --git a/codex-rs/core/tests/suite/client.rs b/codex-rs/core/tests/suite/client.rs
+index 345ca5ff4d..d966ab6002 100644
+--- a/codex-rs/core/tests/suite/client.rs
++++ b/codex-rs/core/tests/suite/client.rs
+@@ -45,6 +45,7 @@ use codex_protocol::models::ResponseItem;
+ use codex_protocol::models::WebSearchAction;
+ use codex_protocol::openai_models::InputModality;
+ use codex_protocol::openai_models::ReasoningEffort;
++use codex_protocol::protocol::CodexErrorInfo;
+ use codex_protocol::protocol::EventMsg;
+ use codex_protocol::protocol::Op;
+ use codex_protocol::protocol::RolloutItem;
+@@ -64,11 +65,13 @@ use core_test_support::responses::ev_function_call;
+ use core_test_support::responses::ev_message_item_added;
+ use core_test_support::responses::ev_output_text_delta;
+ use core_test_support::responses::ev_response_created;
++use core_test_support::responses::mount_response_sequence;
+ use core_test_support::responses::mount_sse_once;
+ use core_test_support::responses::mount_sse_once_match;
+ use core_test_support::responses::mount_sse_sequence;
+ use core_test_support::responses::sse;
+ use core_test_support::responses::sse_failed;
++use core_test_support::responses::sse_response;
+ use core_test_support::responses::strip_metadata_from_json;
+ use core_test_support::responses::strip_response_item_ids_from_json;
+ use core_test_support::responses_metadata as test_responses_metadata;
+@@ -83,6 +86,7 @@ use serde_json::json;
+ use std::io::Write;
+ use std::num::NonZeroU64;
+ use std::sync::Arc;
++use std::time::Duration;
+ use tempfile::TempDir;
+ use uuid::Uuid;
+ use wiremock::Mock;
+@@ -3467,6 +3471,114 @@ async fn usage_limit_error_emits_rate_limit_event() -> anyhow::Result<()> {
+     Ok(())
+ }
+ 
++#[tokio::test]
++async fn server_overload_uses_transport_budget_then_backs_off_and_resets() -> anyhow::Result<()> {
++    skip_if_no_network!(Ok(()));
++    let server = MockServer::start().await;
++    let overloaded = || {
++        ResponseTemplate::new(503).set_body_json(json!({
++            "error": {
++                "code": "server_is_overloaded",
++                "message": "selected model is at capacity",
++            }
++        }))
++    };
++    let plan_args = json!({
++        "plan": [{"step": "Continue after retry", "status": "completed"}],
++    })
++    .to_string();
++    let responses = mount_response_sequence(
++        &server,
++        vec![
++            overloaded(),
++            overloaded(),
++            sse_response(sse_failed(
++                "overloaded-2",
++                "server_is_overloaded",
++                "selected model is at capacity",
++            )),
++            sse_response(sse(vec![
++                ev_response_created("tool-response"),
++                ev_function_call("plan-call", "update_plan", &plan_args),
++                ev_completed("tool-response"),
++            ])),
++            overloaded(),
++            overloaded(),
++            sse_response(sse(vec![
++                ev_response_created("final-response"),
++                ev_assistant_message("final-message", "done"),
++                ev_completed("final-response"),
++            ])),
++        ],
++    )
++    .await;
++    let test = test_codex()
++        .with_config(|config| {
++            config.model_provider.request_max_retries = Some(1);
++            config.model_provider.stream_max_retries = Some(0);
++        })
++        .build_with_auto_env(&server)
++        .await?;
++    tokio::time::pause();
++
++    test.codex
++        .submit(Op::UserInput {
++            items: vec![UserInput::Text {
++                text: "keep working".into(),
++                text_elements: Vec::new(),
++            }],
++            final_output_json_schema: None,
++            responsesapi_client_metadata: None,
++            additional_context: Default::default(),
++            thread_settings: Default::default(),
++        })
++        .await?;
++
++    let mut retry_events = Vec::new();
++    let mut request_counts_at_retry = Vec::new();
++    loop {
++        match test.codex.next_event().await?.msg {
++            EventMsg::StreamError(event) => {
++                retry_events.push((
++                    event.message,
++                    event.codex_error_info,
++                    event.additional_details,
++                ));
++                request_counts_at_retry.push(responses.requests().len());
++                tokio::time::advance(Duration::from_secs(60)).await;
++            }
++            EventMsg::Error(event) => panic!("capacity retry aborted the turn: {event:?}"),
++            EventMsg::TurnComplete(_) => break,
++            _ => {}
++        }
++    }
++
++    assert_eq!(
++        retry_events,
++        vec![
++            (
++                "Model at capacity; retrying in 2s (attempt 1)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++            (
++                "Model at capacity; retrying in 4s (attempt 2)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++            (
++                "Model at capacity; retrying in 2s (attempt 1)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++        ]
++    );
++    assert_eq!(request_counts_at_retry, vec![2, 3, 6]);
++    assert_eq!(responses.requests().len(), 7);
++
++    Ok(())
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Result<()> {
+     skip_if_no_network!(Ok(()));
+diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
+index 419a37ac3e..21f0089f91 100644
+--- a/codex-rs/tui/src/app/tests/rate_limits.rs
++++ b/codex-rs/tui/src/app/tests/rate_limits.rs
+@@ -277,7 +277,7 @@ async fn stale_rate_limit_reads_preserve_newer_workspace_hard_stop_for_every_ori
+ }
+ 
+ #[tokio::test]
+-async fn stale_rate_limit_read_does_not_dismiss_visible_workspace_advisory() -> Result<()> {
++async fn stale_rate_limit_read_does_not_restore_auto_dismissed_model_nudge() -> Result<()> {
+     let (mut app, _app_event_rx, _op_rx) = make_test_app_with_channels().await;
+     set_chatgpt_auth(&mut app.chat_widget);
+     let mut tui = crate::tui::test_support::make_test_tui()?;
+@@ -305,7 +305,7 @@ async fn stale_rate_limit_read_does_not_dismiss_visible_workspace_advisory() ->
+         /*replay_kind*/ None,
+     );
+     assert!(
+-        render_bottom_popup(&app.chat_widget, /*width*/ 100).contains("Approaching rate limits")
++        !render_bottom_popup(&app.chat_widget, /*width*/ 100).contains("Approaching rate limits")
+     );
+ 
+     Box::pin(app.handle_event(
+@@ -324,7 +324,7 @@ async fn stale_rate_limit_read_does_not_dismiss_visible_workspace_advisory() ->
+     .await?;
+ 
+     assert!(
+-        render_bottom_popup(&app.chat_widget, /*width*/ 100).contains("Approaching rate limits")
++        !render_bottom_popup(&app.chat_widget, /*width*/ 100).contains("Approaching rate limits")
+     );
+     app_server.shutdown().await?;
+     Ok(())
+diff --git a/codex-rs/tui/src/app/tests/safety_buffering.rs b/codex-rs/tui/src/app/tests/safety_buffering.rs
+index 42fc6bce46..9b566d95b8 100644
+--- a/codex-rs/tui/src/app/tests/safety_buffering.rs
++++ b/codex-rs/tui/src/app/tests/safety_buffering.rs
+@@ -579,7 +579,7 @@ goals = true
+             thread_id: source_thread_id,
+             turn_id: active_turn_id,
+             model: FASTER_MODEL.to_string(),
+-            turn: active_turn,
++            turn: active_turn.clone(),
+             prompt: UserMessage::from(RETRY_PROMPT),
+         },
+     ))
+@@ -618,28 +618,12 @@ goals = true
+             app.chat_widget
+                 .can_retry_safety_buffered_turn(&first_retry_turn_id)
+         );
+-        app.chat_widget
+-            .handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+-        let second_retry = loop {
+-            match app_event_rx.try_recv() {
+-                Ok(AppEvent::RetrySafetyBufferedTurn {
+-                    thread_id,
+-                    turn_id,
+-                    model,
+-                    turn,
+-                    prompt,
+-                }) => {
+-                    break SafetyBufferedRetry {
+-                        thread_id,
+-                        turn_id,
+-                        model,
+-                        turn,
+-                        prompt,
+-                    };
+-                }
+-                Ok(_) => continue,
+-                Err(err) => panic!("expected second safety-buffering retry event: {err}"),
+-            }
++        let second_retry = SafetyBufferedRetry {
++            thread_id: first_retry_thread_id,
++            turn_id: first_retry_turn_id,
++            model: FASTER_MODEL.to_string(),
++            turn: active_turn,
++            prompt: UserMessage::from(RETRY_PROMPT),
+         };
+         let AppCommand::UserTurn { items, .. } = &second_retry.turn else {
+             panic!("second safety-buffering retry should retain the user turn");
+diff --git a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__rate_limit_switch_prompt_popup.snap b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__rate_limit_switch_prompt_popup.snap
+index 9281a3e561..3e9f24f35a 100644
+--- a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__rate_limit_switch_prompt_popup.snap
++++ b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__rate_limit_switch_prompt_popup.snap
+@@ -2,13 +2,6 @@
+ source: tui/src/chatwidget/tests/status_and_layout.rs
+ expression: popup
+ ---
+-  Approaching rate limits
+-  Switch to gpt-5.6-luna for lower credit usage?
++› Ask Codex to do anything
+ 
+-› 1. Switch to gpt-5.6-luna                 Fast and affordable agentic coding
+-                                            model.
+-  2. Keep current model
+-  3. Keep current model (never show again)  Hide future rate limit reminders
+-                                            about switching models.
+-
+-  Press enter to confirm or esc to go back
++  gpt-5 default · /tmp/project
+diff --git a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap
+index 767c9c393b..1ee62c7d85 100644
+--- a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap
++++ b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap
+@@ -2,13 +2,12 @@
+ source: tui/src/chatwidget/tests/app_server.rs
+ expression: popup
+ ---
+-  Our systems are thinking a bit more about this request before responding.
+-  Hang tight or retry with a faster model for a quicker response, though it
+-  may be less capable of handling complex requests.
++• Working (0s • esc to interrupt)
++  └ Our systems are thinking a bit more about this request before responding.
++    Hang tight or retry with a faster model for a quicker response, though it
++    may be less capable of handling complex requests.
+ 
+-› 1. Retry with a faster model
+-  2. Dismiss and keep waiting
+-  3. Learn more
+ 
+-  No action is required. Codex will keep waiting, and this menu will close when
+-  the response is ready.
++› Ask Codex to do anything
++
++  gpt-5.6-sol default · /tmp/project
+diff --git a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_side_conversation_without_retry.snap b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_side_conversation_without_retry.snap
+index 56efb00764..446058b44c 100644
+--- a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_side_conversation_without_retry.snap
++++ b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_side_conversation_without_retry.snap
+@@ -2,10 +2,10 @@
+ source: tui/src/chatwidget/tests/app_server.rs
+ expression: popup
+ ---
+-  Our systems are thinking a bit more about this request before responding.
++• Working (0s • esc to interrupt)
++  └ Our systems are thinking a bit more about this request before responding.
+ 
+-› 1. Dismiss and keep waiting
+-  2. Learn more
+ 
+-  No action is required. Codex will keep waiting, and this menu will close when
+-  the response is ready.
++› Check recently modified functions for compatibility
++
++  gpt-5.6-sol default · /tmp/project
+diff --git a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_status_without_retry.snap b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_status_without_retry.snap
+index 56efb00764..5fafc3e27c 100644
+--- a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_status_without_retry.snap
++++ b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_status_without_retry.snap
+@@ -2,10 +2,10 @@
+ source: tui/src/chatwidget/tests/app_server.rs
+ expression: popup
+ ---
+-  Our systems are thinking a bit more about this request before responding.
++• Working (0s • esc to interrupt)
++  └ Our systems are thinking a bit more about this request before responding.
+ 
+-› 1. Dismiss and keep waiting
+-  2. Learn more
+ 
+-  No action is required. Codex will keep waiting, and this menu will close when
+-  the response is ready.
++› Ask Codex to do anything
++
++  gpt-5.6-sol default · /tmp/project
+diff --git a/codex-rs/tui/src/chatwidget/tests/app_server.rs b/codex-rs/tui/src/chatwidget/tests/app_server.rs
+index 3edeacf40d..6933ecc46f 100644
+--- a/codex-rs/tui/src/chatwidget/tests/app_server.rs
++++ b/codex-rs/tui/src/chatwidget/tests/app_server.rs
+@@ -111,8 +111,8 @@ fn safety_buffering_notification(
+ }
+ 
+ #[tokio::test]
+-async fn safety_buffering_offers_one_retry_with_app_wording() {
+-    let (mut chat, mut rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
++async fn safety_buffering_retry_prompt_is_dismissed_automatically() {
++    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+     let (thread_id, turn_id, _) = start_safety_buffering_test_turn(&mut chat, &mut op_rx);
+ 
+     let notification = safety_buffering_notification(thread_id, turn_id, Some("faster-model"));
+@@ -127,45 +127,10 @@ async fn safety_buffering_offers_one_retry_with_app_wording() {
+ 
+     let popup = render_bottom_popup(&chat, /*width*/ 80);
+     assert_chatwidget_snapshot!("safety_buffering_retry_prompt", popup);
+-
+-    chat.handle_key_event(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+-    chat.handle_key_event(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+-    chat.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+-    let opened_url = loop {
+-        match rx.try_recv() {
+-            Ok(AppEvent::OpenUrlInBrowser { url }) => break url,
+-            Ok(_) => continue,
+-            Err(err) => panic!("expected learn-more URL event: {err}"),
+-        }
+-    };
+-    assert_eq!(opened_url, "https://help.openai.com/en/articles/20001326");
+-    assert!(render_bottom_popup(&chat, /*width*/ 80).contains(SAFETY_BUFFERING_HEADER_TEXT));
+-
+-    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+-    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+-    chat.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+-    let (event_thread_id, event_turn_id, model, turn, prompt) = loop {
+-        match rx.try_recv() {
+-            Ok(AppEvent::RetrySafetyBufferedTurn {
+-                thread_id,
+-                turn_id,
+-                model,
+-                turn,
+-                prompt,
+-            }) => break (thread_id, turn_id, model, turn, prompt),
+-            Ok(_) => continue,
+-            Err(err) => panic!("expected safety-buffering retry event: {err}"),
+-        }
+-    };
+-    assert_eq!(event_thread_id, thread_id);
+-    assert_eq!(event_turn_id, turn_id);
+-    assert_eq!(model, "faster-model");
+-    assert_matches!(turn, Op::UserTurn { .. });
+-    assert_eq!(prompt, UserMessage::from("Explain the request"));
+-    assert!(
+-        !render_bottom_popup(&chat, /*width*/ 80)
+-            .contains("Press enter to confirm or esc to go back")
+-    );
++    assert!(!popup.contains("Retry with a faster model"));
++    assert!(!popup.contains("Dismiss and keep waiting"));
++    assert!(!popup.contains("Learn more"));
++    assert!(chat.can_retry_safety_buffered_turn(turn_id));
+ }
+ 
+ #[tokio::test]
+diff --git a/codex-rs/tui/src/chatwidget/tests/plan_mode.rs b/codex-rs/tui/src/chatwidget/tests/plan_mode.rs
+index 5b809dac71..10c9eec99c 100644
+--- a/codex-rs/tui/src/chatwidget/tests/plan_mode.rs
++++ b/codex-rs/tui/src/chatwidget/tests/plan_mode.rs
+@@ -1120,7 +1120,7 @@ async fn plan_implementation_popup_shows_after_new_plan_follows_steer() {
+ }
+ 
+ #[tokio::test]
+-async fn plan_implementation_popup_skips_when_rate_limit_prompt_pending() {
++async fn plan_implementation_popup_stays_skipped_when_rate_limit_prompt_auto_dismisses() {
+     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5")).await;
+     chat.has_chatgpt_account = true;
+     chat.set_feature_enabled(Feature::CollaborationModes, /*enabled*/ true);
+@@ -1143,8 +1143,8 @@ async fn plan_implementation_popup_skips_when_rate_limit_prompt_pending() {
+ 
+     let popup = render_bottom_popup(&chat, /*width*/ 80);
+     assert!(
+-        popup.contains("Approaching rate limits"),
+-        "expected rate limit popup, got {popup:?}"
++        !popup.contains("Approaching rate limits"),
++        "expected rate limit popup to be dismissed, got {popup:?}"
+     );
+     assert!(
+         !popup.contains(PLAN_IMPLEMENTATION_TITLE),
+diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
+index 7532551d55..51f662c052 100644
+--- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
++++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
+@@ -1199,7 +1199,7 @@ async fn rate_limit_switch_prompt_clears_pending_when_workspace_credits_become_u
+ }
+ 
+ #[tokio::test]
+-async fn rate_limit_switch_prompt_dismisses_shown_when_workspace_credits_become_usable() {
++async fn rate_limit_switch_prompt_stays_dismissed_when_workspace_credits_become_usable() {
+     let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
+     chat.has_chatgpt_account = true;
+ 
+@@ -1209,7 +1209,7 @@ async fn rate_limit_switch_prompt_dismisses_shown_when_workspace_credits_become_
+         chat.rate_limit_switch_prompt,
+         RateLimitSwitchPromptState::Shown
+     ));
+-    assert!(!chat.bottom_pane.no_modal_or_popup_active());
++    assert!(chat.bottom_pane.no_modal_or_popup_active());
+ 
+     let mut funded_snapshot = snapshot(/*percent*/ 95.0);
+     funded_snapshot.credits = Some(CreditsSnapshot {
+@@ -1590,7 +1590,7 @@ async fn rate_limit_switch_prompt_shows_once_per_session() {
+ }
+ 
+ #[tokio::test]
+-async fn account_update_clears_derived_usage_limit_state_and_prompt() {
++async fn account_update_clears_derived_usage_limit_state_after_auto_dismissed_prompt() {
+     let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
+     set_chatgpt_auth(&mut chat);
+     let mut limits = snapshot(/*percent*/ 95.0);
+@@ -1606,7 +1606,7 @@ async fn account_update_clears_derived_usage_limit_state_and_prompt() {
+         chat.rate_limit_switch_prompt,
+         RateLimitSwitchPromptState::Shown
+     ));
+-    assert!(!chat.bottom_pane.no_modal_or_popup_active());
++    assert!(chat.bottom_pane.no_modal_or_popup_active());
+ 
+     chat.update_account_state(
+         /*status_account_display*/ None, /*plan_type*/ None,
+@@ -1660,8 +1660,8 @@ async fn rate_limit_switch_prompt_defers_until_task_complete() {
+ }
+ 
+ #[tokio::test]
+-async fn rate_limit_switch_prompt_popup_snapshot() {
+-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5")).await;
++async fn rate_limit_switch_prompt_is_dismissed_and_disabled_automatically() {
++    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(Some("gpt-5")).await;
+     chat.has_chatgpt_account = true;
+ 
+     chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 92.0)));
+@@ -1669,6 +1669,19 @@ async fn rate_limit_switch_prompt_popup_snapshot() {
+ 
+     let popup = render_bottom_popup(&chat, /*width*/ 80);
+     assert_chatwidget_snapshot!("rate_limit_switch_prompt_popup", popup);
++    assert!(!popup.contains("Approaching rate limits"));
++
++    let mut hidden_for_session = false;
++    let mut persisted = false;
++    while let Ok(event) = rx.try_recv() {
++        match event {
++            AppEvent::UpdateRateLimitSwitchPromptHidden(true) => hidden_for_session = true,
++            AppEvent::PersistRateLimitSwitchPromptHidden => persisted = true,
++            _ => {}
++        }
++    }
++    assert!(hidden_for_session);
++    assert!(persisted);
+ }
+ 
+ #[tokio::test]
+diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
+index a9dd9cac78..109155fc9f 100644
+--- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
++++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
+@@ -3,7 +3,7 @@ source: tui/src/history_cell/tests.rs
+ expression: rendered
+ ---
+ ╭─────────────────────────────────────────────────╮
+-│ ✨ Update available! 0.0.0 -> 9.9.9             │
++│ ✨ Update available! 0.147.0+k -> 9.9.9         │
+ │ Run pnpm add -g @openai/codex to update.        │
+ │                                                 │
+ │ See full release notes:                         │
+diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
+index ad0fc4be1c..87fff54c6c 100644
+--- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
++++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
+@@ -3,7 +3,7 @@ source: tui/src/history_cell.rs
+ expression: rendered
+ ---
+ ╭─────────────────────────────────────╮
+-│ >_ OpenAI Codex (v0.0.0)            │
++│ >_ OpenAI Codex (v0.147.0+k)        │
+ │                                     │
+ │ model:     gpt-5   /model to change │
+ │ directory: /tmp/project             │
+diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
+index c8f352dbb4..282abdf504 100644
+--- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
++++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
+@@ -3,7 +3,7 @@ source: tui/src/history_cell/tests.rs
+ expression: rendered
+ ---
+ ╭─────────────────────────────────────────────────────────────────────────────────────────────────────╮
+-│ ✨ Update available! 0.0.0 -> 9.9.9                                                                 │
++│ ✨ Update available! 0.147.0+k -> 9.9.9                                                             │
+ │ Run sh -c 'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh' to update. │
+ │                                                                                                     │
+ │ See full release notes:                                                                             │
+diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
+index fb15a05775..46073a0281 100644
+--- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
++++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
+@@ -3,7 +3,7 @@ source: tui/src/history_cell/tests.rs
+ expression: rendered
+ ---
+ ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+-│ ✨ Update available! 0.0.0 -> 9.9.9                                                                        │
++│ ✨ Update available! 0.147.0+k -> 9.9.9                                                                    │
+ │ Run powershell -ExecutionPolicy Bypass -c '$env:CODEX_NON_INTERACTIVE=1; irm                               │
+ │ https://chatgpt.com/codex/install.ps1 | iex' to update.                                                    │
+ │                                                                                                            │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
+index c7d89b17aa..00abbbb574 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
+index c1636b6c15..bcfcf06248 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
+index 765ad8d3a7..69a0ce748a 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭───────────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                         │
++│  >_ OpenAI Codex (v0.147.0+k)                                                     │
+ │                                                                                   │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date                     │
+ │ information on rate limits and credits                                            │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
+index 152575179e..bcfe1d9761 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
+index 7a4f58a823..facaae0393 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
+index 96b2ed1648..44d45bc591 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭───────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                 │
++│  >_ OpenAI Codex (v0.147.0+k)                                             │
+ │                                                                           │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date             │
+ │ information on rate limits and credits                                    │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
+index 4604b26f7e..d508bb2ea4 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭───────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                             │
++│  >_ OpenAI Codex (v0.147.0+k)                                         │
+ │                                                                       │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date         │
+ │ information on rate limits and credits                                │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
+index c739d55075..d4068d8e95 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭───────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                             │
++│  >_ OpenAI Codex (v0.147.0+k)                                         │
+ │                                                                       │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date         │
+ │ information on rate limits and credits                                │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
+index 0aba51f99a..a3870cbc91 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭──────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                │
++│  >_ OpenAI Codex (v0.147.0+k)                                            │
+ │                                                                          │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date            │
+ │ information on rate limits and credits                                   │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
+index 533be27976..873fe6272f 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
+index 631982bcf9..f1f5453c4b 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
+index 8facd56275..84b4086332 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
+index d46a483e4b..5b6cdd8e52 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap
+index d46a483e4b..5b6cdd8e52 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
+index 17442d7076..2bcb3745c1 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)              │
++│  >_ OpenAI Codex (v0.147.0+k)          │
+ │                                        │
+ │ Visit                                  │
+ │ https://chatgpt.com/codex/settings/usa │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
+index 6b28b53b62..72a4bacbe4 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                          │
++│  >_ OpenAI Codex (v0.147.0+k)                                      │
+ │                                                                    │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date      │
+ │ information on rate limits and credits                             │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
+index 9683beed97..2a2dce3818 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                   │
++│  >_ OpenAI Codex (v0.147.0+k)                                               │
+ │                                                                             │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
+ │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
+index 6b6fad683b..0069fe1a37 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭──────────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                    │
++│  >_ OpenAI Codex (v0.147.0+k)                                                │
+ │                                                                              │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date                │
+ │ information on rate limits and credits                                       │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
+index cf6fa2c2ec..6e81a16428 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
+@@ -5,7 +5,7 @@ expression: sanitized
+ /status
+ 
+ ╭────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                  │
++│  >_ OpenAI Codex (v0.147.0+k)              │
+ │                                            │
+ │ Visit                                      │
+ │ https://chatgpt.com/codex/settings/usage   │
+diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
+index e2f12c8436..b773dfb76b 100644
+--- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
++++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
+@@ -7,7 +7,7 @@ before:
+ /status
+ 
+ ╭──────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                │
++│  >_ OpenAI Codex (v0.147.0+k)                                            │
+ │                                                                          │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date            │
+ │ information on rate limits and credits                                   │
+@@ -39,7 +39,7 @@ after:
+ /status
+ 
+ ╭───────────────────────────────────────────────────────────────────────────╮
+-│  >_ OpenAI Codex (v0.0.0)                                                 │
++│  >_ OpenAI Codex (v0.147.0+k)                                             │
+ │                                                                           │
+ │ Visit https://chatgpt.com/codex/settings/usage for up-to-date             │
+ │ information on rate limits and credits                                    │
