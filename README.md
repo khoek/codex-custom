@@ -11,6 +11,8 @@ repository as a submodule and carries a small, ordered patch series:
    downstream version-marker snapshots.
 3. [`patches/exit-on-quota-exceeded.patch`](patches/exit-on-quota-exceeded.patch)
    adds the opt-in quota-exit behavior described below.
+4. [`patches/start-immediately.patch`](patches/start-immediately.patch) adds the
+   race-free `codex resume SESSION_ID --start-immediately` continuation mode.
 
 The original code patch adds the downstream `+k` version marker, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -59,6 +61,12 @@ The UUID is the primary session ID accepted by `codex resume`. Retryable errors,
 model-capacity errors, and runs without the flag retain their existing behavior.
 The flag can be supplied to a fresh interactive run or to `codex resume` and
 `codex fork`.
+
+The start-immediately patch reactivates a paused, blocked, or usage-limited goal,
+then submits `You were interrupted, continue work`. If the resumed turn is still
+running, Codex orders its interruption before the locally queued continuation;
+even if the old turn completes concurrently, the interrupt cannot land on the
+new turn.
 
 `+k` is SemVer build metadata. It visibly identifies the custom build without
 making it sort below the corresponding official release, as a `-k` prerelease
@@ -126,11 +134,13 @@ git submodule update --init --recursive
 git -C codex apply --check \
     ../patches/codex-customizations.patch \
     ../patches/codex-customizations-tests.patch \
-    ../patches/exit-on-quota-exceeded.patch
+    ../patches/exit-on-quota-exceeded.patch \
+    ../patches/start-immediately.patch
 git -C codex apply \
     ../patches/codex-customizations.patch \
     ../patches/codex-customizations-tests.patch \
-    ../patches/exit-on-quota-exceeded.patch
+    ../patches/exit-on-quota-exceeded.patch \
+    ../patches/start-immediately.patch
 ```
 
 Build directly from the upstream Cargo workspace:
@@ -143,6 +153,7 @@ cargo build --release --bin codex --bin codex-code-mode-host
 To return the submodule to its pinned clean state:
 
 ```sh
+git -C codex apply --reverse ../patches/start-immediately.patch
 git -C codex apply --reverse ../patches/exit-on-quota-exceeded.patch
 git -C codex apply --reverse ../patches/codex-customizations-tests.patch
 git -C codex apply --reverse ../patches/codex-customizations.patch
@@ -163,8 +174,8 @@ and testing.
    `git -C codex checkout --detach <tag>`.
 4. Run the ordered `git apply --check` command above. If it fails, refresh only
    the affected patch, preserving the same order and separation of concerns.
-5. Apply all three patches, run `just fmt` from `codex/codex-rs`, then run the
+5. Apply all four patches, run `just fmt` from `codex/codex-rs`, then run the
    focused tests and the `codex-tui` and `codex-cli` crate suites.
-6. Reverse all three patches in reverse order, verify the submodule is clean,
+6. Reverse all four patches in reverse order, verify the submodule is clean,
    update the release tag and commit in this README, and commit the new submodule
    pointer together with the refreshed patches and this README's pin.

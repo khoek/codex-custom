@@ -7,6 +7,7 @@ codex_dir="$repo_dir/codex"
 code_patch_file="$repo_dir/patches/codex-customizations.patch"
 test_patch_file="$repo_dir/patches/codex-customizations-tests.patch"
 quota_patch_file="$repo_dir/patches/exit-on-quota-exceeded.patch"
+start_patch_file="$repo_dir/patches/start-immediately.patch"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
 launcher_dir="$HOME/.local/bin"
 launcher="$launcher_dir/codex"
@@ -157,13 +158,18 @@ done
 [ -f "$code_patch_file" ] || die "missing patch: $code_patch_file"
 [ -f "$test_patch_file" ] || die "missing patch: $test_patch_file"
 [ -f "$quota_patch_file" ] || die "missing patch: $quota_patch_file"
+[ -f "$start_patch_file" ] || die "missing patch: $start_patch_file"
 
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
     die "codex submodule has local changes; restore it to the pinned clean state before installing"
 fi
 
 commit=$(git -C "$codex_dir" rev-parse HEAD)
-patch_digest=$(sha256_files "$code_patch_file" "$test_patch_file" "$quota_patch_file")
+patch_digest=$(sha256_files \
+    "$code_patch_file" \
+    "$test_patch_file" \
+    "$quota_patch_file" \
+    "$start_patch_file")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
 patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
 commit_display=$(printf '%s' "$commit" | cut -c1-8)
@@ -184,7 +190,8 @@ done
 git -C "$codex_dir" apply --check \
     "$code_patch_file" \
     "$test_patch_file" \
-    "$quota_patch_file" ||
+    "$quota_patch_file" \
+    "$start_patch_file" ||
     die "the customization patch series no longer applies to the pinned codex revision"
 
 host_platform="$(uname -s):$(uname -m)"
@@ -239,7 +246,8 @@ git -C "$codex_dir" worktree add --detach "$build_tree" HEAD
 git -C "$build_tree" apply \
     "$code_patch_file" \
     "$test_patch_file" \
-    "$quota_patch_file"
+    "$quota_patch_file" \
+    "$start_patch_file"
 
 build_stamp=$(date -u +%Y%m%dT%H%M%SZ)
 release_name="$build_stamp-$commit_short-$patch_digest_short"
