@@ -82,7 +82,7 @@ ensure_codex_on_bash_path() {
     fi
     printf '%s\n' \
         '# >>> Codex installer >>>' \
-        'export PATH="/home/khoek/.local/bin:$PATH"' \
+        'export PATH="$HOME/.local/bin:$PATH"' \
         '# <<< Codex installer <<<' >>"$bashrc"
 }
 
