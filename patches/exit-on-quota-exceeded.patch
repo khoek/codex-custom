@@ -1,32 +1,40 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index d68b3d510c..8fab2cb304 100644
+index d68b3d510c..76ee26c010 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -724,6 +724,9 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
+@@ -724,6 +724,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
  }
  
  fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
-+    if let ExitReason::QuotaExceeded(thread_id) = &exit_info.exit_reason {
-+        return vec![format!("codex+k ({thread_id}): quota exceeded")];
++    if let ExitReason::QuotaExceeded {
++        thread_id,
++        resume_args,
++    } = &exit_info.exit_reason
++    {
++        let recovery = serde_json::json!({
++            "version": 1,
++            "resume_args": resume_args,
++        });
++        return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
 +    }
      let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
      let AppExitInfo {
          token_usage,
-@@ -753,11 +756,13 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+@@ -753,11 +764,13 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
  
  /// Handle the app exit and print the results. Optionally run the update action.
  fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
-+    let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded(_));
++    let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded { .. });
      let is_fatal = match &exit_info.exit_reason {
          ExitReason::Fatal(message) => {
              eprintln!("ERROR: {message}");
              true
          }
-+        ExitReason::QuotaExceeded(_) => false,
++        ExitReason::QuotaExceeded { .. } => false,
          ExitReason::UserRequested => false,
      };
  
-@@ -766,6 +771,10 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+@@ -766,6 +779,10 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
      for line in format_exit_messages(exit_info, color_enabled) {
          println!("{line}");
      }
@@ -37,7 +45,7 @@ index d68b3d510c..8fab2cb304 100644
      if is_fatal {
          std::io::stdout().flush()?;
          std::process::exit(1);
-@@ -2595,6 +2604,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2595,6 +2612,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          strict_config,
          approval_policy,
          web_search,
@@ -45,7 +53,7 @@ index d68b3d510c..8fab2cb304 100644
          prompt,
          mut config_overrides,
          ..
-@@ -2614,6 +2624,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2614,6 +2632,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
      if web_search {
          interactive.web_search = true;
      }
@@ -55,7 +63,7 @@ index d68b3d510c..8fab2cb304 100644
      if strict_config {
          interactive.strict_config = true;
      }
-@@ -3473,6 +3486,23 @@ mod tests {
+@@ -3473,6 +3494,37 @@ mod tests {
          assert!(lines.is_empty());
      }
  
@@ -67,11 +75,25 @@ index d68b3d510c..8fab2cb304 100644
 +                Some("123e4567-e89b-12d3-a456-426614174000"),
 +                /*thread_name*/ None,
 +            );
-+            exit_info.exit_reason = ExitReason::QuotaExceeded(thread_id);
++            exit_info.exit_reason = ExitReason::QuotaExceeded {
++                thread_id,
++                resume_args: vec![
++                    "--model".to_string(),
++                    "gpt-5.6".to_string(),
++                    "-c".to_string(),
++                    "service_tier=\"default\"".to_string(),
++                    "-c".to_string(),
++                    "model_reasoning_effort=\"high\"".to_string(),
++                ],
++            };
 +
 +            assert_eq!(
 +                format_exit_messages(exit_info, color_enabled),
-+                vec!["codex+k (123e4567-e89b-12d3-a456-426614174000): quota exceeded".to_string()]
++                vec![concat!(
++                    "codex+k (123e4567-e89b-12d3-a456-426614174000): quota exceeded ",
++                    r#"{"version":1,"resume_args":["--model","gpt-5.6","-c","service_tier=\"default\"","-c","model_reasoning_effort=\"high\""]}"#,
++                )
++                .to_string()]
 +            );
 +        }
 +    }
@@ -79,7 +101,7 @@ index d68b3d510c..8fab2cb304 100644
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -3631,6 +3661,22 @@ mod tests {
+@@ -3631,6 +3683,22 @@ mod tests {
          assert!(interactive.resume_show_all);
      }
  
@@ -103,18 +125,21 @@ index d68b3d510c..8fab2cb304 100644
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 1b3e6f2305..fb032ffa81 100644
+index 1b3e6f2305..ff2bcd6fa5 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -433,6 +433,7 @@ pub(crate) enum AppRunControl {
+@@ -433,6 +433,10 @@ pub(crate) enum AppRunControl {
  #[derive(Debug, Clone)]
  pub enum ExitReason {
      UserRequested,
-+    QuotaExceeded(ThreadId),
++    QuotaExceeded {
++        thread_id: ThreadId,
++        resume_args: Vec<String>,
++    },
      Fatal(String),
  }
  
-@@ -565,6 +566,11 @@ pub(crate) struct App {
+@@ -565,6 +569,11 @@ pub(crate) struct App {
      /// Set when the user confirms an update; propagated on exit.
      pub(crate) pending_update_action: Option<UpdateAction>,
  
@@ -126,7 +151,7 @@ index 1b3e6f2305..fb032ffa81 100644
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
-@@ -782,6 +788,7 @@ impl App {
+@@ -782,6 +791,7 @@ impl App {
          cloud_config_bundle: CloudConfigBundleLoader,
          initial_prompt: Option<String>,
          initial_images: Vec<PathBuf>,
@@ -134,7 +159,7 @@ index 1b3e6f2305..fb032ffa81 100644
          session_selection: SessionSelection,
          feedback: codex_feedback::CodexFeedback,
          is_first_run: bool,
-@@ -1071,6 +1078,8 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1071,6 +1081,8 @@ See the Codex keymap documentation for supported actions and examples."
              environment_manager,
              app_server_target,
              pending_update_action: None,
@@ -143,22 +168,25 @@ index 1b3e6f2305..fb032ffa81 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -1276,6 +1285,10 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1276,6 +1288,13 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
 +        let exit_reason = match app.quota_exceeded_exit_thread_id {
-+            Some(thread_id) => ExitReason::QuotaExceeded(thread_id),
++            Some(thread_id) => ExitReason::QuotaExceeded {
++                thread_id,
++                resume_args: app.quota_recovery_args(),
++            },
 +            None => exit_reason,
 +        };
          let thread_id = app.chat_widget.thread_id().or(app.primary_thread_id);
          let resume_hint = resume_hint_for_resumable_thread(
              thread_id,
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 2a8c26b458..f6016f48ff 100644
+index 2a8c26b458..3e523736c3 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
-@@ -7,11 +7,13 @@ use super::app_server_event_targets::server_request_thread_id;
+@@ -7,16 +7,65 @@ use super::app_server_event_targets::server_request_thread_id;
  use crate::app_command::AppCommand;
  use crate::app_event::AppEvent;
  use crate::app_event::ConnectorsSnapshot;
@@ -172,7 +200,60 @@ index 2a8c26b458..f6016f48ff 100644
  use codex_app_server_protocol::RateLimitReachedType;
  use codex_app_server_protocol::ServerNotification;
  use codex_app_server_protocol::ServerRequest;
-@@ -154,6 +156,17 @@ impl App {
++use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
++
++fn quota_recovery_config_override(key: &str, value: &str) -> String {
++    format!(
++        "{key}={}",
++        serde_json::to_string(value).expect("a string always serializes as JSON")
++    )
++}
+-
++
+ impl App {
++    pub(super) fn quota_recovery_args(&self) -> Vec<String> {
++        let (model, model_provider, service_tier, reasoning_effort) =
++            if let Some(session) = self.primary_session_configured.as_ref() {
++                (
++                    session.model.clone(),
++                    session.model_provider_id.clone(),
++                    session.service_tier.clone(),
++                    session.reasoning_effort.clone(),
++                )
++            } else {
++                (
++                    self.chat_widget.current_model().to_string(),
++                    self.config.model_provider_id.clone(),
++                    self.chat_widget.current_service_tier().map(str::to_string),
++                    self.chat_widget.current_reasoning_effort(),
++                )
++            };
++        let mut args = vec![
++            "--model".to_string(),
++            model,
++            "-c".to_string(),
++            quota_recovery_config_override("model_provider", &model_provider),
++            "-c".to_string(),
++            quota_recovery_config_override(
++                "service_tier",
++                service_tier
++                    .as_deref()
++                    .unwrap_or(SERVICE_TIER_DEFAULT_REQUEST_VALUE),
++            ),
++        ];
++        if let Some(reasoning_effort) = reasoning_effort {
++            args.extend([
++                "-c".to_string(),
++                quota_recovery_config_override("model_reasoning_effort", reasoning_effort.as_str()),
++            ]);
++        }
++        args
++    }
++
+     pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
+         let enabled_config_mcp_servers: Vec<String> = self
+             .config
+@@ -154,6 +203,17 @@ impl App {
              _ => {}
          }
  
@@ -190,7 +271,7 @@ index 2a8c26b458..f6016f48ff 100644
          match server_notification_thread_target(&notification) {
              ServerNotificationThreadTarget::Thread(thread_id) => {
                  let result = if self.primary_thread_id == Some(thread_id)
-@@ -168,6 +181,15 @@ impl App {
+@@ -168,6 +228,15 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -242,10 +323,10 @@ index 2ef3387e32..e2ae8ddf94 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index 21f0089f91..e32085ba32 100644
+index 21f0089f91..9e690614e4 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
-@@ -100,6 +100,104 @@ fn deliver_usage_limit_error(app: &mut App) {
+@@ -100,6 +100,128 @@ fn deliver_usage_limit_error(app: &mut App) {
      );
  }
  
@@ -297,6 +378,13 @@ index 21f0089f91..e32085ba32 100644
 +            primary_thread_id
 +        };
 +        app.primary_thread_id = Some(primary_thread_id);
++        let mut primary_session =
++            test_thread_session(primary_thread_id, test_path_buf("/tmp/quota-recovery"));
++        primary_session.model = "gpt-5.6".to_string();
++        primary_session.model_provider_id = "openai".to_string();
++        primary_session.service_tier = error_from_subagent.then(|| "fast".to_string());
++        primary_session.reasoning_effort = Some(ReasoningEffortConfig::XHigh);
++        app.primary_session_configured = Some(primary_session);
 +        app.exit_on_quota_exceeded = true;
 +
 +        for _ in 0..2 {
@@ -313,6 +401,23 @@ index 21f0089f91..e32085ba32 100644
 +
 +        assert_eq!(count_shutdown_first_exits(&mut app_event_rx), 1);
 +        assert_eq!(app.quota_exceeded_exit_thread_id, Some(primary_thread_id));
++        assert_eq!(
++            app.quota_recovery_args(),
++            vec![
++                "--model",
++                "gpt-5.6",
++                "-c",
++                "model_provider=\"openai\"",
++                "-c",
++                if error_from_subagent {
++                    "service_tier=\"fast\""
++                } else {
++                    "service_tier=\"default\""
++                },
++                "-c",
++                "model_reasoning_effort=\"xhigh\"",
++            ]
++        );
 +        app_server.shutdown().await?;
 +    }
 +
@@ -386,34 +491,42 @@ index c79e6add72..e36034e283 100644
          feedback,
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
 diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
-index 3092cc8c99..ea207a2146 100644
+index 3092cc8c99..e5f41dbde1 100644
 --- a/codex-rs/tui/src/main.rs
 +++ b/codex-rs/tui/src/main.rs
-@@ -11,6 +11,9 @@ use std::io::Write;
+@@ -11,6 +11,17 @@ use std::io::Write;
  use supports_color::Stream;
  
  fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
-+    if let ExitReason::QuotaExceeded(thread_id) = &exit_info.exit_reason {
-+        return vec![format!("codex+k ({thread_id}): quota exceeded")];
++    if let ExitReason::QuotaExceeded {
++        thread_id,
++        resume_args,
++    } = &exit_info.exit_reason
++    {
++        let recovery = serde_json::json!({
++            "version": 1,
++            "resume_args": resume_args,
++        });
++        return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
 +    }
      let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
      let AppExitInfo {
          token_usage,
-@@ -66,11 +69,13 @@ fn main() -> anyhow::Result<()> {
+@@ -66,11 +77,13 @@ fn main() -> anyhow::Result<()> {
              /*explicit_remote_endpoint*/ None,
          )
          .await?;
-+        let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded(_));
++        let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded { .. });
          let is_fatal = match &exit_info.exit_reason {
              ExitReason::Fatal(message) => {
                  eprintln!("ERROR: {message}");
                  true
              }
-+            ExitReason::QuotaExceeded(_) => false,
++            ExitReason::QuotaExceeded { .. } => false,
              ExitReason::UserRequested => false,
          };
  
-@@ -78,6 +83,10 @@ fn main() -> anyhow::Result<()> {
+@@ -78,6 +91,10 @@ fn main() -> anyhow::Result<()> {
          for line in format_exit_messages(exit_info, color_enabled) {
              println!("{line}");
          }
