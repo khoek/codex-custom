@@ -11,8 +11,116 @@ index 4c88718a20..d68b3d510c 100644
      // If a sub‑command is given, ignore requirements of the default args.
      subcommand_negates_reqs = true,
      // The executable is sometimes invoked via a platform‑specific name like
+diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
+index 9fd29b515e..f62094bae3 100644
+--- a/codex-rs/core/src/compact_remote_request.rs
++++ b/codex-rs/core/src/compact_remote_request.rs
+@@ -7,9 +7,11 @@ use crate::client::CompactConversationRequestSettings;
+ use crate::compact::CompactionAnalyticsDetails;
+ use crate::responses_metadata::CodexResponsesRequestKind;
+ use crate::responses_metadata::CompactionTurnMetadata;
++use crate::responses_retry::handle_server_overload_retry;
+ use crate::session::session::Session;
+ use crate::session::step_context::StepContext;
+ use codex_protocol::auth::AuthMode;
++use codex_protocol::error::CodexErrorDetails;
+ use codex_protocol::error::Result as CodexResult;
+ use codex_protocol::models::ResponseItem;
+ use codex_rollout_trace::CompactionTraceContext;
+@@ -74,27 +76,40 @@ pub(super) async fn run_remote_compact_attempt(
+         window_id,
+         CodexResponsesRequestKind::Compaction(compaction_metadata),
+     );
+-    let new_history = sess
+-        .services
+-        .model_client
+-        .compact_conversation_history(
+-            &prompt,
+-            &turn_context.model_info,
+-            turn_state,
+-            CompactConversationRequestSettings {
+-                effort: turn_context.reasoning_effort.clone(),
+-                summary: turn_context.reasoning_summary,
+-                service_tier: if sess.services.auth_manager.auth_mode() == Some(AuthMode::ApiKey) {
+-                    None
+-                } else {
+-                    turn_context.config.service_tier.clone()
++    let mut server_overload_retries = 0;
++    let new_history = loop {
++        let result = sess
++            .services
++            .model_client
++            .compact_conversation_history(
++                &prompt,
++                &turn_context.model_info,
++                turn_state.clone(),
++                CompactConversationRequestSettings {
++                    effort: turn_context.reasoning_effort.clone(),
++                    summary: turn_context.reasoning_summary,
++                    service_tier: if sess.services.auth_manager.auth_mode()
++                        == Some(AuthMode::ApiKey)
++                    {
++                        None
++                    } else {
++                        turn_context.config.service_tier.clone()
++                    },
+                 },
+-            },
+-            &turn_context.session_telemetry,
+-            compaction_trace,
+-            &responses_metadata,
+-        )
+-        .await?;
++                &turn_context.session_telemetry,
++                compaction_trace,
++                &responses_metadata,
++            )
++            .await;
++        match result {
++            Ok(new_history) => break new_history,
++            Err(err) if matches!(err.details(), CodexErrorDetails::ServerOverloaded) => {
++                handle_server_overload_retry(&mut server_overload_retries, err, sess, turn_context)
++                    .await;
++            }
++            Err(err) => return Err(err),
++        }
++    };
+     Ok(RemoteCompactAttempt {
+         new_history,
+         trace_input_history,
+diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
+index 995cd2b700..49053b3a91 100644
+--- a/codex-rs/core/src/compact_remote_v2.rs
++++ b/codex-rs/core/src/compact_remote_v2.rs
+@@ -24,6 +24,7 @@ use crate::responses_metadata::CodexResponsesMetadata;
+ use crate::responses_metadata::CompactionTurnMetadata;
+ use crate::responses_retry::ResponsesStreamRequest;
+ use crate::responses_retry::handle_retryable_response_stream_error;
++use crate::responses_retry::handle_server_overload_retry;
+ use crate::session::session::Session;
+ use crate::session::step_context::StepContext;
+ use crate::session::turn_context::TurnContext;
+@@ -345,6 +346,7 @@ async fn run_remote_compaction_request_v2(
+         .stream_max_retries()
+         .min(MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES);
+     let mut retries = 0;
++    let mut server_overload_retries = 0;
+     loop {
+         let result = match client_session
+             .stream(
+@@ -365,6 +367,10 @@ async fn run_remote_compaction_request_v2(
+ 
+         match result {
+             Ok(compaction_output) => return Ok(compaction_output),
++            Err(err) if matches!(err.details(), CodexErrorDetails::ServerOverloaded) => {
++                handle_server_overload_retry(&mut server_overload_retries, err, sess, turn_context)
++                    .await;
++            }
+             Err(err) if !err.is_retryable() => return Err(err),
+             Err(err) => {
+                 handle_retryable_response_stream_error(
 diff --git a/codex-rs/core/src/responses_retry.rs b/codex-rs/core/src/responses_retry.rs
-index dee517c985..5b244eda05 100644
+index dee517c985..347b53ff1d 100644
 --- a/codex-rs/core/src/responses_retry.rs
 +++ b/codex-rs/core/src/responses_retry.rs
 @@ -11,6 +11,9 @@ use codex_protocol::protocol::EventMsg;
@@ -44,7 +152,7 @@ index dee517c985..5b244eda05 100644
 +        turn_id = %turn_context.sub_id,
 +        retry_count,
 +        ?delay,
-+        "model at capacity; retrying sampling request"
++        "model at capacity; retrying request"
 +    );
 +    sess.notify_stream_error(
 +        turn_context,

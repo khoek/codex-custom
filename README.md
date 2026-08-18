@@ -38,9 +38,10 @@ the view is dismissed, and `notice.hide_rate_limit_model_nudge = true` is
 persisted to `config.toml`. This does not change rate-limit accounting,
 informational threshold warnings, or hard-stop behavior.
 
-For typed `ServerOverloaded` model-capacity errors, it keeps retrying the
-sampling request with exponential delays from 2 seconds up to 60 seconds. The
-retry remains interruptible and is separate from quota and usage-limit errors.
+For typed `ServerOverloaded` model-capacity errors, it keeps retrying sampling
+and remote-compaction requests with exponential delays from 2 seconds up to 60
+seconds. The retry remains interruptible and is separate from quota and
+usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the

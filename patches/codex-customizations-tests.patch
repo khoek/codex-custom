@@ -147,6 +147,205 @@ index 345ca5ff4d..d966ab6002 100644
  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
  async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Result<()> {
      skip_if_no_network!(Ok(()));
+diff --git a/codex-rs/core/tests/suite/compact_remote.rs b/codex-rs/core/tests/suite/compact_remote.rs
+index 88f5e5d3a5..56a8de23df 100644
+--- a/codex-rs/core/tests/suite/compact_remote.rs
++++ b/codex-rs/core/tests/suite/compact_remote.rs
+@@ -30,6 +30,7 @@ use codex_protocol::models::FunctionCallOutputContentItem;
+ use codex_protocol::models::FunctionCallOutputPayload;
+ use codex_protocol::models::ResponseItem;
+ use codex_protocol::openai_models::InputModality;
++use codex_protocol::protocol::CodexErrorInfo;
+ use codex_protocol::protocol::ConversationStartParams;
+ use codex_protocol::protocol::EventMsg;
+ use codex_protocol::protocol::InitialHistory;
+@@ -350,6 +351,42 @@ async fn wait_for_turn_complete(codex: &codex_core::CodexThread) {
+     .await;
+ }
+ 
++async fn assert_capacity_retries_then_turn_complete(codex: &codex_core::CodexThread) {
++    let mut retry_events = Vec::new();
++    loop {
++        match codex.next_event().await.expect("missing compact event").msg {
++            EventMsg::StreamError(event) => {
++                retry_events.push((
++                    event.message,
++                    event.codex_error_info,
++                    event.additional_details,
++                ));
++                tokio::time::pause();
++                tokio::time::advance(Duration::from_secs(60)).await;
++                tokio::time::resume();
++            }
++            EventMsg::Error(event) => panic!("capacity retry aborted compaction: {event:?}"),
++            EventMsg::TurnComplete(_) => break,
++            _ => {}
++        }
++    }
++    assert_eq!(
++        retry_events,
++        vec![
++            (
++                "Model at capacity; retrying in 2s (attempt 1)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++            (
++                "Model at capacity; retrying in 4s (attempt 2)".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded),
++                None,
++            ),
++        ]
++    );
++}
++
+ fn amazon_bedrock_test_codex() -> TestCodexBuilder {
+     let auth = CodexAuth::BedrockApiKey(BedrockApiKeyAuth {
+         api_key: "bedrock-test-api-key".to_string(),
+@@ -1323,6 +1360,73 @@ async fn remote_compact_v2_reuses_compaction_trigger_for_followups() -> Result<(
+     Ok(())
+ }
+ 
++#[tokio::test]
++async fn remote_compact_v2_retries_server_overload() -> Result<()> {
++    skip_if_no_network!(Ok(()));
++
++    let harness = TestCodexHarness::with_builder(
++        test_codex()
++            .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
++            .with_config(|config| {
++                let _ = config.features.enable(Feature::RemoteCompactionV2);
++                config.model_provider.request_max_retries = Some(0);
++                config.model_provider.stream_max_retries = Some(0);
++            }),
++    )
++    .await?;
++    let codex = harness.test().codex.clone();
++    let overloaded = || {
++        ResponseTemplate::new(503).set_body_json(json!({
++            "error": {
++                "code": "server_is_overloaded",
++                "message": "selected model is at capacity",
++            }
++        }))
++    };
++    let responses_mock = responses::mount_response_sequence(
++        harness.server(),
++        vec![
++            responses::sse_response(responses::sse(vec![
++                responses::ev_assistant_message("m1", "FIRST_REMOTE_REPLY"),
++                responses::ev_completed("resp-1"),
++            ])),
++            overloaded(),
++            overloaded(),
++            responses::sse_response(responses::sse(vec![
++                json!({
++                    "type": "response.output_item.done",
++                    "item": {
++                        "type": "compaction",
++                        "encrypted_content": "RETRIED_COMPACT_SUMMARY",
++                    }
++                }),
++                responses::ev_completed("resp-compact"),
++            ])),
++        ],
++    )
++    .await;
++
++    codex
++        .submit(Op::UserInput {
++            items: vec![UserInput::Text {
++                text: "hello remote compact".into(),
++                text_elements: Vec::new(),
++            }],
++            final_output_json_schema: None,
++            responsesapi_client_metadata: None,
++            additional_context: Default::default(),
++            thread_settings: Default::default(),
++        })
++        .await?;
++    wait_for_turn_complete(&codex).await;
++
++    codex.submit(Op::Compact).await?;
++    assert_capacity_retries_then_turn_complete(&codex).await;
++    assert_eq!(responses_mock.requests().len(), 4);
++
++    Ok(())
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn remote_compact_v2_retries_failures_with_stream_retry_budget() -> Result<()> {
+     skip_if_no_network!(Ok(()));
+@@ -2839,6 +2943,69 @@ async fn remote_manual_compact_failure_emits_task_error_event() -> Result<()> {
+     Ok(())
+ }
+ 
++#[tokio::test]
++async fn remote_manual_compact_retries_server_overload() -> Result<()> {
++    skip_if_no_network!(Ok(()));
++
++    let harness = TestCodexHarness::with_builder(
++        test_codex()
++            .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
++            .with_config(|config| {
++                config.model_provider.request_max_retries = Some(0);
++            }),
++    )
++    .await?;
++    let codex = harness.test().codex.clone();
++
++    mount_sse_once(
++        harness.server(),
++        sse(vec![
++            responses::ev_assistant_message("m1", "REMOTE_REPLY"),
++            responses::ev_completed("resp-1"),
++        ]),
++    )
++    .await;
++    let overloaded = || {
++        ResponseTemplate::new(503).set_body_json(json!({
++            "error": {
++                "code": "server_is_overloaded",
++                "message": "selected model is at capacity",
++            }
++        }))
++    };
++    let compact_mock = responses::mount_compact_response_sequence(
++        harness.server(),
++        vec![
++            overloaded(),
++            overloaded(),
++            ResponseTemplate::new(200)
++                .insert_header("content-type", "application/json")
++                .set_body_json(json!({ "output": [] })),
++        ],
++    )
++    .await;
++
++    codex
++        .submit(Op::UserInput {
++            items: vec![UserInput::Text {
++                text: "manual remote compact".into(),
++                text_elements: Vec::new(),
++            }],
++            final_output_json_schema: None,
++            responsesapi_client_metadata: None,
++            additional_context: Default::default(),
++            thread_settings: Default::default(),
++        })
++        .await?;
++    wait_for_turn_complete(&codex).await;
++
++    codex.submit(Op::Compact).await?;
++    assert_capacity_retries_then_turn_complete(&codex).await;
++    assert_eq!(compact_mock.requests().len(), 3);
++
++    Ok(())
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ // TODO(ccunningham): Re-enable after the follow-up compaction behavior PR lands.
+ // Current main behavior for rollout replacement-history persistence is known-incorrect.
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
 index 419a37ac3e..21f0089f91 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
