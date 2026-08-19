@@ -1,8 +1,8 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index d68b3d510c..76ee26c010 100644
+index 733490bcfe..862f6e0931 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -724,6 +724,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
+@@ -730,6 +730,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
  }
  
  fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
@@ -20,7 +20,7 @@ index d68b3d510c..76ee26c010 100644
      let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
      let AppExitInfo {
          token_usage,
-@@ -753,11 +764,13 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+@@ -759,11 +770,13 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
  
  /// Handle the app exit and print the results. Optionally run the update action.
  fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
@@ -34,7 +34,7 @@ index d68b3d510c..76ee26c010 100644
          ExitReason::UserRequested => false,
      };
  
-@@ -766,6 +779,10 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+@@ -772,6 +785,10 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
      for line in format_exit_messages(exit_info, color_enabled) {
          println!("{line}");
      }
@@ -45,7 +45,7 @@ index d68b3d510c..76ee26c010 100644
      if is_fatal {
          std::io::stdout().flush()?;
          std::process::exit(1);
-@@ -2595,6 +2612,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2637,6 +2654,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          strict_config,
          approval_policy,
          web_search,
@@ -53,7 +53,7 @@ index d68b3d510c..76ee26c010 100644
          prompt,
          mut config_overrides,
          ..
-@@ -2614,6 +2632,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2656,6 +2674,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
      if web_search {
          interactive.web_search = true;
      }
@@ -63,7 +63,7 @@ index d68b3d510c..76ee26c010 100644
      if strict_config {
          interactive.strict_config = true;
      }
-@@ -3473,6 +3494,37 @@ mod tests {
+@@ -3512,6 +3533,37 @@ mod tests {
          assert!(lines.is_empty());
      }
  
@@ -101,7 +101,7 @@ index d68b3d510c..76ee26c010 100644
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -3631,6 +3683,22 @@ mod tests {
+@@ -3670,6 +3722,22 @@ mod tests {
          assert!(interactive.resume_show_all);
      }
  
@@ -125,10 +125,10 @@ index d68b3d510c..76ee26c010 100644
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 1b3e6f2305..ff2bcd6fa5 100644
+index a947f240cf..25190a5784 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -433,6 +433,10 @@ pub(crate) enum AppRunControl {
+@@ -437,6 +437,10 @@ pub(crate) enum AppRunControl {
  #[derive(Debug, Clone)]
  pub enum ExitReason {
      UserRequested,
@@ -139,7 +139,7 @@ index 1b3e6f2305..ff2bcd6fa5 100644
      Fatal(String),
  }
  
-@@ -565,6 +569,11 @@ pub(crate) struct App {
+@@ -572,6 +576,11 @@ pub(crate) struct App {
      /// Set when the user confirms an update; propagated on exit.
      pub(crate) pending_update_action: Option<UpdateAction>,
  
@@ -151,45 +151,14 @@ index 1b3e6f2305..ff2bcd6fa5 100644
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
-@@ -782,6 +791,7 @@ impl App {
-         cloud_config_bundle: CloudConfigBundleLoader,
-         initial_prompt: Option<String>,
-         initial_images: Vec<PathBuf>,
-+        exit_on_quota_exceeded: bool,
-         session_selection: SessionSelection,
-         feedback: codex_feedback::CodexFeedback,
-         is_first_run: bool,
-@@ -1071,6 +1081,8 @@ See the Codex keymap documentation for supported actions and examples."
-             environment_manager,
-             app_server_target,
-             pending_update_action: None,
-+            exit_on_quota_exceeded,
-+            quota_exceeded_exit_thread_id: None,
-             pending_shutdown_exit_thread_id: None,
-             windows_sandbox: WindowsSandboxState::default(),
-             thread_event_channels: HashMap::new(),
-@@ -1276,6 +1288,13 @@ See the Codex keymap documentation for supported actions and examples."
-                 return Err(err);
-             }
-         };
-+        let exit_reason = match app.quota_exceeded_exit_thread_id {
-+            Some(thread_id) => ExitReason::QuotaExceeded {
-+                thread_id,
-+                resume_args: app.quota_recovery_args(),
-+            },
-+            None => exit_reason,
-+        };
-         let thread_id = app.chat_widget.thread_id().or(app.primary_thread_id);
-         let resume_hint = resume_hint_for_resumable_thread(
-             thread_id,
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 2a8c26b458..3e523736c3 100644
+index b3605b3691..adce03575f 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
-@@ -7,16 +7,65 @@ use super::app_server_event_targets::server_request_thread_id;
+@@ -6,16 +6,65 @@ use super::app_server_event_targets::server_notification_thread_target;
+ use super::app_server_event_targets::server_request_thread_id;
  use crate::app_command::AppCommand;
  use crate::app_event::AppEvent;
- use crate::app_event::ConnectorsSnapshot;
 +use crate::app_event::ExitMode;
  use crate::app_info::app_info_from_api;
  use crate::app_server_session::AppServerSession;
@@ -208,8 +177,7 @@ index 2a8c26b458..3e523736c3 100644
 +        serde_json::to_string(value).expect("a string always serializes as JSON")
 +    )
 +}
--
-+
+ 
  impl App {
 +    pub(super) fn quota_recovery_args(&self) -> Vec<String> {
 +        let (model, model_provider, service_tier, reasoning_effort) =
@@ -251,9 +219,9 @@ index 2a8c26b458..3e523736c3 100644
 +    }
 +
      pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
-         let enabled_config_mcp_servers: Vec<String> = self
-             .config
-@@ -154,6 +203,17 @@ impl App {
+         if self
+             .current_displayed_thread_id()
+@@ -177,6 +226,17 @@ impl App {
              _ => {}
          }
  
@@ -271,7 +239,7 @@ index 2a8c26b458..3e523736c3 100644
          match server_notification_thread_target(&notification) {
              ServerNotificationThreadTarget::Thread(thread_id) => {
                  let result = if self.primary_thread_id == Some(thread_id)
-@@ -168,6 +228,15 @@ impl App {
+@@ -191,6 +251,15 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -287,11 +255,46 @@ index 2a8c26b458..3e523736c3 100644
                  return;
              }
              ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
+diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
+index 97d5bb6977..c15894d7d8 100644
+--- a/codex-rs/tui/src/app/startup.rs
++++ b/codex-rs/tui/src/app/startup.rs
+@@ -63,6 +63,7 @@ impl App {
+         cloud_config_bundle: CloudConfigBundleLoader,
+         initial_prompt: Option<String>,
+         initial_images: Vec<PathBuf>,
++        exit_on_quota_exceeded: bool,
+         session_selection: SessionSelection,
+         feedback: codex_feedback::CodexFeedback,
+         is_first_run: bool,
+@@ -428,6 +429,8 @@ See the Codex keymap documentation for supported actions and examples."
+             environment_manager,
+             app_server_target,
+             pending_update_action: None,
++            exit_on_quota_exceeded,
++            quota_exceeded_exit_thread_id: None,
+             pending_shutdown_exit_thread_id: None,
+             windows_sandbox: WindowsSandboxState::default(),
+             thread_event_channels: HashMap::new(),
+@@ -740,6 +743,13 @@ See the Codex keymap documentation for supported actions and examples."
+                 return Err(err);
+             }
+         };
++        let exit_reason = match app.quota_exceeded_exit_thread_id {
++            Some(thread_id) => ExitReason::QuotaExceeded {
++                thread_id,
++                resume_args: app.quota_recovery_args(),
++            },
++            None => exit_reason,
++        };
+         let thread_id = app.chat_widget.thread_id().or(app.primary_thread_id);
+         let resume_hint = resume_hint_for_resumable_thread(
+             thread_id,
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 9d80356d8b..8751bb362b 100644
+index 45ab3116cc..0e7494ab03 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -53,6 +53,8 @@ pub(super) async fn make_test_app() -> App {
+@@ -56,6 +56,8 @@ pub(super) async fn make_test_app() -> App {
          environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
          app_server_target: crate::AppServerTarget::Embedded,
          pending_update_action: None,
@@ -301,10 +304,10 @@ index 9d80356d8b..8751bb362b 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 2ef3387e32..e2ae8ddf94 100644
+index 95fbd2f4b1..c616e800da 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -4779,6 +4779,8 @@ async fn make_test_app() -> App {
+@@ -4853,6 +4853,8 @@ async fn make_test_app() -> App {
          environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
          app_server_target: crate::AppServerTarget::Embedded,
          pending_update_action: None,
@@ -313,7 +316,7 @@ index 2ef3387e32..e2ae8ddf94 100644
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -4849,6 +4851,8 @@ async fn make_test_app_with_channels() -> (
+@@ -4928,6 +4930,8 @@ async fn make_test_app_with_channels() -> (
              environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
              app_server_target: crate::AppServerTarget::Embedded,
              pending_update_action: None,
@@ -456,10 +459,10 @@ index 21f0089f91..9e690614e4 100644
  async fn rolling_workspace_hard_stops_invalidate_older_rate_limit_reads() -> Result<()> {
      let (mut app, _app_event_rx, _op_rx) = make_test_app_with_channels().await;
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
-index 7e10e0b110..a7957e07b9 100644
+index 2273973bbf..06851af379 100644
 --- a/codex-rs/tui/src/cli.rs
 +++ b/codex-rs/tui/src/cli.rs
-@@ -69,6 +69,10 @@ pub struct Cli {
+@@ -65,6 +65,10 @@ pub struct Cli {
      #[arg(long = "search", default_value_t = false)]
      pub web_search: bool,
  
@@ -471,10 +474,10 @@ index 7e10e0b110..a7957e07b9 100644
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index c79e6add72..e36034e283 100644
+index f8a9734729..b660a811fd 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1693,6 +1693,7 @@ async fn run_ratatui_app(
+@@ -1551,6 +1551,7 @@ async fn run_ratatui_app(
          prompt,
          shared,
          no_alt_screen,
@@ -482,7 +485,7 @@ index c79e6add72..e36034e283 100644
          ..
      } = cli;
      let images = shared.into_inner().images;
-@@ -1769,6 +1770,7 @@ async fn run_ratatui_app(
+@@ -1672,6 +1673,7 @@ async fn run_ratatui_app(
          cloud_config_bundle,
          prompt,
          images,
@@ -491,7 +494,7 @@ index c79e6add72..e36034e283 100644
          feedback,
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
 diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
-index 3092cc8c99..e5f41dbde1 100644
+index 486dbe6499..37bc86f8a5 100644
 --- a/codex-rs/tui/src/main.rs
 +++ b/codex-rs/tui/src/main.rs
 @@ -11,6 +11,17 @@ use std::io::Write;
@@ -512,7 +515,7 @@ index 3092cc8c99..e5f41dbde1 100644
      let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
      let AppExitInfo {
          token_usage,
-@@ -66,11 +77,13 @@ fn main() -> anyhow::Result<()> {
+@@ -62,11 +73,13 @@ fn main() -> anyhow::Result<()> {
              /*explicit_remote_endpoint*/ None,
          )
          .await?;
@@ -526,7 +529,7 @@ index 3092cc8c99..e5f41dbde1 100644
              ExitReason::UserRequested => false,
          };
  
-@@ -78,6 +91,10 @@ fn main() -> anyhow::Result<()> {
+@@ -74,6 +87,10 @@ fn main() -> anyhow::Result<()> {
          for line in format_exit_messages(exit_info, color_enabled) {
              println!("{line}");
          }

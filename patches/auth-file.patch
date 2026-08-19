@@ -1,5 +1,5 @@
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
-index e3bdc65778..7b01e9b9c4 100644
+index aaf48fee38..04d92e0b0e 100644
 --- a/codex-rs/cli/src/doctor.rs
 +++ b/codex-rs/cli/src/doctor.rs
 @@ -49,6 +49,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
@@ -10,7 +10,7 @@ index e3bdc65778..7b01e9b9c4 100644
  use codex_login::default_client::create_client_without_request_logging;
  use codex_login::default_client::default_headers;
  use codex_login::load_auth_dot_json;
-@@ -1177,7 +1178,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
+@@ -1208,7 +1209,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
  
  fn auth_check(config: &Config) -> DoctorCheck {
      let mut details = Vec::new();
@@ -20,10 +20,10 @@ index e3bdc65778..7b01e9b9c4 100644
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index 16477d7827..6d4e852ef3 100644
+index 8c76713b8f..2a56c67afb 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
-@@ -12,6 +12,18 @@ mod external_bearer;
+@@ -13,6 +13,18 @@ mod external_bearer;
  mod manager;
  mod revoke;
  
@@ -43,7 +43,7 @@ index 16477d7827..6d4e852ef3 100644
  pub use bedrock_api_key::BedrockApiKeyAuth;
  pub use bedrock_api_key::login_with_bedrock_api_key;
 diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
-index ae195f3bff..eb84b4a7e5 100644
+index ae195f3bff..4027e17586 100644
 --- a/codex-rs/login/src/auth/storage.rs
 +++ b/codex-rs/login/src/auth/storage.rs
 @@ -5,6 +5,8 @@ use serde::Serialize;
@@ -113,10 +113,10 @@ index 647af79b65..dc365e54d1 100644
  async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
      let codex_home = tempdir()?;
 diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
-index 1576afe548..e27480afd8 100644
+index 717bd0f4b0..fc012da764 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
-@@ -37,6 +37,7 @@ pub use auth::CLIENT_ID;
+@@ -38,6 +38,7 @@ pub use auth::CLIENT_ID;
  pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
  pub use auth::CODEX_ACCESS_TOKEN_ENV_VAR;
  pub use auth::CODEX_API_KEY_ENV_VAR;
@@ -124,11 +124,11 @@ index 1576afe548..e27480afd8 100644
  pub use auth::CodexAuth;
  pub use auth::ExternalAuth;
  pub use auth::ExternalAuthFuture;
-@@ -47,6 +48,7 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
+@@ -48,6 +49,7 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
  pub use auth::REVOKE_TOKEN_URL_OVERRIDE_ENV_VAR;
  pub use auth::RefreshTokenError;
  pub use auth::UnauthorizedRecovery;
 +pub use auth::auth_file_path;
  pub use auth::default_client;
  pub use auth::enforce_login_restrictions;
- pub use auth::load_auth_dot_json;
+ pub use auth::is_workload_identity_selected;

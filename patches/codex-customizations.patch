@@ -1,8 +1,8 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 4c88718a20..d68b3d510c 100644
+index 102f40aec6..733490bcfe 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -94,7 +94,7 @@ use codex_terminal_detection::TerminalName;
+@@ -101,7 +101,7 @@ use codex_terminal_detection::TerminalName;
  #[derive(Debug, Parser)]
  #[clap(
      author,
@@ -12,7 +12,7 @@ index 4c88718a20..d68b3d510c 100644
      subcommand_negates_reqs = true,
      // The executable is sometimes invoked via a platform‑specific name like
 diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
-index 9fd29b515e..f62094bae3 100644
+index 25f8689fd8..648458c1df 100644
 --- a/codex-rs/core/src/compact_remote_request.rs
 +++ b/codex-rs/core/src/compact_remote_request.rs
 @@ -7,9 +7,11 @@ use crate::client::CompactConversationRequestSettings;
@@ -89,26 +89,26 @@ index 9fd29b515e..f62094bae3 100644
          new_history,
          trace_input_history,
 diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
-index 995cd2b700..49053b3a91 100644
+index 89d5c5a1b1..a8afe28c0c 100644
 --- a/codex-rs/core/src/compact_remote_v2.rs
 +++ b/codex-rs/core/src/compact_remote_v2.rs
-@@ -24,6 +24,7 @@ use crate::responses_metadata::CodexResponsesMetadata;
- use crate::responses_metadata::CompactionTurnMetadata;
+@@ -26,6 +26,7 @@ use crate::responses_metadata::CompactionTurnMetadata;
  use crate::responses_retry::ResponsesStreamRequest;
+ use crate::responses_retry::ResponsesStreamRetryState;
  use crate::responses_retry::handle_retryable_response_stream_error;
 +use crate::responses_retry::handle_server_overload_retry;
  use crate::session::session::Session;
  use crate::session::step_context::StepContext;
  use crate::session::turn_context::TurnContext;
-@@ -345,6 +346,7 @@ async fn run_remote_compaction_request_v2(
+@@ -360,6 +361,7 @@ async fn run_remote_compaction_request_v2(
          .stream_max_retries()
          .min(MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES);
-     let mut retries = 0;
+     let mut retry_state = ResponsesStreamRetryState::default();
 +    let mut server_overload_retries = 0;
      loop {
          let result = match client_session
              .stream(
-@@ -365,6 +367,10 @@ async fn run_remote_compaction_request_v2(
+@@ -380,6 +382,10 @@ async fn run_remote_compaction_request_v2(
  
          match result {
              Ok(compaction_output) => return Ok(compaction_output),
@@ -120,20 +120,19 @@ index 995cd2b700..49053b3a91 100644
              Err(err) => {
                  handle_retryable_response_stream_error(
 diff --git a/codex-rs/core/src/responses_retry.rs b/codex-rs/core/src/responses_retry.rs
-index dee517c985..347b53ff1d 100644
+index 178c13df49..fb578083e9 100644
 --- a/codex-rs/core/src/responses_retry.rs
 +++ b/codex-rs/core/src/responses_retry.rs
-@@ -11,6 +11,9 @@ use codex_protocol::protocol::EventMsg;
- use codex_protocol::protocol::WarningEvent;
- use tracing::warn;
+@@ -16,6 +16,8 @@ use tracing::warn;
  
+ const INITIAL_CONNECTION_RETRY_DELAY: Duration = Duration::from_secs(5);
+ const MAX_CONNECTION_RETRY_DELAY: Duration = Duration::from_secs(60);
 +const SERVER_OVERLOAD_INITIAL_RETRY_DELAY: Duration = Duration::from_secs(2);
 +const SERVER_OVERLOAD_MAX_RETRY_DELAY: Duration = Duration::from_secs(60);
-+
+ 
  #[derive(Debug, Clone, Copy)]
  pub(crate) enum ResponsesStreamRequest {
-     Sampling,
-@@ -73,6 +76,35 @@ pub(crate) async fn handle_retryable_response_stream_error(
+@@ -128,6 +130,35 @@ pub(crate) async fn handle_retryable_response_stream_error(
      Err(err)
  }
  
@@ -170,10 +169,10 @@ index dee517c985..347b53ff1d 100644
      request: ResponsesStreamRequest,
      turn_context: &TurnContext,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 0117b596ff..41799e8df3 100644
+index 33b77fadf4..bd340da8ed 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -3942,14 +3942,19 @@ impl Session {
+@@ -4040,14 +4040,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -198,26 +197,26 @@ index 0117b596ff..41799e8df3 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
-index 16ef4e7d36..898532e75e 100644
+index 7ff56e4da3..ba4ba5737d 100644
 --- a/codex-rs/core/src/session/turn.rs
 +++ b/codex-rs/core/src/session/turn.rs
-@@ -37,6 +37,7 @@ use crate::responses_metadata::CodexResponsesMetadata;
- use crate::responses_metadata::CodexResponsesRequestKind;
+@@ -32,6 +32,7 @@ use crate::responses_metadata::CodexResponsesRequestKind;
  use crate::responses_retry::ResponsesStreamRequest;
+ use crate::responses_retry::ResponsesStreamRetryState;
  use crate::responses_retry::handle_retryable_response_stream_error;
 +use crate::responses_retry::handle_server_overload_retry;
  use crate::session::PreviousTurnSettings;
  use crate::session::TurnInput;
  use crate::session::session::Session;
-@@ -1332,6 +1333,7 @@ async fn run_sampling_request(
+@@ -1344,6 +1345,7 @@ async fn run_sampling_request(
      );
      let max_retries = turn_context.provider.info().stream_max_retries();
-     let mut retries = 0;
+     let mut retry_state = ResponsesStreamRetryState::default();
 +    let mut server_overload_retries = 0;
      let mut initial_input = Some(input);
      let mut original_input = None;
      let mut executed_tool_calls_by_output = HashMap::new();
-@@ -1392,6 +1394,13 @@ async fn run_sampling_request(
+@@ -1403,6 +1405,13 @@ async fn run_sampling_request(
              original_input = Some(prompt.input);
          }
  
