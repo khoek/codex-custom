@@ -1,0 +1,134 @@
+diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
+index e3bdc65778..7b01e9b9c4 100644
+--- a/codex-rs/cli/src/doctor.rs
++++ b/codex-rs/cli/src/doctor.rs
+@@ -49,6 +49,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
+ use codex_login::CODEX_API_KEY_ENV_VAR;
+ use codex_login::CodexAuth;
+ use codex_login::OPENAI_API_KEY_ENV_VAR;
++use codex_login::auth_file_path;
+ use codex_login::default_client::create_client_without_request_logging;
+ use codex_login::default_client::default_headers;
+ use codex_login::load_auth_dot_json;
+@@ -1177,7 +1178,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
+ 
+ fn auth_check(config: &Config) -> DoctorCheck {
+     let mut details = Vec::new();
+-    let auth_path = config.codex_home.join("auth.json");
++    let auth_path = auth_file_path(config.codex_home.as_path());
+     details.push(format!(
+         "auth storage mode: {:?}",
+         config.cli_auth_credentials_store_mode
+diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
+index 16477d7827..6d4e852ef3 100644
+--- a/codex-rs/login/src/auth/mod.rs
++++ b/codex-rs/login/src/auth/mod.rs
+@@ -12,6 +12,18 @@ mod external_bearer;
+ mod manager;
+ mod revoke;
+ 
++/// Override the file used for file-backed CLI credentials.
++///
++/// This is intentionally a downstream `+k` seam: Kai can give each supervised
++/// Codex process its own credential file while leaving the shared `CODEX_HOME`
++/// (sessions, configuration, plugins, and skills) untouched.
++pub const CODEX_AUTH_FILE_ENV_VAR: &str = "CODEX_AUTH_FILE";
++
++/// Resolve the active file-backed credential path for a Codex home.
++pub fn auth_file_path(codex_home: &std::path::Path) -> std::path::PathBuf {
++    storage::get_auth_file(codex_home)
++}
++
+ pub use auth_headers::AuthHeaders;
+ pub use bedrock_api_key::BedrockApiKeyAuth;
+ pub use bedrock_api_key::login_with_bedrock_api_key;
+diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
+index ae195f3bff..eb84b4a7e5 100644
+--- a/codex-rs/login/src/auth/storage.rs
++++ b/codex-rs/login/src/auth/storage.rs
+@@ -5,6 +5,8 @@ use serde::Serialize;
+ use sha2::Digest;
+ use sha2::Sha256;
+ use std::collections::HashMap;
++use std::env;
++use std::ffi::OsStr;
+ use std::fmt::Debug;
+ use std::fs::File;
+ use std::fs::OpenOptions;
+@@ -148,7 +150,22 @@ impl From<AgentIdentityJwtClaims> for AgentIdentityAuthRecord {
+ }
+ 
+ pub(super) fn get_auth_file(codex_home: &Path) -> PathBuf {
+-    codex_home.join("auth.json")
++    let configured = env::var_os(super::CODEX_AUTH_FILE_ENV_VAR);
++    resolve_auth_file(codex_home, configured.as_deref())
++}
++
++fn resolve_auth_file(codex_home: &Path, configured: Option<&OsStr>) -> PathBuf {
++    configured
++        .filter(|value| !value.is_empty())
++        .map(PathBuf::from)
++        .map(|path| {
++            if path.is_absolute() {
++                path
++            } else {
++                codex_home.join(path)
++            }
++        })
++        .unwrap_or_else(|| codex_home.join("auth.json"))
+ }
+ 
+ pub(super) fn delete_file_if_exists(codex_home: &Path) -> std::io::Result<bool> {
+diff --git a/codex-rs/login/src/auth/storage_tests.rs b/codex-rs/login/src/auth/storage_tests.rs
+index 647af79b65..dc365e54d1 100644
+--- a/codex-rs/login/src/auth/storage_tests.rs
++++ b/codex-rs/login/src/auth/storage_tests.rs
+@@ -63,6 +63,28 @@ async fn file_storage_save_persists_auth_dot_json() -> anyhow::Result<()> {
+     Ok(())
+ }
+ 
++#[test]
++fn resolves_auth_file_override_without_mutating_process_environment() {
++    let codex_home = tempdir().unwrap();
++    let auth_root = tempdir().unwrap();
++    let auth_file = auth_root.path().join("private-auth.json");
++    assert_eq!(
++        resolve_auth_file(codex_home.path(), Some(auth_file.as_os_str())),
++        auth_file
++    );
++    assert_eq!(
++        resolve_auth_file(
++            codex_home.path(),
++            Some(std::ffi::OsStr::new("relative.json")),
++        ),
++        codex_home.path().join("relative.json")
++    );
++    assert_eq!(
++        resolve_auth_file(codex_home.path(), None),
++        codex_home.path().join("auth.json")
++    );
++}
++
+ #[tokio::test]
+ async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
+     let codex_home = tempdir()?;
+diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
+index 1576afe548..e27480afd8 100644
+--- a/codex-rs/login/src/lib.rs
++++ b/codex-rs/login/src/lib.rs
+@@ -37,6 +37,7 @@ pub use auth::CLIENT_ID;
+ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
+ pub use auth::CODEX_ACCESS_TOKEN_ENV_VAR;
+ pub use auth::CODEX_API_KEY_ENV_VAR;
++pub use auth::CODEX_AUTH_FILE_ENV_VAR;
+ pub use auth::CodexAuth;
+ pub use auth::ExternalAuth;
+ pub use auth::ExternalAuthFuture;
+@@ -47,6 +48,7 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
+ pub use auth::REVOKE_TOKEN_URL_OVERRIDE_ENV_VAR;
+ pub use auth::RefreshTokenError;
+ pub use auth::UnauthorizedRecovery;
++pub use auth::auth_file_path;
+ pub use auth::default_client;
+ pub use auth::enforce_login_restrictions;
+ pub use auth::load_auth_dot_json;

@@ -1,0 +1,1059 @@
+diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
+index 4240ab3cd1..f2fd4241e7 100644
+--- a/codex-rs/cli/src/main.rs
++++ b/codex-rs/cli/src/main.rs
+@@ -340,6 +340,15 @@ struct ResumeCommand {
+     )]
+     start_immediately: bool,
+ 
++    /// Restore local TUI input persisted by a +k quota-triggered restart.
++    #[arg(
++        long = "restore-input-handoff",
++        value_name = "PATH",
++        hide = true,
++        requires = "start_immediately"
++    )]
++    restore_input_handoff: Option<PathBuf>,
++
+     #[clap(flatten)]
+     remote: InteractiveRemoteOptions,
+ 
+@@ -736,12 +745,23 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+     if let ExitReason::QuotaExceeded {
+         thread_id,
+         resume_args,
++        handoff_path,
+     } = &exit_info.exit_reason
+     {
+-        let recovery = serde_json::json!({
+-            "version": 1,
+-            "resume_args": resume_args,
+-        });
++        let recovery = handoff_path.as_ref().map_or_else(
++            || {
++                serde_json::json!({
++                    "version": 1,
++                    "resume_args": resume_args,
++                })
++            },
++            |handoff_path| {
++                serde_json::json!({
++                    "version": 2,
++                    "handoff_path": handoff_path,
++                })
++            },
++        );
+         return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
+     }
+     let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
+@@ -1315,6 +1335,7 @@ async fn cli_main(
+             all,
+             include_non_interactive,
+             start_immediately,
++            restore_input_handoff,
+             remote,
+             config_overrides,
+         })) => {
+@@ -1329,6 +1350,7 @@ async fn cli_main(
+                 config_overrides,
+             );
+             interactive.start_immediately = start_immediately;
++            interactive.restore_input_handoff = restore_input_handoff;
+             let exit_info = run_interactive_tui(
+                 interactive,
+                 remote.remote.or(root_remote.clone()),
+@@ -2779,6 +2801,7 @@ mod tests {
+             all,
+             include_non_interactive,
+             start_immediately,
++            restore_input_handoff,
+             remote: _,
+             config_overrides: resume_cli,
+         }) = subcommand.expect("resume present")
+@@ -2797,6 +2820,7 @@ mod tests {
+             resume_cli,
+         );
+         interactive.start_immediately = start_immediately;
++        interactive.restore_input_handoff = restore_input_handoff;
+         interactive
+     }
+ 
+@@ -3526,6 +3550,7 @@ mod tests {
+                     "-c".to_string(),
+                     "model_reasoning_effort=\"high\"".to_string(),
+                 ],
++                handoff_path: None,
+             };
+ 
+             assert_eq!(
+@@ -3539,6 +3564,31 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn format_exit_messages_for_quota_handoff_prints_only_the_sidecar_path() {
++        let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++        let mut exit_info = sample_exit_info(
++            Some("123e4567-e89b-12d3-a456-426614174000"),
++            /*thread_name*/ None,
++        );
++        exit_info.exit_reason = ExitReason::QuotaExceeded {
++            thread_id,
++            resume_args: vec!["--model".to_string(), "gpt-5.6".to_string()],
++            handoff_path: Some(PathBuf::from("/tmp/session.codex+k-handoff.json")),
++        };
++
++        assert_eq!(
++            format_exit_messages(exit_info, /*color_enabled*/ false),
++            vec![
++                concat!(
++                    "codex+k (123e4567-e89b-12d3-a456-426614174000): quota exceeded ",
++                    r#"{"version":2,"handoff_path":"/tmp/session.codex+k-handoff.json"}"#,
++                )
++                .to_string()
++            ]
++        );
++    }
++
+     #[test]
+     fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
+         let exit_info = AppExitInfo {
+@@ -3713,6 +3763,38 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn resume_input_handoff_is_hidden_and_requires_immediate_resume() {
++        let interactive = finalize_resume_from_args(
++            [
++                "codex",
++                "resume",
++                "1234",
++                "--start-immediately",
++                "--restore-input-handoff",
++                "/tmp/handoff.json",
++            ]
++            .as_ref(),
++        );
++        assert_eq!(
++            interactive.restore_input_handoff,
++            Some(PathBuf::from("/tmp/handoff.json"))
++        );
++
++        let error = MultitoolCli::try_parse_from([
++            "codex",
++            "resume",
++            "1234",
++            "--restore-input-handoff",
++            "/tmp/handoff.json",
++        ])
++        .expect_err("handoff restore without immediate resume should be rejected");
++        assert_eq!(
++            error.kind(),
++            clap::error::ErrorKind::MissingRequiredArgument
++        );
++    }
++
+     #[test]
+     fn resume_all_flag_sets_show_all() {
+         let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
+diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
+index 6b4b26b68b..4393ddbfac 100644
+--- a/codex-rs/tui/src/app.rs
++++ b/codex-rs/tui/src/app.rs
+@@ -436,6 +436,7 @@ pub enum ExitReason {
+     QuotaExceeded {
+         thread_id: ThreadId,
+         resume_args: Vec<String>,
++        handoff_path: Option<PathBuf>,
+     },
+     Fatal(String),
+ }
+@@ -573,6 +574,10 @@ pub(crate) struct App {
+     exit_on_quota_exceeded: bool,
+     /// The resumable primary thread recorded by the first quota error that requested shutdown.
+     quota_exceeded_exit_thread_id: Option<ThreadId>,
++    /// Durable input handoff written before quota-triggered shutdown.
++    quota_handoff_path: Option<PathBuf>,
++    /// Stops automatic restart if local input existed but could not be persisted safely.
++    quota_handoff_error: Option<String>,
+ 
+     /// Tracks the thread we intentionally shut down while exiting the app.
+     ///
+@@ -798,6 +803,7 @@ impl App {
+         should_prompt_windows_sandbox_nux_at_startup: bool,
+         app_server_target: AppServerTarget,
+         start_immediately: bool,
++        restore_input_handoff: Option<PathBuf>,
+         state_db: Option<StateDbHandle>,
+         environment_manager: Arc<EnvironmentManager>,
+         startup_elapsed_before_app: Duration,
+@@ -1084,6 +1090,8 @@ See the Codex keymap documentation for supported actions and examples."
+             pending_update_action: None,
+             exit_on_quota_exceeded,
+             quota_exceeded_exit_thread_id: None,
++            quota_handoff_path: None,
++            quota_handoff_error: None,
+             pending_shutdown_exit_thread_id: None,
+             windows_sandbox: WindowsSandboxState::default(),
+             thread_event_channels: HashMap::new(),
+@@ -1115,17 +1123,32 @@ See the Codex keymap documentation for supported actions and examples."
+             }
+             app.enqueue_primary_thread_session(started.session, started.turns)
+                 .await?;
++            let restored_handoff_messages = if let Some(path) = restore_input_handoff.as_deref() {
++                app.chat_widget
++                    .restore_quota_handoff_file(path, thread_id)?
++            } else {
++                0
++            };
+             if start_immediately {
+                 if app
+                     .resume_goal_for_start_immediately(&mut app_server, thread_id)
+                     .await
+                 {
+-                    app.chat_widget.submit_start_immediately_prompt();
++                    let restored_input_started = restored_handoff_messages > 0
++                        && app.chat_widget.maybe_send_next_queued_input();
++                    if !restored_input_started {
++                        app.chat_widget.submit_start_immediately_prompt();
++                    }
+                 }
+             } else if should_prompt_for_paused_goal_after_startup_resume {
+                 app.maybe_prompt_resume_paused_goal_after_resume(&mut app_server, thread_id)
+                     .await;
+             }
++        } else if let Some(path) = restore_input_handoff {
++            return Err(color_eyre::eyre::eyre!(
++                "cannot restore input handoff {} because no session was resumed",
++                path.display()
++            ));
+         }
+         let initial_session_ms = initial_session_started_at.elapsed().as_millis();
+ 
+@@ -1296,12 +1319,19 @@ See the Codex keymap documentation for supported actions and examples."
+                 return Err(err);
+             }
+         };
+-        let exit_reason = match app.quota_exceeded_exit_thread_id {
+-            Some(thread_id) => ExitReason::QuotaExceeded {
++        let exit_reason = match (
++            app.quota_exceeded_exit_thread_id,
++            app.quota_handoff_error.take(),
++        ) {
++            (Some(_), Some(error)) => ExitReason::Fatal(format!(
++                "quota was exceeded, but +k could not preserve pending input; automatic restart stopped: {error}"
++            )),
++            (Some(thread_id), None) => ExitReason::QuotaExceeded {
+                 thread_id,
+                 resume_args: app.quota_recovery_args(),
++                handoff_path: app.quota_handoff_path.clone(),
+             },
+-            None => exit_reason,
++            (None, _) => exit_reason,
+         };
+         let thread_id = app.chat_widget.thread_id().or(app.primary_thread_id);
+         let resume_hint = resume_hint_for_resumable_thread(
+@@ -1325,6 +1355,11 @@ See the Codex keymap documentation for supported actions and examples."
+         event: TuiEvent,
+     ) -> Result<AppRunControl> {
+         let screen_size = tui.screen_size_for_event(&event)?;
++        if self.quota_exceeded_exit_thread_id.is_some()
++            && matches!(&event, TuiEvent::Key(_) | TuiEvent::Paste(_))
++        {
++            return Ok(AppRunControl::Continue);
++        }
+         if !matches!(&event, TuiEvent::Key(_) | TuiEvent::Paste(_)) {
+             self.expire_pending_key_chord();
+             self.handle_draw_pre_render(tui, screen_size)?;
+diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
+index 3e523736c3..4565a62f78 100644
+--- a/codex-rs/tui/src/app/app_server_events.rs
++++ b/codex-rs/tui/src/app/app_server_events.rs
+@@ -17,13 +17,11 @@ use codex_app_server_protocol::CodexErrorInfo;
+ use codex_app_server_protocol::RateLimitReachedType;
+ use codex_app_server_protocol::ServerNotification;
+ use codex_app_server_protocol::ServerRequest;
++use codex_protocol::ThreadId;
+ use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
+ 
+ fn quota_recovery_config_override(key: &str, value: &str) -> String {
+-    format!(
+-        "{key}={}",
+-        serde_json::to_string(value).expect("a string always serializes as JSON")
+-    )
++    format!("{key}={}", serde_json::Value::String(value.to_owned()))
+ }
+ 
+ impl App {
+@@ -66,6 +64,27 @@ impl App {
+         args
+     }
+ 
++    fn prepare_quota_exceeded_exit(&mut self, notification_thread_id: ThreadId) {
++        let resumable_thread_id = self
++            .primary_thread_id
++            .or_else(|| self.chat_widget.thread_id())
++            .unwrap_or(notification_thread_id);
++        self.quota_exceeded_exit_thread_id = Some(resumable_thread_id);
++
++        // Freeze local input before the error notification can finalize the turn and drain queues.
++        self.chat_widget
++            .set_queue_autosend_suppressed(/*suppressed*/ true);
++        let resume_args = self.quota_recovery_args();
++        match self.chat_widget.persist_quota_handoff(
++            resumable_thread_id,
++            resume_args,
++            self.config.codex_home.as_path(),
++        ) {
++            Ok(path) => self.quota_handoff_path = Some(path),
++            Err(error) => self.quota_handoff_error = Some(format!("{error:#}")),
++        }
++    }
++
+     pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
+         let enabled_config_mcp_servers: Vec<String> = self
+             .config
+@@ -216,6 +235,11 @@ impl App {
+ 
+         match server_notification_thread_target(&notification) {
+             ServerNotificationThreadTarget::Thread(thread_id) => {
++                let request_quota_exit =
++                    should_exit_on_quota_exceeded && self.quota_exceeded_exit_thread_id.is_none();
++                if request_quota_exit {
++                    self.prepare_quota_exceeded_exit(thread_id);
++                }
+                 let result = if self.primary_thread_id == Some(thread_id)
+                     || self.primary_thread_id.is_none()
+                 {
+@@ -228,12 +252,7 @@ impl App {
+                 if let Err(err) = result {
+                     tracing::warn!("failed to enqueue app-server notification: {err}");
+                 }
+-                if should_exit_on_quota_exceeded && self.quota_exceeded_exit_thread_id.is_none() {
+-                    let resumable_thread_id = self
+-                        .primary_thread_id
+-                        .or_else(|| self.chat_widget.thread_id())
+-                        .unwrap_or(thread_id);
+-                    self.quota_exceeded_exit_thread_id = Some(resumable_thread_id);
++                if request_quota_exit {
+                     self.app_event_tx
+                         .send(AppEvent::Exit(ExitMode::ShutdownFirst));
+                 }
+diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
+index 8751bb362b..020bdf49ca 100644
+--- a/codex-rs/tui/src/app/test_support.rs
++++ b/codex-rs/tui/src/app/test_support.rs
+@@ -55,6 +55,8 @@ pub(super) async fn make_test_app() -> App {
+         pending_update_action: None,
+         exit_on_quota_exceeded: false,
+         quota_exceeded_exit_thread_id: None,
++        quota_handoff_path: None,
++        quota_handoff_error: None,
+         pending_shutdown_exit_thread_id: None,
+         windows_sandbox: WindowsSandboxState::default(),
+         thread_event_channels: HashMap::new(),
+diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
+index 1a352d9edd..fa34c5305a 100644
+--- a/codex-rs/tui/src/app/tests.rs
++++ b/codex-rs/tui/src/app/tests.rs
+@@ -4781,6 +4781,8 @@ async fn make_test_app() -> App {
+         pending_update_action: None,
+         exit_on_quota_exceeded: false,
+         quota_exceeded_exit_thread_id: None,
++        quota_handoff_path: None,
++        quota_handoff_error: None,
+         pending_shutdown_exit_thread_id: None,
+         windows_sandbox: WindowsSandboxState::default(),
+         thread_event_channels: HashMap::new(),
+@@ -4853,6 +4855,8 @@ async fn make_test_app_with_channels() -> (
+             pending_update_action: None,
+             exit_on_quota_exceeded: false,
+             quota_exceeded_exit_thread_id: None,
++            quota_handoff_path: None,
++            quota_handoff_error: None,
+             pending_shutdown_exit_thread_id: None,
+             windows_sandbox: WindowsSandboxState::default(),
+             thread_event_channels: HashMap::new(),
+diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
+index 9574b615ed..65c55a387b 100644
+--- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
++++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
+@@ -404,7 +404,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
+         )
+ }
+ 
+-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
++#[serde(rename_all = "snake_case")]
+ pub enum QueuedInputAction {
+     Plain,
+     ParseSlash,
+diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
+index 527e510aa7..4f6ff2eec5 100644
+--- a/codex-rs/tui/src/bottom_pane/mod.rs
++++ b/codex-rs/tui/src/bottom_pane/mod.rs
+@@ -84,13 +84,13 @@ pub(crate) use status_line_style::status_line_from_segments;
+ mod bottom_pane_view;
+ mod effort_ignition;
+ 
+-#[derive(Clone, Debug, PartialEq, Eq)]
++#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+ pub(crate) struct LocalImageAttachment {
+     pub(crate) placeholder: String,
+     pub(crate) path: PathBuf,
+ }
+ 
+-#[derive(Clone, Debug, PartialEq, Eq)]
++#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+ pub(crate) struct MentionBinding {
+     /// Visible mention sigil (`$` or `@`).
+     pub(crate) sigil: char,
+diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
+index bb1d3aac47..c8e322d10b 100644
+--- a/codex-rs/tui/src/chatwidget.rs
++++ b/codex-rs/tui/src/chatwidget.rs
+@@ -359,6 +359,7 @@ mod input_flow;
+ mod input_restore;
+ mod input_submission;
+ mod interrupts;
++mod quota_handoff;
+ use self::interrupts::InterruptManager;
+ mod keymap_picker;
+ mod mcp_startup;
+diff --git a/codex-rs/tui/src/chatwidget/quota_handoff.rs b/codex-rs/tui/src/chatwidget/quota_handoff.rs
+new file mode 100644
+index 0000000000..9ff21dee61
+--- /dev/null
++++ b/codex-rs/tui/src/chatwidget/quota_handoff.rs
+@@ -0,0 +1,330 @@
++//! Durable +k handoff for local input that is not part of the rollout transcript.
++
++use std::ffi::OsStr;
++use std::fs;
++#[cfg(unix)]
++use std::fs::File;
++use std::fs::OpenOptions;
++use std::io::Write;
++#[cfg(unix)]
++use std::os::unix::fs::OpenOptionsExt;
++use std::path::Path;
++use std::path::PathBuf;
++use std::time::SystemTime;
++
++use codex_protocol::ThreadId;
++use color_eyre::eyre::Result;
++use color_eyre::eyre::WrapErr;
++use color_eyre::eyre::bail;
++use serde::Deserialize;
++use serde::Serialize;
++use uuid::Uuid;
++
++use crate::bottom_pane::QueuedInputAction;
++
++use super::ChatWidget;
++use super::QueuedUserMessage;
++use super::ThreadComposerState;
++use super::UserMessageHistoryRecord;
++
++const HANDOFF_FORMAT: &str = "codex+k-input-handoff";
++const HANDOFF_VERSION: u8 = 1;
++const MAX_HANDOFF_BYTES: u64 = 16 * 1024 * 1024;
++
++#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
++struct QuotaHandoff {
++    format: String,
++    version: u8,
++    handoff_id: String,
++    created_at_unix_ms: u64,
++    thread_id: String,
++    rollout_path: Option<PathBuf>,
++    resume_args: Vec<String>,
++    messages: Vec<QuotaHandoffMessage>,
++    draft: Option<ThreadComposerState>,
++}
++
++#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
++struct QuotaHandoffMessage {
++    source: QuotaHandoffMessageSource,
++    queued_message: QueuedUserMessage,
++    history_record: UserMessageHistoryRecord,
++}
++
++#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
++#[serde(rename_all = "snake_case")]
++enum QuotaHandoffMessageSource {
++    RejectedSteer,
++    PendingSteer,
++    QueuedInput,
++}
++
++impl QuotaHandoff {
++    fn validate(&self, expected_thread_id: ThreadId) -> Result<()> {
++        if self.format != HANDOFF_FORMAT {
++            bail!("unsupported input handoff format `{}`", self.format);
++        }
++        if self.version != HANDOFF_VERSION {
++            bail!(
++                "unsupported input handoff version {}; expected {HANDOFF_VERSION}",
++                self.version
++            );
++        }
++        if self.thread_id != expected_thread_id.to_string() {
++            bail!(
++                "input handoff belongs to thread {}, not {expected_thread_id}",
++                self.thread_id
++            );
++        }
++        if self.resume_args.is_empty() {
++            bail!("input handoff contains no resume arguments");
++        }
++        Ok(())
++    }
++}
++
++impl ChatWidget {
++    /// Persist every locally pending input as an independent handoff record, along with resume
++    /// metadata even when there is no local input.
++    ///
++    /// The active turn itself is already in the rollout. Only steers, explicitly queued inputs,
++    /// and the unsent composer draft live exclusively in the TUI and need this companion file.
++    pub(crate) fn persist_quota_handoff(
++        &self,
++        thread_id: ThreadId,
++        resume_args: Vec<String>,
++        codex_home: &Path,
++    ) -> Result<PathBuf> {
++        let handoff = self.capture_quota_handoff(thread_id, resume_args);
++        let path = handoff_path(
++            self.current_rollout_path.as_deref(),
++            codex_home,
++            thread_id,
++            &handoff.handoff_id,
++        )?;
++        write_handoff(&path, &handoff)?;
++        Ok(path)
++    }
++
++    pub(crate) fn restore_quota_handoff_file(
++        &mut self,
++        path: &Path,
++        expected_thread_id: ThreadId,
++    ) -> Result<usize> {
++        let handoff = read_handoff(path)?;
++        handoff.validate(expected_thread_id)?;
++
++        let restored_messages = handoff.messages.len();
++        for message in handoff.messages {
++            self.input_queue
++                .queued_user_messages
++                .push_back(message.queued_message);
++            self.input_queue
++                .queued_user_message_history_records
++                .push_back(message.history_record);
++        }
++        if let Some(draft) = handoff.draft {
++            self.restore_composer_state(draft);
++        }
++        self.refresh_pending_input_preview();
++        self.request_redraw();
++        Ok(restored_messages)
++    }
++
++    fn capture_quota_handoff(&self, thread_id: ThreadId, resume_args: Vec<String>) -> QuotaHandoff {
++        let mut messages = Vec::new();
++
++        for (index, user_message) in self.input_queue.rejected_steers_queue.iter().enumerate() {
++            messages.push(QuotaHandoffMessage {
++                source: QuotaHandoffMessageSource::RejectedSteer,
++                queued_message: QueuedUserMessage::new(
++                    user_message.clone(),
++                    QueuedInputAction::Plain,
++                ),
++                history_record: self
++                    .input_queue
++                    .rejected_steer_history_records
++                    .get(index)
++                    .cloned()
++                    .unwrap_or(UserMessageHistoryRecord::UserMessageText),
++            });
++        }
++        for pending in &self.input_queue.pending_steers {
++            messages.push(QuotaHandoffMessage {
++                source: QuotaHandoffMessageSource::PendingSteer,
++                queued_message: QueuedUserMessage::new(
++                    pending.user_message.clone(),
++                    QueuedInputAction::Plain,
++                ),
++                history_record: pending.history_record.clone(),
++            });
++        }
++        for (index, queued_message) in self.input_queue.queued_user_messages.iter().enumerate() {
++            messages.push(QuotaHandoffMessage {
++                source: QuotaHandoffMessageSource::QueuedInput,
++                queued_message: queued_message.clone(),
++                history_record: self
++                    .input_queue
++                    .queued_user_message_history_records
++                    .get(index)
++                    .cloned()
++                    .unwrap_or(UserMessageHistoryRecord::UserMessageText),
++            });
++        }
++
++        let composer = self.bottom_pane.composer_draft_snapshot();
++        let draft = ThreadComposerState {
++            text: composer.text,
++            local_images: composer.local_images,
++            remote_image_urls: composer.remote_image_urls,
++            text_elements: composer.text_elements,
++            mention_bindings: composer.mention_bindings,
++            pending_pastes: composer.pending_pastes,
++        };
++        let draft = draft.has_content().then_some(draft);
++        let created_at_unix_ms = SystemTime::UNIX_EPOCH
++            .elapsed()
++            .map(|elapsed| elapsed.as_millis().try_into().unwrap_or(u64::MAX))
++            .unwrap_or_default();
++        QuotaHandoff {
++            format: HANDOFF_FORMAT.to_string(),
++            version: HANDOFF_VERSION,
++            handoff_id: Uuid::new_v4().to_string(),
++            created_at_unix_ms,
++            thread_id: thread_id.to_string(),
++            rollout_path: self.current_rollout_path.clone(),
++            resume_args,
++            messages,
++            draft,
++        }
++    }
++}
++
++fn handoff_path(
++    rollout_path: Option<&Path>,
++    codex_home: &Path,
++    thread_id: ThreadId,
++    handoff_id: &str,
++) -> Result<PathBuf> {
++    if let Some(rollout_path) = rollout_path {
++        match canonical_rollout_parent(rollout_path) {
++            Ok(parent) => {
++                let mut file_name = rollout_path
++                    .file_name()
++                    .unwrap_or_else(|| OsStr::new("rollout"))
++                    .to_os_string();
++                file_name.push(format!(".codex+k-{handoff_id}-handoff.json"));
++                return Ok(parent.join(file_name));
++            }
++            Err(error) => {
++                tracing::warn!(
++                    rollout_path = %rollout_path.display(),
++                    error = %error,
++                    "could not colocate +k input handoff with rollout; using persistent sessions directory"
++                );
++            }
++        }
++    }
++
++    let sessions_dir = codex_home.join("sessions");
++    fs::create_dir_all(&sessions_dir).wrap_err_with(|| {
++        format!(
++            "could not create fallback handoff directory {}",
++            sessions_dir.display()
++        )
++    })?;
++    let sessions_dir = fs::canonicalize(&sessions_dir).wrap_err_with(|| {
++        format!(
++            "could not resolve fallback handoff directory {}",
++            sessions_dir.display()
++        )
++    })?;
++    Ok(sessions_dir.join(format!("codex+k-{thread_id}-{handoff_id}-handoff.json")))
++}
++
++fn canonical_rollout_parent(rollout_path: &Path) -> Result<PathBuf> {
++    if rollout_path.exists() {
++        let rollout_path = fs::canonicalize(rollout_path).wrap_err_with(|| {
++            format!(
++                "could not resolve rollout path {} for input handoff",
++                rollout_path.display()
++            )
++        })?;
++        return rollout_path
++            .parent()
++            .map(Path::to_path_buf)
++            .ok_or_else(|| color_eyre::eyre::eyre!("resolved rollout path has no parent"));
++    }
++    let parent = rollout_path.parent().ok_or_else(|| {
++        color_eyre::eyre::eyre!(
++            "rollout path {} has no parent for input handoff",
++            rollout_path.display()
++        )
++    })?;
++    fs::canonicalize(parent).wrap_err_with(|| {
++        format!(
++            "could not resolve rollout directory {} for input handoff",
++            parent.display()
++        )
++    })
++}
++
++fn write_handoff(path: &Path, handoff: &QuotaHandoff) -> Result<()> {
++    let bytes = serde_json::to_vec_pretty(handoff).wrap_err("could not serialize input handoff")?;
++    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_HANDOFF_BYTES {
++        bail!(
++            "input handoff is larger than the {} MiB safety limit",
++            MAX_HANDOFF_BYTES / (1024 * 1024)
++        );
++    }
++
++    let parent = path
++        .parent()
++        .ok_or_else(|| color_eyre::eyre::eyre!("input handoff path has no parent"))?;
++    let temp_path = parent.join(format!(".codex+k-handoff-{}.tmp", Uuid::new_v4()));
++    let write_result = (|| -> Result<()> {
++        let mut options = OpenOptions::new();
++        options.write(true).create_new(true);
++        #[cfg(unix)]
++        options.mode(0o600);
++        let mut file = options.open(&temp_path).wrap_err_with(|| {
++            format!(
++                "could not create temporary input handoff {}",
++                temp_path.display()
++            )
++        })?;
++        file.write_all(&bytes)
++            .wrap_err("could not write input handoff")?;
++        file.sync_all().wrap_err("could not sync input handoff")?;
++        fs::rename(&temp_path, path)
++            .wrap_err_with(|| format!("could not publish input handoff {}", path.display()))?;
++        #[cfg(unix)]
++        File::open(parent)
++            .and_then(|directory| directory.sync_all())
++            .wrap_err("could not sync input handoff directory")?;
++        Ok(())
++    })();
++    if write_result.is_err() {
++        let _ = fs::remove_file(&temp_path);
++    }
++    write_result
++}
++
++fn read_handoff(path: &Path) -> Result<QuotaHandoff> {
++    let metadata = fs::metadata(path)
++        .wrap_err_with(|| format!("could not inspect input handoff {}", path.display()))?;
++    if !metadata.is_file() {
++        bail!("input handoff {} is not a regular file", path.display());
++    }
++    if metadata.len() > MAX_HANDOFF_BYTES {
++        bail!(
++            "input handoff {} is larger than the {} MiB safety limit",
++            path.display(),
++            MAX_HANDOFF_BYTES / (1024 * 1024)
++        );
++    }
++    let bytes = fs::read(path)
++        .wrap_err_with(|| format!("could not read input handoff {}", path.display()))?;
++    serde_json::from_slice(&bytes)
++        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
++}
+diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
+index b8cd9e2b3f..48ba8c02c5 100644
+--- a/codex-rs/tui/src/chatwidget/tests.rs
++++ b/codex-rs/tui/src/chatwidget/tests.rs
+@@ -248,6 +248,7 @@ mod plan_mode;
+ #[path = "tests/plugin_catalog_tests.rs"]
+ mod plugin_catalog;
+ mod popups_and_settings;
++mod quota_handoff;
+ mod review_mode;
+ mod side;
+ mod slash_commands;
+diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
+new file mode 100644
+index 0000000000..418d1e45e4
+--- /dev/null
++++ b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
+@@ -0,0 +1,159 @@
++use std::fs;
++#[cfg(unix)]
++use std::os::unix::fs::PermissionsExt;
++
++use pretty_assertions::assert_eq;
++use tempfile::tempdir;
++
++use super::*;
++
++#[tokio::test]
++async fn quota_handoff_always_persists_resume_metadata() {
++    let (chat, _app_event_rx, _op_rx) = make_chatwidget_manual(None).await;
++    let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++    let directory = tempdir().unwrap();
++
++    let handoff_path = chat
++        .persist_quota_handoff(
++            thread_id,
++            vec!["--model".to_string(), "gpt-5.6".to_string()],
++            directory.path(),
++        )
++        .unwrap();
++    let serialized: serde_json::Value =
++        serde_json::from_slice(&fs::read(handoff_path).unwrap()).unwrap();
++    assert_eq!(serialized["resume_args"][0], "--model");
++    assert_eq!(serialized["messages"].as_array().unwrap().len(), 0);
++    assert!(serialized["draft"].is_null());
++}
++
++#[tokio::test]
++async fn quota_handoff_restores_each_pending_input_separately_and_keeps_the_draft() {
++    let (mut chat, _app_event_rx, _op_rx) = make_chatwidget_manual(None).await;
++    let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++    let directory = tempdir().unwrap();
++    let rollout_path = directory.path().join("rollout.jsonl");
++    fs::write(&rollout_path, "rollout").unwrap();
++    chat.current_rollout_path = Some(rollout_path);
++
++    chat.input_queue
++        .rejected_steers_queue
++        .push_back(UserMessage::from("rejected steer"));
++    chat.input_queue
++        .rejected_steer_history_records
++        .push_back(UserMessageHistoryRecord::UserMessageText);
++    chat.input_queue.pending_steers.push_back(PendingSteer {
++        user_message: UserMessage::from("pending steer"),
++        history_record: UserMessageHistoryRecord::UserMessageText,
++        compare_key: PendingSteerCompareKey {
++            message: "pending steer".to_string(),
++            image_count: 0,
++        },
++    });
++    chat.input_queue
++        .queued_user_messages
++        .push_back(QueuedUserMessage {
++            user_message: UserMessage::from("/status"),
++            action: QueuedInputAction::ParseSlash,
++            pending_pastes: vec![("[Pasted Content 1]".to_string(), "payload".to_string())],
++        });
++    chat.input_queue
++        .queued_user_message_history_records
++        .push_back(UserMessageHistoryRecord::UserMessageText);
++    chat.bottom_pane.set_composer_text(
++        "unfinished draft [Pasted Content 2]".to_string(),
++        Vec::new(),
++        Vec::new(),
++    );
++    chat.bottom_pane.set_composer_pending_pastes(vec![(
++        "[Pasted Content 2]".to_string(),
++        "draft payload".to_string(),
++    )]);
++
++    let handoff_path = chat
++        .persist_quota_handoff(
++            thread_id,
++            vec!["--model".to_string(), "gpt-5.6".to_string()],
++            directory.path(),
++        )
++        .unwrap();
++    #[cfg(unix)]
++    assert_eq!(
++        fs::metadata(&handoff_path).unwrap().permissions().mode() & 0o777,
++        0o600
++    );
++
++    let serialized: serde_json::Value =
++        serde_json::from_slice(&fs::read(&handoff_path).unwrap()).unwrap();
++    assert_eq!(serialized["format"], "codex+k-input-handoff");
++    assert_eq!(
++        serialized["messages"]
++            .as_array()
++            .unwrap()
++            .iter()
++            .map(|message| message["source"].as_str().unwrap())
++            .collect::<Vec<_>>(),
++        vec!["rejected_steer", "pending_steer", "queued_input"]
++    );
++
++    let (mut restored, _app_event_rx, _op_rx) = make_chatwidget_manual(None).await;
++    assert_eq!(
++        restored
++            .restore_quota_handoff_file(&handoff_path, thread_id)
++            .unwrap(),
++        3
++    );
++    assert_eq!(
++        restored
++            .input_queue
++            .queued_user_messages
++            .iter()
++            .map(|message| message.text.as_str())
++            .collect::<Vec<_>>(),
++        vec!["rejected steer", "pending steer", "/status"]
++    );
++    let queued_command = restored.input_queue.queued_user_messages.back().unwrap();
++    assert_eq!(queued_command.action, QueuedInputAction::ParseSlash);
++    assert_eq!(
++        queued_command.pending_pastes,
++        vec![("[Pasted Content 1]".to_string(), "payload".to_string())]
++    );
++    let draft = restored.bottom_pane.composer_draft_snapshot();
++    assert_eq!(draft.text, "unfinished draft [Pasted Content 2]");
++    assert_eq!(
++        draft.pending_pastes,
++        vec![(
++            "[Pasted Content 2]".to_string(),
++            "draft payload".to_string()
++        )]
++    );
++}
++
++#[cfg(unix)]
++#[tokio::test]
++async fn quota_handoff_resolves_a_supervised_home_symlink_to_persistent_storage() {
++    use std::os::unix::fs::symlink;
++
++    let (mut chat, _app_event_rx, _op_rx) = make_chatwidget_manual(None).await;
++    let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++    let directory = tempdir().unwrap();
++    let persistent_sessions = directory.path().join("persistent-sessions");
++    let supervised_home = directory.path().join("agent-home");
++    fs::create_dir_all(&persistent_sessions).unwrap();
++    fs::create_dir_all(&supervised_home).unwrap();
++    symlink(&persistent_sessions, supervised_home.join("sessions")).unwrap();
++    let rollout_path = supervised_home.join("sessions/rollout.jsonl");
++    fs::write(&rollout_path, "rollout").unwrap();
++    chat.current_rollout_path = Some(rollout_path);
++    chat.bottom_pane
++        .set_composer_text("draft".to_string(), Vec::new(), Vec::new());
++
++    let handoff_path = chat
++        .persist_quota_handoff(thread_id, vec!["--model".to_string()], &supervised_home)
++        .unwrap();
++
++    assert_eq!(
++        handoff_path.parent().unwrap(),
++        fs::canonicalize(persistent_sessions).unwrap()
++    );
++}
+diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
+index ca92adbee6..1b403a0312 100644
+--- a/codex-rs/tui/src/chatwidget/user_messages.rs
++++ b/codex-rs/tui/src/chatwidget/user_messages.rs
+@@ -26,7 +26,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
+ 
+ use super::ChatWidget;
+ 
+-#[derive(Debug, Clone, PartialEq)]
++#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+ pub(crate) struct UserMessage {
+     pub(crate) text: String,
+     pub(crate) local_images: Vec<LocalImageAttachment>,
+@@ -40,13 +40,14 @@ pub(crate) struct UserMessage {
+     pub(crate) mention_bindings: Vec<MentionBinding>,
+ }
+ 
+-#[derive(Clone, Debug, PartialEq)]
++#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
++#[serde(rename_all = "snake_case")]
+ pub(super) enum UserMessageHistoryRecord {
+     UserMessageText,
+     Override(UserMessageHistoryOverride),
+ }
+ 
+-#[derive(Clone, Debug, PartialEq)]
++#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+ pub(super) struct UserMessageHistoryOverride {
+     pub(super) text: String,
+     pub(super) text_elements: Vec<TextElement>,
+@@ -58,7 +59,7 @@ pub(super) enum ShellEscapePolicy {
+     Disallow,
+ }
+ 
+-#[derive(Debug, Clone, PartialEq)]
++#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+ pub(super) struct QueuedUserMessage {
+     pub(super) user_message: UserMessage,
+     pub(super) action: QueuedInputAction,
+@@ -99,7 +100,7 @@ pub(super) enum QueueDrain {
+     Stop,
+ }
+ 
+-#[derive(Debug, Clone, PartialEq, Default)]
++#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize, serde::Serialize)]
+ pub(super) struct ThreadComposerState {
+     pub(super) text: String,
+     pub(super) local_images: Vec<LocalImageAttachment>,
+diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
+index fc4ea9bfbe..8e665ed7bc 100644
+--- a/codex-rs/tui/src/cli.rs
++++ b/codex-rs/tui/src/cli.rs
+@@ -4,6 +4,7 @@ use clap::Parser;
+ use codex_utils_cli::ApprovalModeCliArg;
+ use codex_utils_cli::CliConfigOverrides;
+ use codex_utils_cli::SharedCliOptions;
++use std::path::PathBuf;
+ 
+ #[derive(Parser, Clone, Debug)]
+ #[command(version)]
+@@ -45,6 +46,10 @@ pub struct Cli {
+     #[clap(skip)]
+     pub start_immediately: bool,
+ 
++    /// Internal: restore local input captured by a +k quota handoff.
++    #[clap(skip)]
++    pub restore_input_handoff: Option<PathBuf>,
++
+     // Internal controls set by the top-level `codex fork` subcommand.
+     // These are not exposed as user flags on the base `codex` command.
+     #[clap(skip)]
+diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
+index ec777b1d8d..261c45b194 100644
+--- a/codex-rs/tui/src/lib.rs
++++ b/codex-rs/tui/src/lib.rs
+@@ -1691,6 +1691,7 @@ async fn run_ratatui_app(
+ 
+     let Cli {
+         start_immediately,
++        restore_input_handoff,
+         prompt,
+         shared,
+         no_alt_screen,
+@@ -1778,6 +1779,7 @@ async fn run_ratatui_app(
+         should_prompt_windows_sandbox_nux_at_startup,
+         app_server_target,
+         start_immediately,
++        restore_input_handoff,
+         state_db,
+         environment_manager,
+         startup_elapsed_before_app,
+diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
+index e5f41dbde1..65b81fe076 100644
+--- a/codex-rs/tui/src/main.rs
++++ b/codex-rs/tui/src/main.rs
+@@ -14,12 +14,23 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+     if let ExitReason::QuotaExceeded {
+         thread_id,
+         resume_args,
++        handoff_path,
+     } = &exit_info.exit_reason
+     {
+-        let recovery = serde_json::json!({
+-            "version": 1,
+-            "resume_args": resume_args,
+-        });
++        let recovery = handoff_path.as_ref().map_or_else(
++            || {
++                serde_json::json!({
++                    "version": 1,
++                    "resume_args": resume_args,
++                })
++            },
++            |handoff_path| {
++                serde_json::json!({
++                    "version": 2,
++                    "handoff_path": handoff_path,
++                })
++            },
++        );
+         return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
+     }
+     let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));

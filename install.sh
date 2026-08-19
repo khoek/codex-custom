@@ -8,6 +8,8 @@ code_patch_file="$repo_dir/patches/codex-customizations.patch"
 test_patch_file="$repo_dir/patches/codex-customizations-tests.patch"
 quota_patch_file="$repo_dir/patches/exit-on-quota-exceeded.patch"
 start_patch_file="$repo_dir/patches/start-immediately.patch"
+handoff_patch_file="$repo_dir/patches/quota-handoff.patch"
+auth_patch_file="$repo_dir/patches/auth-file.patch"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
 launcher_dir="$HOME/.local/bin"
 launcher="$launcher_dir/codex"
@@ -15,6 +17,7 @@ stage_dir=
 build_tree=
 current_link=
 launcher_link=
+patch_bundle=
 
 die() {
     printf 'error: %s\n' "$*" >&2
@@ -140,6 +143,10 @@ cleanup() {
         esac
     fi
 
+    if [ -n "$patch_bundle" ]; then
+        rm -f -- "$patch_bundle"
+    fi
+
     exit "$exit_status"
 }
 
@@ -159,6 +166,8 @@ done
 [ -f "$test_patch_file" ] || die "missing patch: $test_patch_file"
 [ -f "$quota_patch_file" ] || die "missing patch: $quota_patch_file"
 [ -f "$start_patch_file" ] || die "missing patch: $start_patch_file"
+[ -f "$handoff_patch_file" ] || die "missing patch: $handoff_patch_file"
+[ -f "$auth_patch_file" ] || die "missing patch: $auth_patch_file"
 
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
     die "codex submodule has local changes; restore it to the pinned clean state before installing"
@@ -169,7 +178,9 @@ patch_digest=$(sha256_files \
     "$code_patch_file" \
     "$test_patch_file" \
     "$quota_patch_file" \
-    "$start_patch_file")
+    "$start_patch_file" \
+    "$handoff_patch_file" \
+    "$auth_patch_file")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
 patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
 commit_display=$(printf '%s' "$commit" | cut -c1-8)
@@ -187,11 +198,15 @@ for command_name in cargo chmod date install ln mktemp mv python3 strip uname; d
         die "missing required command: $command_name"
 done
 
-git -C "$codex_dir" apply --check \
+patch_bundle=$(mktemp "${TMPDIR:-/tmp}/codex-custom-patch-series.XXXXXX")
+cat \
     "$code_patch_file" \
     "$test_patch_file" \
     "$quota_patch_file" \
-    "$start_patch_file" ||
+    "$start_patch_file" \
+    "$handoff_patch_file" \
+    "$auth_patch_file" >"$patch_bundle"
+git -C "$codex_dir" apply --check "$patch_bundle" ||
     die "the customization patch series no longer applies to the pinned codex revision"
 
 host_platform="$(uname -s):$(uname -m)"
@@ -243,11 +258,9 @@ build_tree="$stage_dir/source"
 package_dir="$stage_dir/package"
 
 git -C "$codex_dir" worktree add --detach "$build_tree" HEAD
-git -C "$build_tree" apply \
-    "$code_patch_file" \
-    "$test_patch_file" \
-    "$quota_patch_file" \
-    "$start_patch_file"
+git -C "$build_tree" apply "$patch_bundle"
+rm -f -- "$patch_bundle"
+patch_bundle=
 
 build_stamp=$(date -u +%Y%m%dT%H%M%SZ)
 release_name="$build_stamp-$commit_short-$patch_digest_short"
