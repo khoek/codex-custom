@@ -1,0 +1,297 @@
+diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
+index a549dac7f0..5acfd06097 100644
+--- a/codex-rs/login/src/auth/manager.rs
++++ b/codex-rs/login/src/auth/manager.rs
+@@ -38,6 +38,7 @@ use super::agent_identity::require_agent_identity_authapi_base_url;
+ use super::agent_identity::verified_record_from_jwt;
+ use super::external_bearer::BearerTokenRefresher;
+ use super::revoke::revoke_auth_tokens;
++use super::refresh_lock;
+ use super::workload_identity::WorkloadIdentityExternalAuth;
+ use super::workload_identity::WorkloadIdentitySessionError;
+ use crate::auth::AuthHeaders;
+@@ -2617,6 +2618,12 @@ impl AuthManager {
+         self.external_auth_provider().is_some()
+     }
+ 
++    fn uses_file_refresh_lock(&self, auth: Option<&CodexAuth>) -> bool {
++        self.auth_credentials_store_mode == AuthCredentialsStoreMode::File
++            && !self.has_external_auth()
++            && matches!(auth, Some(CodexAuth::Chatgpt(_)))
++    }
++
+     pub fn is_workload_identity_selected(&self) -> bool {
+         self.workload_identity_selected
+     }
+@@ -2729,6 +2736,15 @@ impl AuthManager {
+         {
+             return Ok(());
+         }
++        let _file_refresh_guard = if self.uses_file_refresh_lock(auth_before_reload.as_ref()) {
++            Some(
++                refresh_lock::acquire(&self.codex_home)
++                    .await
++                    .map_err(RefreshTokenError::Transient)?,
++            )
++        } else {
++            None
++        };
+         let expected_account_id = auth_before_reload
+             .as_ref()
+             .and_then(CodexAuth::get_account_id);
+@@ -2761,6 +2777,40 @@ impl AuthManager {
+                 REFRESH_TOKEN_UNKNOWN_MESSAGE.to_string(),
+             ))
+         })?;
++        let auth_before_reload = self.auth_cached();
++        let uses_file_refresh_lock = self.uses_file_refresh_lock(auth_before_reload.as_ref());
++        let _file_refresh_guard = if uses_file_refresh_lock {
++            Some(
++                refresh_lock::acquire(&self.codex_home)
++                    .await
++                    .map_err(RefreshTokenError::Transient)?,
++            )
++        } else {
++            None
++        };
++        if uses_file_refresh_lock {
++            let expected_account_id = auth_before_reload
++                .as_ref()
++                .and_then(CodexAuth::get_account_id);
++            match self
++                .reload_if_account_id_matches(expected_account_id.as_deref())
++                .await
++            {
++                ReloadOutcome::ReloadedChanged => {
++                    tracing::info!(
++                        "Skipping authority refresh because auth changed after guarded reload."
++                    );
++                    return Ok(());
++                }
++                ReloadOutcome::ReloadedNoChange => {}
++                ReloadOutcome::Skipped => {
++                    return Err(RefreshTokenError::Permanent(RefreshTokenFailedError::new(
++                        RefreshTokenFailedReason::Other,
++                        REFRESH_TOKEN_ACCOUNT_MISMATCH_MESSAGE.to_string(),
++                    )));
++                }
++            }
++        }
+         self.refresh_token_from_authority_impl().await
+     }
+ 
+diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
+index 663b046a14..79083d2f33 100644
+--- a/codex-rs/login/src/auth/mod.rs
++++ b/codex-rs/login/src/auth/mod.rs
+@@ -11,6 +11,7 @@ mod workload_identity;
+ 
+ mod external_bearer;
+ mod manager;
++mod refresh_lock;
+ mod revoke;
+ 
+ /// Override the file used for file-backed CLI credentials.
+diff --git a/codex-rs/login/src/auth/refresh_lock.rs b/codex-rs/login/src/auth/refresh_lock.rs
+new file mode 100644
+index 0000000000..3b374f3288
+--- /dev/null
++++ b/codex-rs/login/src/auth/refresh_lock.rs
+@@ -0,0 +1,86 @@
++//! Cross-process serialization for file-backed ChatGPT credential refreshes.
++//!
++//! The guard is acquired before the authoritative disk reload and held until the
++//! provider response has been persisted. The lock is keyed by the resolved canonical
++//! auth file, so an active auth.json link and an explicit CODEX_AUTH_FILE rendezvous
++//! with the same account.
++
++use std::fs::{self, File, OpenOptions};
++#[cfg(unix)]
++use std::os::unix::fs::OpenOptionsExt;
++use std::path::{Path, PathBuf};
++use std::time::Duration;
++
++use tokio::time::sleep;
++
++const RETRY_DELAY: Duration = Duration::from_millis(50);
++
++pub(super) struct Guard {
++    _file: File,
++}
++
++pub(super) async fn acquire(codex_home: &Path) -> std::io::Result<Guard> {
++    let auth_file = super::storage::get_auth_file(codex_home);
++    let path = lock_path(&auth_file);
++    let parent = path.parent().ok_or_else(|| {
++        std::io::Error::other("credential refresh lock path has no parent directory")
++    })?;
++    fs::create_dir_all(parent)?;
++    let mut options = OpenOptions::new();
++    options.read(true).write(true).create(true).truncate(false);
++    #[cfg(unix)]
++    options.mode(0o600);
++    let file = options.open(&path)?;
++
++    loop {
++        match file.try_lock() {
++            Ok(()) => return Ok(Guard { _file: file }),
++            Err(std::fs::TryLockError::WouldBlock) => sleep(RETRY_DELAY).await,
++            Err(std::fs::TryLockError::Error(error)) => return Err(error),
++        }
++    }
++}
++
++pub(super) fn lock_path(auth_file: &Path) -> PathBuf {
++    let canonical = canonical_auth_path(auth_file);
++    let name = canonical
++        .file_name()
++        .and_then(|name| name.to_str())
++        .unwrap_or("auth.json");
++    canonical.with_file_name(format!("{name}.refresh.lock"))
++}
++
++fn canonical_auth_path(path: &Path) -> PathBuf {
++    if let Ok(canonical) = path.canonicalize() {
++        return canonical;
++    }
++    let Some(parent) = path.parent() else {
++        return path.to_owned();
++    };
++    parent
++        .canonicalize()
++        .map(|parent| parent.join(path.file_name().unwrap_or_default()))
++        .unwrap_or_else(|_| path.to_owned())
++}
++
++#[cfg(test)]
++mod tests {
++    use std::fs;
++
++    use tempfile::tempdir;
++
++    use super::*;
++
++    #[tokio::test]
++    async fn lock_path_follows_an_active_auth_link() {
++        let directory = tempdir().unwrap();
++        let profile = directory.path().join("profile.json");
++        fs::write(&profile, b"{}").unwrap();
++        let active = directory.path().join("auth.json");
++        #[cfg(unix)]
++        std::os::unix::fs::symlink(&profile, &active).unwrap();
++        #[cfg(windows)]
++        std::os::windows::fs::symlink_file(&profile, &active).unwrap();
++        assert_eq!(lock_path(&active), lock_path(&profile));
++    }
++}
+diff --git a/codex-rs/login/tests/suite/auth_refresh.rs b/codex-rs/login/tests/suite/auth_refresh.rs
+index 0c7a77791d..b00164f35b 100644
+--- a/codex-rs/login/tests/suite/auth_refresh.rs
++++ b/codex-rs/login/tests/suite/auth_refresh.rs
+@@ -256,6 +256,106 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
+     Ok(())
+ }
+ 
++#[serial_test::serial(auth_env)]
++#[tokio::test]
++async fn concurrent_managers_share_one_canonical_refresh_transaction() -> Result<()> {
++    skip_if_no_network!(Ok(()));
++
++    let server = MockServer::start().await;
++    Mock::given(method("POST"))
++        .and(path("/oauth/token"))
++        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
++            "access_token": "canonical-access-token",
++            "refresh_token": "canonical-refresh-token"
++        })))
++        .expect(1)
++        .mount(&server)
++        .await;
++
++    let endpoint = format!("{}/oauth/token", server.uri());
++    let _endpoint_guard = EnvGuard::set(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR, endpoint);
++    let canonical = TempDir::new()?;
++    let canonical_auth = canonical.path().join("account.json");
++    let _auth_file_guard = EnvGuard::set(
++        codex_login::CODEX_AUTH_FILE_ENV_VAR,
++        canonical_auth.display().to_string(),
++    );
++
++    let first_home = TempDir::new()?;
++    let second_home = TempDir::new()?;
++    let stale_home = TempDir::new()?;
++    let first = AuthManager::shared(
++        first_home.path().to_path_buf(),
++        false,
++        AuthCredentialsStoreMode::File,
++        None,
++        None,
++        AuthKeyringBackendKind::default(),
++        codex_login::test_support::transport_default_auth_route_config(),
++    )
++    .await;
++    let second = AuthManager::shared(
++        second_home.path().to_path_buf(),
++        false,
++        AuthCredentialsStoreMode::File,
++        None,
++        None,
++        AuthKeyringBackendKind::default(),
++        codex_login::test_support::transport_default_auth_route_config(),
++    )
++    .await;
++    let stale = AuthManager::shared(
++        stale_home.path().to_path_buf(),
++        false,
++        AuthCredentialsStoreMode::File,
++        None,
++        None,
++        AuthKeyringBackendKind::default(),
++        codex_login::test_support::transport_default_auth_route_config(),
++    )
++    .await;
++    let initial_auth = AuthDotJson {
++        auth_mode: Some(AuthMode::Chatgpt),
++        openai_api_key: None,
++        tokens: Some(build_tokens(INITIAL_ACCESS_TOKEN, INITIAL_REFRESH_TOKEN)),
++        last_refresh: Some(Utc::now() - Duration::days(1)),
++        agent_identity: None,
++        personal_access_token: None,
++        bedrock_api_key: None,
++    };
++    save_auth(
++        first_home.path(),
++        &initial_auth,
++        AuthCredentialsStoreMode::File,
++        AuthKeyringBackendKind::default(),
++    )?;
++    first.reload().await;
++    second.reload().await;
++    stale.reload().await;
++
++    let (first_result, second_result) = tokio::join!(first.refresh_token(), second.refresh_token());
++    first_result?;
++    second_result?;
++    stale.refresh_token_from_authority().await?;
++
++    let stored = load_auth_dot_json(
++        first_home.path(),
++        AuthCredentialsStoreMode::File,
++        AuthKeyringBackendKind::default(),
++    )?
++    .context("canonical auth should exist")?;
++    assert_eq!(
++        stored
++            .tokens
++            .as_ref()
++            .context("canonical tokens should exist")?
++            .refresh_token,
++        "canonical-refresh-token"
++    );
++    server.verify().await;
++    Ok(())
++}
++
+ #[serial_test::serial(auth_env)]
+ #[tokio::test]
+ async fn refresh_token_refreshes_when_auth_is_unchanged() -> Result<()> {

@@ -1,0 +1,96 @@
+diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
+index 1a23f6f06a..811ac006c9 100644
+--- a/codex-rs/tui/src/app/event_dispatch.rs
++++ b/codex-rs/tui/src/app/event_dispatch.rs
+@@ -91,6 +91,9 @@ impl App {
+             AppEvent::RawOutputModeChanged { enabled } => {
+                 self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
+             }
++            AppEvent::RingTerminalBell => {
++                tui.ring_bell();
++            }
+             AppEvent::ClearUiAndSubmitUserMessage { text } => {
+                 self.clear_terminal_ui(tui, /*redraw_header*/ false)?;
+                 self.reset_app_ui_state_after_clear();
+diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
+index 6fde0759d6..441274161e 100644
+--- a/codex-rs/tui/src/app_event.rs
++++ b/codex-rs/tui/src/app_event.rs
+@@ -300,6 +300,9 @@ pub(crate) enum AppEvent {
+         enabled: bool,
+     },
+ 
++    /// Emit an audible terminal bell regardless of desktop-notification settings.
++    RingTerminalBell,
++
+     /// Clear the current context, start a fresh session, and submit an initial user message.
+     ///
+     /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
+diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
+index cef4c80708..ae7f2d48e8 100644
+--- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
++++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
+@@ -99,7 +99,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
+         Some(CodexErrorInfo::CyberPolicy),
+     );
+ 
+-    let cells = drain_insert_history(&mut rx);
++    let mut rang_terminal_bell = false;
++    let mut cells = Vec::new();
++    while let Ok(event) = rx.try_recv() {
++        match event {
++            AppEvent::RingTerminalBell => rang_terminal_bell = true,
++            AppEvent::InsertHistoryCell(cell) => cells.push(cell.display_lines(u16::MAX)),
++            _ => {}
++        }
++    }
++
++    assert!(rang_terminal_bell);
+     assert_eq!(cells.len(), 1);
+     let rendered = lines_to_single_string(&cells[0]);
+     assert!(rendered.contains("This content can't be shown"));
+diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
+index 79654b2b2a..e76b613244 100644
+--- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
++++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
+@@ -385,6 +385,7 @@ impl ChatWidget {
+     }
+ 
+     pub(super) fn on_cyber_policy_error(&mut self) {
++        self.app_event_tx.send(AppEvent::RingTerminalBell);
+         self.input_queue.submit_pending_steers_after_interrupt = false;
+         self.finalize_turn();
+         self.add_to_history(history_cell::new_cyber_policy_error_event());
+diff --git a/codex-rs/tui/src/notifications/mod.rs b/codex-rs/tui/src/notifications/mod.rs
+index ee6694b357..f009606f4c 100644
+--- a/codex-rs/tui/src/notifications/mod.rs
++++ b/codex-rs/tui/src/notifications/mod.rs
+@@ -50,6 +50,10 @@ pub fn detect_backend(method: NotificationMethod) -> DesktopNotificationBackend
+     DesktopNotificationBackend::for_method(method)
+ }
+ 
++pub(crate) fn ring_bell() -> io::Result<()> {
++    BelBackend.notify("")
++}
++
+ fn supports_osc9(terminal: &TerminalInfo) -> bool {
+     matches!(
+         terminal.name,
+diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
+index 639f88fa9b..d279b559c8 100644
+--- a/codex-rs/tui/src/tui.rs
++++ b/codex-rs/tui/src/tui.rs
+@@ -789,6 +789,13 @@ impl Tui {
+         }
+     }
+ 
++    /// Emit an audible BEL independently of desktop-notification configuration and focus.
++    pub(crate) fn ring_bell(&mut self) {
++        if let Err(err) = crate::notifications::ring_bell() {
++            tracing::warn!(error = %err, "failed to emit terminal bell");
++        }
++    }
++
+     pub fn event_stream(&self) -> Pin<Box<dyn Stream<Item = TuiEvent> + Send + 'static>> {
+         #[cfg(unix)]
+         let stream = TuiEventStream::new(

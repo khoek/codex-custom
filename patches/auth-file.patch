@@ -29,9 +29,9 @@ index 8c76713b8f..2a56c67afb 100644
  
 +/// Override the file used for file-backed CLI credentials.
 +///
-+/// This is intentionally a downstream `+k` seam: Kai can give each supervised
-+/// Codex process its own credential file while leaving the shared `CODEX_HOME`
-+/// (sessions, configuration, plugins, and skills) untouched.
++/// This is intentionally a downstream `+k` seam: Kai can point each supervised
++/// Codex process at the enrolled account's canonical credential file while leaving
++/// the shared `CODEX_HOME` (sessions, configuration, plugins, and skills) untouched.
 +pub const CODEX_AUTH_FILE_ENV_VAR: &str = "CODEX_AUTH_FILE";
 +
 +/// Resolve the active file-backed credential path for a Codex home.

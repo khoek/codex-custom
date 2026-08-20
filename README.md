@@ -16,8 +16,13 @@ repository as a submodule and carries a small, ordered patch series:
 5. [`patches/quota-handoff.patch`](patches/quota-handoff.patch) durably carries
    queued TUI input and the composer draft across a quota-triggered restart.
 6. [`patches/auth-file.patch`](patches/auth-file.patch) adds the `+k`-only
-   `CODEX_AUTH_FILE` override used by Kai to isolate supervised credentials
-   without moving the rest of Codex state.
+   `CODEX_AUTH_FILE` override used by Kai to select a canonical enrolled account
+   file without moving the rest of Codex state.
+7. [`patches/canonical-auth-refresh.patch`](patches/canonical-auth-refresh.patch)
+   serializes reload, refresh, and persistence across processes that share that
+   canonical file.
+8. [`patches/cybersecurity-abort-bell.patch`](patches/cybersecurity-abort-bell.patch)
+   rings the terminal bell when a turn is aborted by the cybersecurity policy.
 
 The original code patch adds the downstream `+k` version marker, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -96,8 +101,20 @@ The auth-file patch is deliberately small: when `CODEX_AUTH_FILE` is set and
 Codex is using file-backed CLI credentials, reads, refreshes, and deletes use
 that file (relative values are resolved under `CODEX_HOME`) instead of
 `CODEX_HOME/auth.json`. Sessions, SQLite, configuration, plugins, and skills
-still use the ordinary `CODEX_HOME`. Kai supplies this variable only to its
-supervised `+k` child; ordinary Codex launches are unchanged.
+still use the ordinary `CODEX_HOME`. Kai supplies this variable to each
+supervised `+k` child and quota app-server, selecting the enrolled account's
+canonical writable profile file.
+
+The canonical-auth-refresh patch adds an advisory OS file lock beside that
+resolved credential file. A `+k` refresh acquires it before reloading from disk
+and keeps it through the token request and persistence. A second Codex process
+therefore reloads the newly issued refresh token instead of replaying a stale
+one. Active `CODEX_HOME/auth.json` links and explicit `CODEX_AUTH_FILE` paths
+resolve to the same lock when they refer to the same canonical file.
+
+The cybersecurity-abort-bell patch emits an unconditional terminal BEL when a
+typed `CyberPolicy` rejection reaches the dedicated abort notice. It does not
+depend on desktop-notification settings or whether the terminal is focused.
 
 ## Install
 
@@ -165,7 +182,9 @@ cat \
     ../patches/exit-on-quota-exceeded.patch \
     ../patches/start-immediately.patch \
     ../patches/quota-handoff.patch \
-    ../patches/auth-file.patch >"$patch_bundle"
+    ../patches/auth-file.patch \
+    ../patches/canonical-auth-refresh.patch \
+    ../patches/cybersecurity-abort-bell.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
 git -C codex apply "$patch_bundle"
 rm -f -- "$patch_bundle"
@@ -181,6 +200,8 @@ cargo build --release --bin codex --bin codex-code-mode-host
 To return the submodule to its pinned clean state:
 
 ```sh
+git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
+git -C codex apply --reverse ../patches/canonical-auth-refresh.patch
 git -C codex apply --reverse ../patches/auth-file.patch
 git -C codex apply --reverse ../patches/quota-handoff.patch
 git -C codex apply --reverse ../patches/start-immediately.patch
@@ -204,8 +225,8 @@ and testing.
    `git -C codex checkout --detach <tag>`.
 4. Run the ordered `git apply --check` command above. If it fails, refresh only
    the affected patch, preserving the same order and separation of concerns.
-5. Apply all six patches, run `just fmt` from `codex/codex-rs`, then run the
+5. Apply all eight patches, run `just fmt` from `codex/codex-rs`, then run the
    focused tests and the `codex-tui` and `codex-cli` crate suites.
-6. Reverse all six patches in reverse order, verify the submodule is clean,
+6. Reverse all eight patches in reverse order, verify the submodule is clean,
    update the release tag and commit in this README, and commit the new submodule
    pointer together with the refreshed patches and this README's pin.
