@@ -275,6 +275,7 @@ release_name="$build_stamp-$commit_short-$patch_digest_short"
 release_dir="$install_root/releases/$release_name"
 
 printf 'Building codex %s with customization %s...\n' "$commit_display" "$patch_digest_display"
+CODEX_REPO_ROOT="$build_tree" \
 CARGO_TARGET_DIR="$codex_dir/codex-rs/target" \
 python3 "$build_tree/scripts/build_codex_package.py" \
     --target "$target" \
