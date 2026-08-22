@@ -1,16 +1,16 @@
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index a549dac7f0..5acfd06097 100644
+index 01c039c083..9691e30a70 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
-@@ -38,6 +38,7 @@ use super::agent_identity::require_agent_identity_authapi_base_url;
+@@ -37,6 +37,7 @@ use super::agent_identity::register_managed_chatgpt_agent_identity;
+ use super::agent_identity::require_agent_identity_authapi_base_url;
  use super::agent_identity::verified_record_from_jwt;
  use super::external_bearer::BearerTokenRefresher;
- use super::revoke::revoke_auth_tokens;
 +use super::refresh_lock;
+ use super::revoke::revoke_auth_tokens;
  use super::workload_identity::WorkloadIdentityExternalAuth;
  use super::workload_identity::WorkloadIdentitySessionError;
- use crate::auth::AuthHeaders;
-@@ -2617,6 +2618,12 @@ impl AuthManager {
+@@ -2632,6 +2633,12 @@ impl AuthManager {
          self.external_auth_provider().is_some()
      }
  
@@ -23,7 +23,7 @@ index a549dac7f0..5acfd06097 100644
      pub fn is_workload_identity_selected(&self) -> bool {
          self.workload_identity_selected
      }
-@@ -2729,6 +2736,15 @@ impl AuthManager {
+@@ -2744,6 +2751,15 @@ impl AuthManager {
          {
              return Ok(());
          }
@@ -39,7 +39,7 @@ index a549dac7f0..5acfd06097 100644
          let expected_account_id = auth_before_reload
              .as_ref()
              .and_then(CodexAuth::get_account_id);
-@@ -2761,6 +2777,40 @@ impl AuthManager {
+@@ -2776,6 +2792,40 @@ impl AuthManager {
                  REFRESH_TOKEN_UNKNOWN_MESSAGE.to_string(),
              ))
          })?;
@@ -81,7 +81,7 @@ index a549dac7f0..5acfd06097 100644
      }
  
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index 663b046a14..79083d2f33 100644
+index 4bc6eebc7a..7a8b3113e0 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
 @@ -11,6 +11,7 @@ mod workload_identity;
@@ -91,24 +91,27 @@ index 663b046a14..79083d2f33 100644
 +mod refresh_lock;
  mod revoke;
  
- /// Override the file used for file-backed CLI credentials.
+ /// Select the file used for file-backed CLI credentials in this process.
 diff --git a/codex-rs/login/src/auth/refresh_lock.rs b/codex-rs/login/src/auth/refresh_lock.rs
 new file mode 100644
-index 0000000000..3b374f3288
+index 0000000000..dd1f0410d0
 --- /dev/null
 +++ b/codex-rs/login/src/auth/refresh_lock.rs
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,89 @@
 +//! Cross-process serialization for file-backed ChatGPT credential refreshes.
 +//!
 +//! The guard is acquired before the authoritative disk reload and held until the
 +//! provider response has been persisted. The lock is keyed by the resolved canonical
-+//! auth file, so an active auth.json link and an explicit CODEX_AUTH_FILE rendezvous
++//! auth file, so an active auth.json link and an explicit `--auth-file` path rendezvous
 +//! with the same account.
 +
-+use std::fs::{self, File, OpenOptions};
++use std::fs::File;
++use std::fs::OpenOptions;
++use std::fs::{self};
 +#[cfg(unix)]
 +use std::os::unix::fs::OpenOptionsExt;
-+use std::path::{Path, PathBuf};
++use std::path::Path;
++use std::path::PathBuf;
 +use std::time::Duration;
 +
 +use tokio::time::sleep;
@@ -185,10 +188,10 @@ index 0000000000..3b374f3288
 +    }
 +}
 diff --git a/codex-rs/login/tests/suite/auth_refresh.rs b/codex-rs/login/tests/suite/auth_refresh.rs
-index 0c7a77791d..b00164f35b 100644
+index 68a82feb2d..620264d794 100644
 --- a/codex-rs/login/tests/suite/auth_refresh.rs
 +++ b/codex-rs/login/tests/suite/auth_refresh.rs
-@@ -256,6 +256,106 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
+@@ -256,6 +256,108 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
      Ok(())
  }
  
@@ -212,14 +215,16 @@ index 0c7a77791d..b00164f35b 100644
 +    let _endpoint_guard = EnvGuard::set(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR, endpoint);
 +    let canonical = TempDir::new()?;
 +    let canonical_auth = canonical.path().join("account.json");
-+    let _auth_file_guard = EnvGuard::set(
-+        codex_login::CODEX_AUTH_FILE_ENV_VAR,
-+        canonical_auth.display().to_string(),
-+    );
-+
 +    let first_home = TempDir::new()?;
 +    let second_home = TempDir::new()?;
 +    let stale_home = TempDir::new()?;
++    for home in [&first_home, &second_home, &stale_home] {
++        let active_auth = home.path().join("auth.json");
++        #[cfg(unix)]
++        std::os::unix::fs::symlink(&canonical_auth, active_auth)?;
++        #[cfg(windows)]
++        std::os::windows::fs::symlink_file(&canonical_auth, active_auth)?;
++    }
 +    let first = AuthManager::shared(
 +        first_home.path().to_path_buf(),
 +        false,

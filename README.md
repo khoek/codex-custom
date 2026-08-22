@@ -16,8 +16,8 @@ repository as a submodule and carries a small, ordered patch series:
 5. [`patches/quota-handoff.patch`](patches/quota-handoff.patch) durably carries
    queued TUI input and the composer draft across a quota-triggered restart.
 6. [`patches/auth-file.patch`](patches/auth-file.patch) adds the `+k`-only
-   `CODEX_AUTH_FILE` override used by Kai to select a canonical enrolled account
-   file without moving the rest of Codex state.
+   hidden `--auth-file PATH` option used by Kai to select a canonical enrolled
+   account file without moving the rest of Codex state.
 7. [`patches/canonical-auth-refresh.patch`](patches/canonical-auth-refresh.patch)
    serializes reload, refresh, and persistence across processes that share that
    canonical file.
@@ -55,7 +55,7 @@ usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
-expected auto-dismissed UI and `0.148.0+k` snapshot output.
+expected auto-dismissed UI and `0.149.0+k` snapshot output.
 
 The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
 flag present, a terminal typed `UsageLimitExceeded` error from either the main
@@ -97,20 +97,21 @@ new turn.
 making it sort below the corresponding official release, as a `-k` prerelease
 suffix would.
 
-The auth-file patch is deliberately small: when `CODEX_AUTH_FILE` is set and
-Codex is using file-backed CLI credentials, reads, refreshes, and deletes use
-that file (relative values are resolved under `CODEX_HOME`) instead of
-`CODEX_HOME/auth.json`. Sessions, SQLite, configuration, plugins, and skills
-still use the ordinary `CODEX_HOME`. Kai supplies this variable to each
-supervised `+k` child and quota app-server, selecting the enrolled account's
-canonical writable profile file.
+The auth-file patch is deliberately small: the hidden global `--auth-file PATH`
+option selects the file used for file-backed CLI credential reads, refreshes,
+and deletes (relative values are resolved under `CODEX_HOME`) instead of
+`CODEX_HOME/auth.json`. The option is parsed once into process-local state, so
+commands launched by Codex cannot inherit it. Sessions, SQLite, configuration,
+plugins, and skills still use the ordinary `CODEX_HOME`. Kai supplies the
+option to each supervised `+k` child and quota app-server, selecting the
+enrolled account's canonical writable profile file.
 
 The canonical-auth-refresh patch adds an advisory OS file lock beside that
 resolved credential file. A `+k` refresh acquires it before reloading from disk
 and keeps it through the token request and persistence. A second Codex process
 therefore reloads the newly issued refresh token instead of replaying a stale
-one. Active `CODEX_HOME/auth.json` links and explicit `CODEX_AUTH_FILE` paths
-resolve to the same lock when they refer to the same canonical file.
+one. Active `CODEX_HOME/auth.json` links and explicit `--auth-file` paths resolve
+to the same lock when they refer to the same canonical file.
 
 The cybersecurity-abort-bell patch emits an unconditional terminal BEL when a
 typed `CyberPolicy` rejection reaches the dedicated abort notice. It does not
@@ -225,8 +226,10 @@ and testing.
    `git -C codex checkout --detach <tag>`.
 4. Run the ordered `git apply --check` command above. If it fails, refresh only
    the affected patch, preserving the same order and separation of concerns.
-5. Apply all eight patches, run `just fmt` from `codex/codex-rs`, then run the
-   focused tests and the `codex-tui` and `codex-cli` crate suites.
+5. Apply all eight patches and run `just fmt` from `codex/codex-rs`. Run every
+   focused test plus the `codex-tui` and `codex-cli` crate suites. Auth-file
+   selection is process-local, so upstream auth tests cannot inherit it from a
+   supervising Codex process.
 6. Reverse all eight patches in reverse order, verify the submodule is clean,
    update the release tag and commit in this README, and commit the new submodule
    pointer together with the refreshed patches and this README's pin.
