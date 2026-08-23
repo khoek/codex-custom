@@ -35,7 +35,7 @@ index 45218a6d39..7a5cc37d19 100644
      pub feature_toggles: FeatureToggles,
  
 @@ -1051,11 +1055,15 @@ async fn cli_main(
- ) -> anyhow::Result<()> {
+ ) -> anyhow::Result<ExitCode> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
 +        auth_file,
@@ -50,6 +50,30 @@ index 45218a6d39..7a5cc37d19 100644
      // Fold --enable/--disable into config overrides so they flow to all subcommands.
      let toggle_overrides = feature_toggles.to_overrides()?;
      root_config_overrides.raw_overrides.extend(toggle_overrides);
+@@ -2997,6 +3005,7 @@ mod tests {
+         let MultitoolCli {
+             mut interactive,
+             config_overrides: mut root_overrides,
++            auth_file: _,
+             subcommand,
+             feature_toggles: _,
+             remote: _,
+@@ -3039,6 +3048,7 @@ mod tests {
+         let MultitoolCli {
+             mut interactive,
+             config_overrides: mut root_overrides,
++            auth_file: _,
+             subcommand,
+             feature_toggles: _,
+             remote: _,
+@@ -3083,6 +3093,7 @@ mod tests {
+         let MultitoolCli {
+             interactive,
+             config_overrides: root_overrides,
++            auth_file: _,
+             subcommand,
+             feature_toggles: _,
+             remote: _,
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
 index 8c76713b8f..4bc6eebc7a 100644
 --- a/codex-rs/login/src/auth/mod.rs

@@ -62,12 +62,19 @@ flag present, a terminal typed `UsageLimitExceeded` error from either the main
 thread or any tracked subagent follows the normal notification path and then
 requests the same shutdown-first exit used by an ordinary interactive quit.
 After the app server, threads, terminal, and telemetry have been cleaned up,
-the CLI emits one final unstyled line and no other normal exit summary. The
-quota-handoff patch makes that line point at a durable companion file:
+the CLI emits one final unstyled line, flushes it, and returns process status
+`75` (`EX_TEMPFAIL`) through normal unwinding. The status is the authoritative
+quota signal; the line carries recovery data. The quota-handoff patch makes it
+point at a durable companion file:
 
 ```text
 codex+k (CODEX_UUID_WHICH_YOU_CAN_USE_TO_RESUME): quota exceeded {"version":2,"handoff_path":"/…/rollout.jsonl.codex+k-…-handoff.json"}
 ```
+
+Kai only interprets the marker after status `75`, and searches backward through
+the captured PTY tail so terminal cleanup output after the marker cannot hide
+the recovery request. A missing or malformed marker at that status is a hard
+error. Marker-looking output accompanying any other status is ordinary output.
 
 The sidecar is written atomically with mode `0600` beside the rollout (or in the
 persistent sessions directory if that path cannot be resolved). It contains the

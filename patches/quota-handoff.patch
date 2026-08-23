@@ -1,8 +1,8 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 86acca02b3..c1ea7b9786 100644
+index ddc95bd87315a685df24ef9cf4a3006746216881..9453908c207bf0bb9b1d85a6873a3507b72f07d3 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -368,6 +368,15 @@ struct ResumeCommand {
+@@ -370,6 +370,15 @@ struct ResumeCommand {
      )]
      start_immediately: bool,
  
@@ -18,7 +18,7 @@ index 86acca02b3..c1ea7b9786 100644
      #[clap(flatten)]
      remote: InteractiveRemoteOptions,
  
-@@ -797,12 +806,23 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+@@ -799,12 +808,23 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
      if let ExitReason::QuotaExceeded {
          thread_id,
          resume_args,
@@ -46,7 +46,7 @@ index 86acca02b3..c1ea7b9786 100644
          return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
      }
      let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
-@@ -1428,6 +1448,7 @@ async fn cli_main(
+@@ -1421,6 +1441,7 @@ async fn cli_main(
              all,
              include_non_interactive,
              start_immediately,
@@ -54,7 +54,7 @@ index 86acca02b3..c1ea7b9786 100644
              remote,
              config_overrides,
          })) => {
-@@ -1442,6 +1463,7 @@ async fn cli_main(
+@@ -1435,6 +1456,7 @@ async fn cli_main(
                  config_overrides,
              );
              interactive.start_immediately = start_immediately;
@@ -62,7 +62,7 @@ index 86acca02b3..c1ea7b9786 100644
              let exit_info = run_interactive_tui(
                  interactive,
                  remote.remote.or(root_remote.clone()),
-@@ -2996,6 +3018,7 @@ mod tests {
+@@ -2989,6 +3011,7 @@ mod tests {
              all,
              include_non_interactive,
              start_immediately,
@@ -70,7 +70,7 @@ index 86acca02b3..c1ea7b9786 100644
              remote: _,
              config_overrides: resume_cli,
          }) = subcommand.expect("resume present")
-@@ -3014,6 +3037,7 @@ mod tests {
+@@ -3007,6 +3030,7 @@ mod tests {
              resume_cli,
          );
          interactive.start_immediately = start_immediately;
@@ -78,7 +78,7 @@ index 86acca02b3..c1ea7b9786 100644
          interactive
      }
  
-@@ -3741,6 +3765,7 @@ mod tests {
+@@ -3734,6 +3758,7 @@ mod tests {
                      "-c".to_string(),
                      "model_reasoning_effort=\"high\"".to_string(),
                  ],
@@ -86,8 +86,16 @@ index 86acca02b3..c1ea7b9786 100644
              };
  
              assert_eq!(
-@@ -3754,6 +3779,31 @@ mod tests {
-         }
+@@ -3757,6 +3782,7 @@ mod tests {
+         exit_info.exit_reason = ExitReason::QuotaExceeded {
+             thread_id,
+             resume_args: vec!["--model".to_string(), "gpt-5.6".to_string()],
++            handoff_path: None,
+         };
+ 
+         assert_eq!(
+@@ -3765,6 +3791,31 @@ mod tests {
+         );
      }
  
 +    #[test]
@@ -118,7 +126,7 @@ index 86acca02b3..c1ea7b9786 100644
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -3940,6 +3990,38 @@ mod tests {
+@@ -3951,6 +4002,38 @@ mod tests {
          }
      }
  
@@ -158,7 +166,7 @@ index 86acca02b3..c1ea7b9786 100644
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 7660b519be..e6ee92115e 100644
+index 7660b519be0e6392882896fa2561854969c87dfd..e6ee92115e6eec945a0c6814b0fe1acb717d3703 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
 @@ -447,6 +447,7 @@ pub enum ExitReason {
@@ -193,17 +201,16 @@ index 7660b519be..e6ee92115e 100644
              self.expire_pending_key_chord();
              self.handle_draw_pre_render(tui, screen_size)?;
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 47e77b0ee9..b800a84a00 100644
+index 01733a2e00cda32a1b44c332f4eb23e230a13222..b800a84a00dcd60bd09cd953e2b59a3bf32ed1e9 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -22,14 +22,12 @@ use codex_app_server_protocol::ServerRequest;
  use codex_app_server_protocol::SessionSource;
  use codex_app_server_protocol::ThreadReadParams;
  use codex_app_server_protocol::ThreadReadResponse;
--use codex_protocol::protocol::SubAgentSource;
 +use codex_protocol::ThreadId;
  use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
-+use codex_protocol::protocol::SubAgentSource;
+ use codex_protocol::protocol::SubAgentSource;
  
  fn quota_recovery_config_override(key: &str, value: &str) -> String {
 -    format!(
@@ -269,7 +276,7 @@ index 47e77b0ee9..b800a84a00 100644
                          .send(AppEvent::Exit(ExitMode::ShutdownFirst));
                  }
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index c19bdb3715..eb112ef8c4 100644
+index c19bdb3715ffac5bde1c5ff119dd979065798768..eb112ef8c4b6928819d766e72264e5408924b3a4 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -74,6 +74,7 @@ impl App {
@@ -357,7 +364,7 @@ index c19bdb3715..eb112ef8c4 100644
          let thread_id = app.chat_widget.thread_id().or(app.primary_thread_id);
          let resume_hint = resume_hint_for_resumable_thread(
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 4a70f5fe99..348e35a797 100644
+index 4a70f5fe9959a80656e8fc5d8744d1b255b8fc03..348e35a797cb4defb245739caa483a762ceb79ed 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
 @@ -59,6 +59,8 @@ pub(super) async fn make_test_app() -> App {
@@ -370,7 +377,7 @@ index 4a70f5fe99..348e35a797 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 43f1784658..73a5c8f30a 100644
+index 43f1784658edd84f0772185c4a35769b6168afa4..73a5c8f30aa6b1b80e4ecb5a8d3102bbf57f4601 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
 @@ -5284,6 +5284,8 @@ async fn make_test_app() -> App {
@@ -392,7 +399,7 @@ index 43f1784658..73a5c8f30a 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index ec1b00c938..42c251b62b 100644
+index ec1b00c938fa7bd14a40a09a36ee798140bdc548..42c251b62b3f928116616cc276492558ef86c361 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
 @@ -422,7 +422,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
@@ -406,7 +413,7 @@ index ec1b00c938..42c251b62b 100644
      Plain,
      /// Preserve model-input provenance when paste expansion reveals a leading shell sigil.
 diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
-index d2869815ac..a53056acab 100644
+index d2869815ac0d643dbac4d47a30f8634338cdf033..a53056acab021a82420952eaca456f1909a9d632 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
 @@ -85,13 +85,13 @@ pub(crate) use status_line_style::status_line_from_segments;
@@ -426,7 +433,7 @@ index d2869815ac..a53056acab 100644
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index 331b347bf3..731c191d0f 100644
+index 331b347bf340474f12d3f1ea0358f4d4205fa65d..731c191d0f9cd6b30e686b644856c9d40b487302 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
 @@ -360,6 +360,7 @@ mod input_flow;
@@ -439,7 +446,7 @@ index 331b347bf3..731c191d0f 100644
  mod mcp_startup;
 diff --git a/codex-rs/tui/src/chatwidget/quota_handoff.rs b/codex-rs/tui/src/chatwidget/quota_handoff.rs
 new file mode 100644
-index 0000000000..9ff21dee61
+index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d32394d1f045
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/quota_handoff.rs
 @@ -0,0 +1,330 @@
@@ -774,7 +781,7 @@ index 0000000000..9ff21dee61
 +        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
 +}
 diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
-index 2eb02f3a78..772b378721 100644
+index 2eb02f3a785548a4e6969c68177248288eaf5a2c..772b3787217367d08ef88682bf7b05064e1c85b7 100644
 --- a/codex-rs/tui/src/chatwidget/tests.rs
 +++ b/codex-rs/tui/src/chatwidget/tests.rs
 @@ -250,6 +250,7 @@ mod plan_mode;
@@ -787,7 +794,7 @@ index 2eb02f3a78..772b378721 100644
  mod slash_commands;
 diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 new file mode 100644
-index 0000000000..418d1e45e4
+index 0000000000000000000000000000000000000000..418d1e45e48f8b4b30bb707d139a7cb8d25c4439
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 @@ -0,0 +1,159 @@
@@ -951,7 +958,7 @@ index 0000000000..418d1e45e4
 +    );
 +}
 diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
-index ca92adbee6..1b403a0312 100644
+index ca92adbee6685262423d3b4be43d2887551da1ae..1b403a03122ed215b5439daba3e5ba88e5afaaac 100644
 --- a/codex-rs/tui/src/chatwidget/user_messages.rs
 +++ b/codex-rs/tui/src/chatwidget/user_messages.rs
 @@ -26,7 +26,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
@@ -999,7 +1006,7 @@ index ca92adbee6..1b403a0312 100644
      pub(super) text: String,
      pub(super) local_images: Vec<LocalImageAttachment>,
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
-index 50d877cce1..5ce1c3a0b7 100644
+index 50d877cce1ebaad6727e4fc011ab2fc4196c1e32..5ce1c3a0b77d1592b90ab5b87e5e93cd6fffd42c 100644
 --- a/codex-rs/tui/src/cli.rs
 +++ b/codex-rs/tui/src/cli.rs
 @@ -4,6 +4,7 @@ use clap::Parser;
@@ -1022,10 +1029,10 @@ index 50d877cce1..5ce1c3a0b7 100644
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index a7b8eb64bf..ac6dfbaae2 100644
+index e1febc00ab1b1bf35a85c61635e72a563d37870c..4d07cc6a9b5b93302a39717162f3172dd2501b14 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1582,6 +1582,7 @@ async fn run_ratatui_app(
+@@ -1584,6 +1584,7 @@ async fn run_ratatui_app(
  
      let Cli {
          start_immediately,
@@ -1033,7 +1040,7 @@ index a7b8eb64bf..ac6dfbaae2 100644
          prompt,
          shared,
          no_alt_screen,
-@@ -1714,6 +1715,7 @@ async fn run_ratatui_app(
+@@ -1716,6 +1717,7 @@ async fn run_ratatui_app(
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,
          start_immediately,
@@ -1042,10 +1049,10 @@ index a7b8eb64bf..ac6dfbaae2 100644
          environment_manager,
          startup_elapsed_before_app,
 diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
-index 37bc86f8a5..92eeee1844 100644
+index a546d91b0ff00913011f0ba2f755a9b91eea4d11..9f42c6986ebb6f010f8634d14ca83f70e709d647 100644
 --- a/codex-rs/tui/src/main.rs
 +++ b/codex-rs/tui/src/main.rs
-@@ -14,12 +14,23 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+@@ -16,12 +16,23 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
      if let ExitReason::QuotaExceeded {
          thread_id,
          resume_args,

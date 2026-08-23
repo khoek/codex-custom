@@ -1,8 +1,102 @@
+diff --git a/codex-rs/arg0/src/lib.rs b/codex-rs/arg0/src/lib.rs
+index f44dc145b15d656fc04d87affe6e760de090ee35..84b19564ea2c4bcebd199a81c7c053fe2b62680a 100644
+--- a/codex-rs/arg0/src/lib.rs
++++ b/codex-rs/arg0/src/lib.rs
+@@ -209,17 +209,18 @@ fn prepare_path_env_var_with_aliases(
+ ///     `codex-linux-sandbox` helper path (falling back to the current
+ ///     executable if needed) so children can re-invoke the sandbox when running
+ ///     on Linux.
+-/// 5.  Execute the provided async `main_fn` inside that runtime, forwarding any
+-///     error. Note that `main_fn` receives [`Arg0DispatchPaths`], which
++/// 5.  Execute the provided async `main_fn` inside that runtime, forwarding its
++///     return value or error. Note that `main_fn` receives [`Arg0DispatchPaths`], which
+ ///     contains the helper executable paths needed to construct
+ ///     [`codex_core::config::Config`].
+ ///
+ /// This function should be used to wrap any `main()` function in binary crates
+ /// in this workspace that depends on these helper CLIs.
+-pub fn arg0_dispatch_or_else<F, Fut>(main_fn: F) -> anyhow::Result<()>
++pub fn arg0_dispatch_or_else<F, Fut, T>(main_fn: F) -> anyhow::Result<T>
+ where
+     F: FnOnce(Arg0DispatchPaths) -> Fut + Send + 'static,
+-    Fut: Future<Output = anyhow::Result<()>>,
++    Fut: Future<Output = anyhow::Result<T>>,
++    T: Send + 'static,
+ {
+     // Retain the TempDir so it exists for the lifetime of the invocation of
+     // this executable. Admittedly, we could invoke `keep()` on it, but it
+@@ -247,14 +248,14 @@ where
+     }
+ }
+ 
+-async fn run_main_with_arg0_guard<F, Fut>(
++async fn run_main_with_arg0_guard<F, Fut, T>(
+     path_entry_guard: Option<Arg0PathEntryGuard>,
+     current_exe: Option<PathBuf>,
+     main_fn: F,
+-) -> anyhow::Result<()>
++) -> anyhow::Result<T>
+ where
+     F: FnOnce(Arg0DispatchPaths) -> Fut,
+-    Fut: Future<Output = anyhow::Result<()>>,
++    Fut: Future<Output = anyhow::Result<T>>,
+ {
+     let paths = Arg0DispatchPaths {
+         codex_self_exe: current_exe.clone(),
+@@ -674,7 +675,7 @@ mod tests {
+ 
+     #[cfg(unix)]
+     #[test]
+-    fn run_main_with_arg0_guard_keeps_aliases_alive_until_main_returns() -> anyhow::Result<()> {
++    fn run_main_with_arg0_guard_keeps_aliases_alive_and_returns_main_value() -> anyhow::Result<()> {
+         let temp_dir = TempDir::new()?;
+         let alias_path = temp_dir.path().join("codex-helper-alias");
+         fs::write(&alias_path, b"")?;
+@@ -689,7 +690,7 @@ mod tests {
+             },
+         );
+ 
+-        super::build_runtime()?.block_on(run_main_with_arg0_guard(
++        let result = super::build_runtime()?.block_on(run_main_with_arg0_guard(
+             /*path_entry_guard*/ Some(path_entry),
+             Some(PathBuf::from("/usr/bin/codex")),
+             |paths| async move {
+@@ -710,9 +711,12 @@ mod tests {
+                     "alias path disappeared while main future was running: {}",
+                     alias_path.display()
+                 );
+-                Ok(())
++                Ok(75)
+             },
+-        ))
++        ))?;
++
++        assert_eq!(result, 75);
++        Ok(())
+     }
+ 
+     #[test]
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 83fe61e969..8ec08899ef 100644
+index 83fe61e9690a097e60608a5ee1aef9918c096874..46f76f11afbca4848b5971676fcbbaaed1605d02 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -785,6 +785,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
+@@ -31,6 +31,7 @@ use codex_state::StateRuntime;
+ use codex_tui::AppExitInfo;
+ use codex_tui::Cli as TuiCli;
+ use codex_tui::ExitReason;
++use codex_tui::QUOTA_EXCEEDED_EXIT_CODE;
+ use codex_tui::UpdateAction;
+ use codex_utils_absolute_path::AbsolutePathBuf;
+ use codex_utils_cli::CliConfigOverrides;
+@@ -41,6 +42,7 @@ use std::collections::HashSet;
+ use std::io::IsTerminal;
+ use std::io::Write;
+ use std::path::PathBuf;
++use std::process::ExitCode;
+ use std::sync::Arc;
+ use supports_color::Stream;
+ 
+@@ -785,6 +787,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
  }
  
  fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
@@ -20,32 +114,102 @@ index 83fe61e969..8ec08899ef 100644
      let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
      let AppExitInfo {
          token_usage,
-@@ -814,11 +825,13 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+@@ -813,13 +826,14 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+ }
  
  /// Handle the app exit and print the results. Optionally run the update action.
- fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
-+    let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded { .. });
-     let is_fatal = match &exit_info.exit_reason {
+-fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+-    let is_fatal = match &exit_info.exit_reason {
++fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<ExitCode> {
++    let (exit_code, run_update) = match &exit_info.exit_reason {
          ExitReason::Fatal(message) => {
              eprintln!("ERROR: {message}");
-             true
+-            true
++            (ExitCode::FAILURE, false)
          }
-+        ExitReason::QuotaExceeded { .. } => false,
-         ExitReason::UserRequested => false,
+-        ExitReason::UserRequested => false,
++        ExitReason::QuotaExceeded { .. } => (ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE), false),
++        ExitReason::UserRequested => (ExitCode::SUCCESS, true),
      };
  
-@@ -827,6 +840,10 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+     let update_action = exit_info.update_action;
+@@ -827,14 +841,11 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
      for line in format_exit_messages(exit_info, color_enabled) {
          println!("{line}");
      }
-+    if quota_exceeded {
-+        std::io::stdout().flush()?;
-+        return Ok(());
-+    }
-     if is_fatal {
-         std::io::stdout().flush()?;
-         std::process::exit(1);
-@@ -2799,6 +2816,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+-    if is_fatal {
+-        std::io::stdout().flush()?;
+-        std::process::exit(1);
+-    }
+-    if let Some(action) = update_action {
++    std::io::stdout().flush()?;
++    if run_update && let Some(action) = update_action {
+         run_update_action(action)?;
+     }
+-    Ok(())
++    Ok(exit_code)
+ }
+ 
+ /// Run the update action and print the result.
+@@ -1037,18 +1048,17 @@ fn stage_str(stage: Stage) -> &'static str {
+     }
+ }
+ 
+-fn main() -> anyhow::Result<()> {
++fn main() -> anyhow::Result<ExitCode> {
+     let remote_control_disabled = codex_app_server::take_remote_control_disabled_env();
+     arg0_dispatch_or_else(move |arg0_paths: Arg0DispatchPaths| async move {
+-        cli_main(arg0_paths, remote_control_disabled).await?;
+-        Ok(())
++        cli_main(arg0_paths, remote_control_disabled).await
+     })
+ }
+ 
+ async fn cli_main(
+     arg0_paths: Arg0DispatchPaths,
+     remote_control_disabled: bool,
+-) -> anyhow::Result<()> {
++) -> anyhow::Result<ExitCode> {
+     let MultitoolCli {
+         config_overrides: mut root_config_overrides,
+         feature_toggles,
+@@ -1139,7 +1149,7 @@ async fn cli_main(
+                 arg0_paths.clone(),
+             )
+             .await?;
+-            handle_app_exit(exit_info)?;
++            return handle_app_exit(exit_info);
+         }
+         Some(Subcommand::Exec(mut exec_cli)) => {
+             reject_remote_mode_for_subcommand(
+@@ -1423,7 +1433,7 @@ async fn cli_main(
+                 arg0_paths.clone(),
+             )
+             .await?;
+-            handle_app_exit(exit_info)?;
++            return handle_app_exit(exit_info);
+         }
+         Some(Subcommand::Archive(cmd)) => {
+             let output = run_session_archive_cli_command(
+@@ -1510,7 +1520,7 @@ async fn cli_main(
+                 arg0_paths.clone(),
+             )
+             .await?;
+-            handle_app_exit(exit_info)?;
++            return handle_app_exit(exit_info);
+         }
+         Some(Subcommand::Login(mut login_cli)) => {
+             reject_remote_mode_for_subcommand(
+@@ -1818,7 +1828,7 @@ async fn cli_main(
+         },
+     }
+ 
+-    Ok(())
++    Ok(ExitCode::SUCCESS)
+ }
+ 
+ fn profile_v2_for_subcommand<'a>(
+@@ -2799,6 +2809,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          approval_policy,
          web_search,
          no_alt_screen,
@@ -53,7 +217,7 @@ index 83fe61e969..8ec08899ef 100644
          prompt,
          mut config_overrides,
          ..
-@@ -2819,6 +2837,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2819,6 +2830,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          interactive.web_search = true;
      }
      interactive.no_alt_screen |= no_alt_screen;
@@ -63,7 +227,7 @@ index 83fe61e969..8ec08899ef 100644
      if strict_config {
          interactive.strict_config = true;
      }
-@@ -3688,6 +3709,37 @@ mod tests {
+@@ -3688,6 +3702,55 @@ mod tests {
          assert!(lines.is_empty());
      }
  
@@ -98,10 +262,28 @@ index 83fe61e969..8ec08899ef 100644
 +        }
 +    }
 +
++    #[test]
++    fn handle_app_exit_returns_the_quota_protocol_status() {
++        let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
++        let mut exit_info = sample_exit_info(
++            Some("123e4567-e89b-12d3-a456-426614174000"),
++            /*thread_name*/ None,
++        );
++        exit_info.exit_reason = ExitReason::QuotaExceeded {
++            thread_id,
++            resume_args: vec!["--model".to_string(), "gpt-5.6".to_string()],
++        };
++
++        assert_eq!(
++            handle_app_exit(exit_info).unwrap(),
++            ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE)
++        );
++    }
++
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -3858,6 +3910,22 @@ mod tests {
+@@ -3858,6 +3921,22 @@ mod tests {
          assert!(interactive.resume_show_all);
      }
  
@@ -125,7 +307,7 @@ index 83fe61e969..8ec08899ef 100644
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 70d147de53..7660b519be 100644
+index 70d147de5314040654470be4cdbccc98d9b4d680..7660b519be0e6392882896fa2561854969c87dfd 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
 @@ -444,6 +444,10 @@ pub(crate) enum AppRunControl {
@@ -152,7 +334,7 @@ index 70d147de53..7660b519be 100644
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index d1bd3ad6e8..47e77b0ee9 100644
+index d1bd3ad6e8ca37f0051b4a5889e1ec25dee98f29..01733a2e00cda32a1b44c332f4eb23e230a13222 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -7,12 +7,14 @@ use super::app_server_event_targets::server_notification_thread_target;
@@ -170,19 +352,20 @@ index d1bd3ad6e8..47e77b0ee9 100644
  use codex_app_server_protocol::RateLimitReachedType;
  use codex_app_server_protocol::RequestId;
  use codex_app_server_protocol::ServerNotification;
-@@ -21,8 +23,55 @@ use codex_app_server_protocol::SessionSource;
+@@ -20,9 +22,56 @@ use codex_app_server_protocol::ServerRequest;
+ use codex_app_server_protocol::SessionSource;
  use codex_app_server_protocol::ThreadReadParams;
  use codex_app_server_protocol::ThreadReadResponse;
- use codex_protocol::protocol::SubAgentSource;
 +use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
-+
+ use codex_protocol::protocol::SubAgentSource;
+ 
 +fn quota_recovery_config_override(key: &str, value: &str) -> String {
 +    format!(
 +        "{key}={}",
 +        serde_json::to_string(value).expect("a string always serializes as JSON")
 +    )
 +}
- 
++
  impl App {
 +    pub(super) fn quota_recovery_args(&self) -> Vec<String> {
 +        let (model, model_provider, service_tier, reasoning_effort) =
@@ -261,7 +444,7 @@ index d1bd3ad6e8..47e77b0ee9 100644
              }
              ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index ee9b713a76..3f431d76e0 100644
+index ee9b713a764fc1909dca4dd413c3d64c81354f2e..3f431d76e0b6fa8c42495a68340f3c554e69c3ad 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -67,6 +67,7 @@ impl App {
@@ -296,7 +479,7 @@ index ee9b713a76..3f431d76e0 100644
          let resume_hint = resume_hint_for_resumable_thread(
              thread_id,
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index acca925a6a..4a70f5fe99 100644
+index acca925a6a38c94e26105eb8299557fa8814cb9f..4a70f5fe9959a80656e8fc5d8744d1b255b8fc03 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
 @@ -57,6 +57,8 @@ pub(super) async fn make_test_app() -> App {
@@ -309,7 +492,7 @@ index acca925a6a..4a70f5fe99 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 7b043346f0..7cee362c45 100644
+index 7b043346f0256bd1c56d598185347423c24e31b3..7cee362c45e35ababe87aeaa0ac642855da595b3 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
 @@ -5282,6 +5282,8 @@ async fn make_test_app() -> App {
@@ -331,7 +514,7 @@ index 7b043346f0..7cee362c45 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index 21f0089f91..9e690614e4 100644
+index 21f0089f91a798217e2d81f2a6b56f30a3745d51..0af328e43bae24294d9f4621949564d41676fc55 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
 @@ -100,6 +100,134 @@ fn deliver_usage_limit_error(app: &mut App) {
@@ -470,7 +653,7 @@ index 21f0089f91..9e690614e4 100644
  async fn rolling_workspace_hard_stops_invalidate_older_rate_limit_reads() -> Result<()> {
      let (mut app, _app_event_rx, _op_rx) = make_test_app_with_channels().await;
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
-index 641dd621e4..c53c6e3e9c 100644
+index 641dd621e45ace897cdcc9c9a70af7d1ebe59762..c53c6e3e9cbbba809353c05f92f65bb5de377969 100644
 --- a/codex-rs/tui/src/cli.rs
 +++ b/codex-rs/tui/src/cli.rs
 @@ -69,6 +69,10 @@ pub struct Cli {
@@ -485,10 +668,19 @@ index 641dd621e4..c53c6e3e9c 100644
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 490c06984e..dec81b9015 100644
+index 490c06984e9383d84f04fc54bf4365148231ae47..226c812244e61bc021d5b6cd1271b5a432a6da79 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1584,6 +1584,7 @@ async fn run_ratatui_app(
+@@ -22,6 +22,8 @@ use additional_dirs::add_dir_warning_message;
+ use app::App;
+ pub use app::AppExitInfo;
+ pub use app::ExitReason;
++/// Process status emitted with a quota recovery marker.
++pub const QUOTA_EXCEEDED_EXIT_CODE: u8 = 75;
+ use app_server_session::AppServerSession;
+ use app_server_session::ThreadParamsMode;
+ use codex_app_server_client::AppServerClient;
+@@ -1584,6 +1586,7 @@ async fn run_ratatui_app(
          prompt,
          shared,
          no_alt_screen,
@@ -496,7 +688,7 @@ index 490c06984e..dec81b9015 100644
          ..
      } = cli;
      let images = shared.into_inner().images;
-@@ -1705,6 +1706,7 @@ async fn run_ratatui_app(
+@@ -1705,6 +1708,7 @@ async fn run_ratatui_app(
          cloud_config_bundle,
          prompt,
          images,
@@ -505,10 +697,18 @@ index 490c06984e..dec81b9015 100644
          feedback,
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
 diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
-index 486dbe6499..37bc86f8a5 100644
+index 486dbe6499dda71b65507cb01a1b53943ef3c30f..a546d91b0ff00913011f0ba2f755a9b91eea4d11 100644
 --- a/codex-rs/tui/src/main.rs
 +++ b/codex-rs/tui/src/main.rs
-@@ -11,6 +11,17 @@ use std::io::Write;
+@@ -5,12 +5,25 @@ use codex_config::LoaderOverrides;
+ use codex_tui::AppExitInfo;
+ use codex_tui::Cli;
+ use codex_tui::ExitReason;
++use codex_tui::QUOTA_EXCEEDED_EXIT_CODE;
+ use codex_tui::run_main;
+ use codex_utils_cli::CliConfigOverrides;
+ use std::io::Write;
++use std::process::ExitCode;
  use supports_color::Stream;
  
  fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
@@ -526,28 +726,41 @@ index 486dbe6499..37bc86f8a5 100644
      let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
      let AppExitInfo {
          token_usage,
-@@ -62,11 +73,13 @@ fn main() -> anyhow::Result<()> {
+@@ -47,7 +60,7 @@ struct TopCli {
+     inner: Cli,
+ }
+ 
+-fn main() -> anyhow::Result<()> {
++fn main() -> anyhow::Result<ExitCode> {
+     arg0_dispatch_or_else(|arg0_paths: Arg0DispatchPaths| async move {
+         let top_cli = TopCli::parse();
+         let mut inner = top_cli.inner;
+@@ -62,22 +75,20 @@ fn main() -> anyhow::Result<()> {
              /*explicit_remote_endpoint*/ None,
          )
          .await?;
-+        let quota_exceeded = matches!(&exit_info.exit_reason, ExitReason::QuotaExceeded { .. });
-         let is_fatal = match &exit_info.exit_reason {
+-        let is_fatal = match &exit_info.exit_reason {
++        let exit_code = match &exit_info.exit_reason {
              ExitReason::Fatal(message) => {
                  eprintln!("ERROR: {message}");
-                 true
+-                true
++                ExitCode::FAILURE
              }
-+            ExitReason::QuotaExceeded { .. } => false,
-             ExitReason::UserRequested => false,
+-            ExitReason::UserRequested => false,
++            ExitReason::QuotaExceeded { .. } => ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE),
++            ExitReason::UserRequested => ExitCode::SUCCESS,
          };
  
-@@ -74,6 +87,10 @@ fn main() -> anyhow::Result<()> {
+         let color_enabled = supports_color::on(Stream::Stdout).is_some();
          for line in format_exit_messages(exit_info, color_enabled) {
              println!("{line}");
          }
-+        if quota_exceeded {
-+            std::io::stdout().flush()?;
-+            return Ok(());
-+        }
-         if is_fatal {
-             std::io::stdout().flush()?;
-             std::process::exit(1);
+-        if is_fatal {
+-            std::io::stdout().flush()?;
+-            std::process::exit(1);
+-        }
+-        Ok(())
++        std::io::stdout().flush()?;
++        Ok(exit_code)
+     })
+ }
