@@ -55,7 +55,7 @@ usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
-expected auto-dismissed UI and `0.149.0+k` snapshot output.
+expected auto-dismissed UI and `0.149.1+k` snapshot output.
 
 The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
 flag present, a terminal typed `UsageLimitExceeded` error from either the main
