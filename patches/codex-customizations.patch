@@ -1,8 +1,8 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 102f40aec6..733490bcfe 100644
+index 455682e142..a0f7cb7515 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -101,7 +101,7 @@ use codex_terminal_detection::TerminalName;
+@@ -103,7 +103,7 @@ use codex_terminal_detection::TerminalName;
  #[derive(Debug, Parser)]
  #[clap(
      author,
@@ -12,7 +12,7 @@ index 102f40aec6..733490bcfe 100644
      subcommand_negates_reqs = true,
      // The executable is sometimes invoked via a platform‑specific name like
 diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
-index 25f8689fd8..648458c1df 100644
+index 8a46e6ce18..58f55f1797 100644
 --- a/codex-rs/core/src/compact_remote_request.rs
 +++ b/codex-rs/core/src/compact_remote_request.rs
 @@ -7,9 +7,11 @@ use crate::client::CompactConversationRequestSettings;
@@ -28,9 +28,9 @@ index 25f8689fd8..648458c1df 100644
  use codex_protocol::models::ResponseItem;
  use codex_rollout_trace::CompactionTraceContext;
 @@ -74,27 +76,40 @@ pub(super) async fn run_remote_compact_attempt(
-         window_id,
-         CodexResponsesRequestKind::Compaction(compaction_metadata),
-     );
+             CodexResponsesRequestKind::Compaction(compaction_metadata),
+         )
+         .await;
 -    let new_history = sess
 -        .services
 -        .model_client
@@ -89,7 +89,7 @@ index 25f8689fd8..648458c1df 100644
          new_history,
          trace_input_history,
 diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
-index 89d5c5a1b1..a8afe28c0c 100644
+index b7cebf0b4d..abbbe21418 100644
 --- a/codex-rs/core/src/compact_remote_v2.rs
 +++ b/codex-rs/core/src/compact_remote_v2.rs
 @@ -26,6 +26,7 @@ use crate::responses_metadata::CompactionTurnMetadata;
@@ -100,7 +100,7 @@ index 89d5c5a1b1..a8afe28c0c 100644
  use crate::session::session::Session;
  use crate::session::step_context::StepContext;
  use crate::session::turn_context::TurnContext;
-@@ -360,6 +361,7 @@ async fn run_remote_compaction_request_v2(
+@@ -376,6 +377,7 @@ async fn run_remote_compaction_request_v2(
          .stream_max_retries()
          .min(MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES);
      let mut retry_state = ResponsesStreamRetryState::default();
@@ -108,7 +108,7 @@ index 89d5c5a1b1..a8afe28c0c 100644
      loop {
          let result = match client_session
              .stream(
-@@ -380,6 +382,10 @@ async fn run_remote_compaction_request_v2(
+@@ -396,6 +398,10 @@ async fn run_remote_compaction_request_v2(
  
          match result {
              Ok(compaction_output) => return Ok(compaction_output),
@@ -169,10 +169,10 @@ index 178c13df49..fb578083e9 100644
      request: ResponsesStreamRequest,
      turn_context: &TurnContext,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 33b77fadf4..bd340da8ed 100644
+index d14cadcad9..00cd8174de 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4040,14 +4040,19 @@ impl Session {
+@@ -4187,14 +4187,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -197,7 +197,7 @@ index 33b77fadf4..bd340da8ed 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
-index 7ff56e4da3..ba4ba5737d 100644
+index 850166360d..42e64951e1 100644
 --- a/codex-rs/core/src/session/turn.rs
 +++ b/codex-rs/core/src/session/turn.rs
 @@ -32,6 +32,7 @@ use crate::responses_metadata::CodexResponsesRequestKind;
@@ -208,7 +208,7 @@ index 7ff56e4da3..ba4ba5737d 100644
  use crate::session::PreviousTurnSettings;
  use crate::session::TurnInput;
  use crate::session::session::Session;
-@@ -1344,6 +1345,7 @@ async fn run_sampling_request(
+@@ -1375,6 +1376,7 @@ async fn run_sampling_request(
      );
      let max_retries = turn_context.provider.info().stream_max_retries();
      let mut retry_state = ResponsesStreamRetryState::default();
@@ -216,7 +216,7 @@ index 7ff56e4da3..ba4ba5737d 100644
      let mut initial_input = Some(input);
      let mut original_input = None;
      let mut executed_tool_calls_by_output = HashMap::new();
-@@ -1403,6 +1405,13 @@ async fn run_sampling_request(
+@@ -1434,6 +1436,13 @@ async fn run_sampling_request(
              original_input = Some(prompt.input);
          }
  

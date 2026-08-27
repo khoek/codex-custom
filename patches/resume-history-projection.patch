@@ -1,0 +1,414 @@
+diff --git a/codex-rs/rollout/src/ordinal.rs b/codex-rs/rollout/src/ordinal.rs
+index 3f002aec8a..892df7eb74 100644
+--- a/codex-rs/rollout/src/ordinal.rs
++++ b/codex-rs/rollout/src/ordinal.rs
+@@ -10,7 +10,6 @@ use codex_protocol::protocol::HistoryPosition;
+ use codex_protocol::protocol::ThreadHistoryMode;
+ 
+ use crate::RolloutItem;
+-use crate::RolloutLine;
+ use crate::reverse_jsonl_scanner::ReverseJsonlScanner;
+ use crate::reverse_jsonl_scanner::ScanOutcome;
+ 
+@@ -67,7 +66,7 @@ pub(crate) fn ordinal_state_for_rollout(
+ 
+     let mut scanner = ReverseJsonlScanner::new(file)?;
+     let record = loop {
+-        match scanner.scan_next::<RolloutLine>()? {
++        match scanner.scan_next_rollout_line()? {
+             Some(ScanOutcome::Parsed(record)) => break record,
+             Some(ScanOutcome::Rejected(_)) => continue,
+             None => {
+@@ -111,12 +110,14 @@ fn read_history_metadata(
+         if line.trim().is_empty() {
+             continue;
+         }
+-        let record: RolloutLine = serde_json::from_str(line.as_str()).map_err(|error| {
+-            io::Error::other(format!(
+-                "failed to parse first rollout record at {}: {error}",
+-                path.display()
+-            ))
+-        })?;
++        let record = serde_json::from_str(line.as_str())
++            .and_then(crate::decode_rollout_line)
++            .map_err(|error| {
++                io::Error::other(format!(
++                    "failed to parse first rollout record at {}: {error}",
++                    path.display()
++                ))
++            })?;
+         let RolloutItem::SessionMeta(session_meta) = record.item else {
+             return Err(io::Error::other(format!(
+                 "rollout at {} does not start with session metadata",
+diff --git a/codex-rs/rollout/src/recorder_tests.rs b/codex-rs/rollout/src/recorder_tests.rs
+index 0c4e663aa3..9270f13277 100644
+--- a/codex-rs/rollout/src/recorder_tests.rs
++++ b/codex-rs/rollout/src/recorder_tests.rs
+@@ -980,6 +980,33 @@ async fn resumed_paginated_rollout_continues_after_ordinal_gap() -> std::io::Res
+     recorder.shutdown().await
+ }
+ 
++#[tokio::test]
++async fn resumed_paginated_rollout_continues_after_structured_token_count() -> std::io::Result<()> {
++    let home = TempDir::new().expect("temp dir");
++    let config = test_config(home.path());
++    let rollout_path = home.path().join("rollout.jsonl");
++    write_paginated_rollout(&rollout_path, ThreadId::new(), &[])?;
++    let mut file = fs::OpenOptions::new().append(true).open(&rollout_path)?;
++    let token_count = r#"{"timestamp":"2026-07-09T00:00:01Z","ordinal":1,"type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"limit_id":null,"limit_name":null,"primary":{"used_percent":12.5,"window_minutes":60,"resets_at":1800000000},"secondary":null,"credits":null,"individual_limit":null,"spend_control_reached":null,"plan_type":null,"rate_limit_reached_type":null}}}"#;
++    writeln!(file, "{token_count}")?;
++    drop(file);
++
++    let recorder =
++        RolloutRecorder::new(&config, RolloutRecorderParams::resume(rollout_path.clone())).await?;
++    recorder
++        .record_canonical_items(&[agent_message_item("after-token-count")])
++        .await?;
++    recorder.flush().await?;
++
++    let ordinals = fs::read_to_string(&rollout_path)?
++        .lines()
++        .map(serde_json::from_str::<serde_json::Value>)
++        .map(|value| value.map(|value| value["ordinal"].as_u64()))
++        .collect::<Result<Vec<_>, _>>()?;
++    assert_eq!(ordinals, vec![Some(0), Some(1), Some(2)]);
++    recorder.shutdown().await
++}
++
+ #[tokio::test]
+ async fn resumed_paginated_rollout_repairs_unsafe_tail() -> std::io::Result<()> {
+     let valid_unterminated = serde_json::to_string(&RolloutLine {
+diff --git a/codex-rs/rollout/src/reverse_jsonl_scanner.rs b/codex-rs/rollout/src/reverse_jsonl_scanner.rs
+index 70919a7e61..f2cf0724cf 100644
+--- a/codex-rs/rollout/src/reverse_jsonl_scanner.rs
++++ b/codex-rs/rollout/src/reverse_jsonl_scanner.rs
+@@ -128,6 +128,25 @@ where
+         }
+     }
+ 
++    /// Scans the next persisted rollout record with the canonical JSON decoder.
++    ///
++    /// Rollout envelopes cannot always be deserialized directly when
++    /// `serde_json/arbitrary_precision` is enabled. Keep reverse readers on the same
++    /// value-first path as forward rollout loading.
++    pub fn scan_next_rollout_line(
++        &mut self,
++    ) -> io::Result<Option<ScanOutcome<crate::RolloutLine>>> {
++        Ok(self
++            .scan_next::<serde_json::Value>()?
++            .map(|outcome| match outcome {
++                ScanOutcome::Parsed(value) => match crate::decode_rollout_line(value) {
++                    Ok(line) => ScanOutcome::Parsed(line),
++                    Err(error) => ScanOutcome::Rejected(error),
++                },
++                ScanOutcome::Rejected(error) => ScanOutcome::Rejected(error),
++            }))
++    }
++
+     fn finish_record<T>(&mut self) -> Option<ScanOutcome<T>>
+     where
+         T: DeserializeOwned,
+diff --git a/codex-rs/thread-store/src/local/model_context.rs b/codex-rs/thread-store/src/local/model_context.rs
+index ce70a00bf4..82287649fe 100644
+--- a/codex-rs/thread-store/src/local/model_context.rs
++++ b/codex-rs/thread-store/src/local/model_context.rs
+@@ -8,7 +8,6 @@ use codex_rollout::ModelContextScan;
+ use codex_rollout::ModelContextScanProgress;
+ use codex_rollout::ReverseJsonlScanner;
+ use codex_rollout::RolloutItem;
+-use codex_rollout::RolloutLine;
+ use codex_rollout::ScanOutcome;
+ 
+ use super::LocalThreadStore;
+@@ -142,7 +141,7 @@ fn scan_model_context_from_lineage_blocking(
+             Some(end_byte_offset) => ReverseJsonlScanner::new_at(file, end_byte_offset)?,
+             None => ReverseJsonlScanner::new(file)?,
+         };
+-        while let Some(outcome) = scanner.scan_next::<RolloutLine>()? {
++        while let Some(outcome) = scanner.scan_next_rollout_line()? {
+             let ScanOutcome::Parsed(line) = outcome else {
+                 continue;
+             };
+diff --git a/codex-rs/thread-store/src/local/model_context_tests.rs b/codex-rs/thread-store/src/local/model_context_tests.rs
+index 7e83d8a74f..308e6dd332 100644
+--- a/codex-rs/thread-store/src/local/model_context_tests.rs
++++ b/codex-rs/thread-store/src/local/model_context_tests.rs
+@@ -81,6 +81,49 @@ async fn loads_latest_checkpoint_with_required_turn_metadata() {
+     }));
+ }
+ 
++#[tokio::test]
++async fn retains_structured_token_count_in_resumed_context() {
++    let home = TempDir::new().expect("temp dir");
++    let uuid = Uuid::from_u128(/*v*/ 1008);
++    let thread_id = ThreadId::from_string(&uuid.to_string()).expect("thread id");
++    let path = write_paginated_rollout(
++        home.path(),
++        "2025-01-03T13-00-07",
++        uuid,
++        [turn_started("turn-1")],
++    );
++    let token_count = r#"{"timestamp":"2025-01-03T13:00:02Z","ordinal":2,"type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"limit_id":null,"limit_name":null,"primary":{"used_percent":12.5,"window_minutes":60,"resets_at":1800000000},"secondary":null,"credits":null,"individual_limit":null,"spend_control_reached":null,"plan_type":null,"rate_limit_reached_type":null}}}"#;
++    let mut file = OpenOptions::new()
++        .append(true)
++        .open(path)
++        .expect("open rollout");
++    writeln!(file, "{token_count}").expect("append token count");
++
++    let store = LocalThreadStore::new(test_config(home.path()), /*state_db*/ None);
++    let context = store
++        .load_latest_model_context(LoadThreadHistoryParams {
++            thread_id,
++            include_archived: false,
++        })
++        .await
++        .expect("load model context");
++    let token_counts = context
++        .items
++        .into_iter()
++        .filter(|item| matches!(item, RolloutItem::EventMsg(EventMsg::TokenCount(_))))
++        .collect::<Vec<_>>();
++    let expected = codex_rollout::decode_rollout_line(
++        serde_json::from_str(token_count).expect("parse token count"),
++    )
++    .expect("decode token count")
++    .item;
++
++    assert_eq!(
++        serde_json::to_value(token_counts).expect("serialize scanned token counts"),
++        serde_json::to_value([expected]).expect("serialize expected token count")
++    );
++}
++
+ #[tokio::test]
+ async fn fork_context_excludes_items_after_frozen_cutoff() {
+     let home = TempDir::new().expect("temp dir");
+diff --git a/codex-rs/thread-store/src/local/thread_history_materialization.rs b/codex-rs/thread-store/src/local/thread_history_materialization.rs
+index a63ed7fcb1..1d55d28cde 100644
+--- a/codex-rs/thread-store/src/local/thread_history_materialization.rs
++++ b/codex-rs/thread-store/src/local/thread_history_materialization.rs
+@@ -5,6 +5,7 @@ use chrono::DateTime;
+ use codex_app_server_protocol::ThreadHistoryChangeSet;
+ use codex_app_server_protocol::project_rollout_line;
+ use codex_protocol::ThreadId;
++use codex_protocol::protocol::EventMsg;
+ use codex_rollout::RolloutItem;
+ use tokio::io::AsyncReadExt;
+ use tokio::io::AsyncSeekExt;
+@@ -112,6 +113,7 @@ async fn read_projection_steps(
+     let mut next_ordinal = expected_ordinal;
+     let mut next_offset = start_offset;
+     let mut pending_rejected_line_count = 0;
++    let mut skipped_resume_boundary_duplicate = false;
+     let mut line_start_offset = start_offset;
+     // Keep rejected lines pending until a later valid ordinal proves whether they consumed history.
+     // This lets a same-ordinal retry replace a failed write without advancing only one checkpoint.
+@@ -186,6 +188,31 @@ async fn read_projection_steps(
+             }
+         };
+         if ordinal < next_ordinal {
++            if !skipped_resume_boundary_duplicate
++                && projections.is_empty()
++                && pending_rejected_line_count == 0
++                && ordinal.checked_add(1) == Some(next_ordinal)
++                && line.as_ref().is_some_and(|line| {
++                    matches!(
++                        &line.item,
++                        RolloutItem::EventMsg(EventMsg::ThreadSettingsApplied(_))
++                    )
++                })
++            {
++                warn!(
++                    thread_id = %thread_id,
++                    rollout_path = %rollout_path.display(),
++                    line_start_byte_offset = line_start_offset,
++                    line_end_byte_offset = line_end_offset,
++                    expected_ordinal = next_ordinal,
++                    replayed_ordinal = ordinal,
++                    "skipping duplicated thread settings at the resume projection boundary"
++                );
++                skipped_resume_boundary_duplicate = true;
++                next_offset = line_end_offset;
++                line_start_offset = line_end_offset;
++                continue;
++            }
+             return Err(ThreadStoreError::Internal {
+                 message: format!(
+                     "thread history projection for {thread_id} expected ordinal {next_ordinal}, got {ordinal}"
+diff --git a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
+index 4354e39244..0fe84f7eb8 100644
+--- a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
++++ b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
+@@ -6,6 +6,10 @@ use std::time::Duration;
+ use chrono::Utc;
+ use codex_app_server_protocol::ThreadItem;
+ use codex_protocol::ThreadId;
++use codex_protocol::config_types::ApprovalsReviewer;
++use codex_protocol::config_types::CollaborationMode;
++use codex_protocol::config_types::ModeKind;
++use codex_protocol::config_types::Settings;
+ use codex_protocol::items::AgentMessageContent;
+ use codex_protocol::items::AgentMessageItem;
+ use codex_protocol::items::TurnItem;
+@@ -13,7 +17,9 @@ use codex_protocol::items::UserMessageItem;
+ use codex_protocol::models::BaseInstructions;
+ use codex_protocol::models::ContentItem;
+ use codex_protocol::models::MessagePhase;
++use codex_protocol::models::PermissionProfile;
+ use codex_protocol::models::ResponseItem;
++use codex_protocol::protocol::AskForApproval;
+ use codex_protocol::protocol::EventMsg;
+ use codex_protocol::protocol::HistoryPosition;
+ use codex_protocol::protocol::ItemCompletedEvent;
+@@ -22,6 +28,8 @@ use codex_protocol::protocol::RateLimitWindow;
+ use codex_protocol::protocol::SessionSource;
+ use codex_protocol::protocol::ThreadHistoryMode;
+ use codex_protocol::protocol::ThreadMemoryMode;
++use codex_protocol::protocol::ThreadSettingsAppliedEvent;
++use codex_protocol::protocol::ThreadSettingsSnapshot;
+ use codex_protocol::protocol::TokenCountEvent;
+ use codex_protocol::protocol::TurnCompleteEvent;
+ use codex_protocol::protocol::TurnStartedEvent;
+@@ -1853,6 +1861,109 @@ SELECT
+     assert_eq!(projection_state(&pool, thread_id).await, (rollout_len, 3));
+ }
+ 
++#[tokio::test]
++async fn catch_up_skips_duplicate_resume_settings_boundary() {
++    let home = TempDir::new().expect("temp dir");
++    let store = projection_store(home.path()).await;
++    let thread_id = ThreadId::default();
++    create_paginated_thread(&store, thread_id).await;
++    store
++        .persist_thread(thread_id, PersistContext::Standard)
++        .await
++        .expect("persist session metadata");
++    store
++        .append_items(AppendThreadItemsParams {
++            thread_id,
++            items: vec![RolloutItem::EventMsg(EventMsg::TokenCount(
++                TokenCountEvent {
++                    info: None,
++                    rate_limits: None,
++                },
++            ))],
++        })
++        .await
++        .expect("append token count");
++
++    let pool = codex_state::open_thread_history_db(&codex_state::SqliteConfig::new_for_testing(
++        home.path().abs(),
++    ))
++    .await
++    .expect("open thread history db");
++    let rollout_path = store
++        .live_rollout_path(thread_id)
++        .await
++        .expect("rollout path");
++    assert_eq!(projection_state(&pool, thread_id).await.1, 2);
++    store
++        .shutdown_thread(thread_id)
++        .await
++        .expect("close rollout writer");
++
++    let duplicate_settings = RolloutItem::EventMsg(EventMsg::ThreadSettingsApplied(
++        ThreadSettingsAppliedEvent {
++            thread_settings: ThreadSettingsSnapshot {
++                model: "gpt-5".to_string(),
++                model_provider_id: "openai".to_string(),
++                service_tier: None,
++                approval_policy: AskForApproval::Never,
++                approvals_reviewer: ApprovalsReviewer::User,
++                permission_profile: PermissionProfile::read_only(),
++                active_permission_profile: None,
++                cwd: home.path().abs(),
++                reasoning_effort: None,
++                reasoning_summary: None,
++                personality: None,
++                collaboration_mode: CollaborationMode {
++                    mode: ModeKind::Default,
++                    settings: Settings {
++                        model: "gpt-5".to_string(),
++                        reasoning_effort: None,
++                        developer_instructions: None,
++                    },
++                },
++            },
++        },
++    ));
++    append_suffix(
++        rollout_path.as_path(),
++        format!("{}\n", rollout_line(Some(1), duplicate_settings)).as_str(),
++    );
++
++    super::materialize_to_sqlite(&store, thread_id, rollout_path.as_path())
++        .await
++        .expect("recover duplicated resume boundary");
++    let duplicate_rollout_len =
++        i64::try_from(fs::metadata(&rollout_path).expect("rollout metadata").len())
++            .expect("rollout length");
++    assert_eq!(
++        projection_state(&pool, thread_id).await,
++        (duplicate_rollout_len, 2)
++    );
++
++    append_suffix(
++        rollout_path.as_path(),
++        format!("{}\n", rollout_line(Some(2), turn_started("turn-1"))).as_str(),
++    );
++    super::materialize_to_sqlite(&store, thread_id, rollout_path.as_path())
++        .await
++        .expect("project item after duplicated resume boundary");
++
++    let rollout_len = i64::try_from(fs::metadata(rollout_path).expect("rollout metadata").len())
++        .expect("rollout length");
++    let turn_ordinal = sqlx::query_scalar::<_, i64>(
++        "SELECT rollout_ordinal FROM thread_turns WHERE thread_id = ? AND turn_id = ?",
++    )
++    .bind(thread_id.to_string())
++    .bind("turn-1")
++    .fetch_one(&pool)
++    .await
++    .expect("read recovered turn");
++    assert_eq!(
++        (projection_state(&pool, thread_id).await, turn_ordinal),
++        ((rollout_len, 3), 2)
++    );
++}
++
+ #[tokio::test]
+ async fn synchronized_catch_up_does_not_replay_old_rows() {
+     let home = TempDir::new().expect("temp dir");
+diff --git a/codex-rs/tui/src/resume_picker_transcript_preview.rs b/codex-rs/tui/src/resume_picker_transcript_preview.rs
+index a1044f02fb..ded3114572 100644
+--- a/codex-rs/tui/src/resume_picker_transcript_preview.rs
++++ b/codex-rs/tui/src/resume_picker_transcript_preview.rs
+@@ -22,7 +22,6 @@ use codex_protocol::ThreadId;
+ use codex_protocol::protocol::EventMsg;
+ use codex_rollout::ReverseJsonlScanner;
+ use codex_rollout::RolloutItem;
+-use codex_rollout::RolloutLine;
+ use codex_rollout::ScanOutcome;
+ 
+ const MAX_TRANSCRIPT_PREVIEW_LINES: usize = 6;
+@@ -161,7 +160,7 @@ fn scan_legacy_transcript_preview(
+     )?
+     .with_max_record_bytes(MAX_LEGACY_TRANSCRIPT_PREVIEW_SCAN_BYTES);
+     loop {
+-        let outcome = match scanner.scan_next::<RolloutLine>() {
++        let outcome = match scanner.scan_next_rollout_line() {
+             Ok(Some(outcome)) => outcome,
+             Ok(None) => break,
+             Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+diff --git a/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs b/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs
+index efc9a4b043..5a34b7d5c3 100644
+--- a/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs
++++ b/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs
+@@ -18,6 +18,7 @@ use codex_protocol::protocol::AgentMessageEvent;
+ use codex_protocol::protocol::ThreadRolledBackEvent;
+ use codex_protocol::protocol::UserMessageEvent;
+ use codex_rollout::CompactedItem;
++use codex_rollout::RolloutLine;
+ use core_test_support::responses;
+ use pretty_assertions::assert_eq;
+ use tempfile::tempdir;

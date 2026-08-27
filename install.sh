@@ -12,6 +12,7 @@ handoff_patch_file="$repo_dir/patches/quota-handoff.patch"
 auth_patch_file="$repo_dir/patches/auth-file.patch"
 refresh_patch_file="$repo_dir/patches/canonical-auth-refresh.patch"
 bell_patch_file="$repo_dir/patches/cybersecurity-abort-bell.patch"
+history_patch_file="$repo_dir/patches/resume-history-projection.patch"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
 launcher_dir="$HOME/.local/bin"
 launcher="$launcher_dir/codex"
@@ -172,6 +173,7 @@ done
 [ -f "$auth_patch_file" ] || die "missing patch: $auth_patch_file"
 [ -f "$refresh_patch_file" ] || die "missing patch: $refresh_patch_file"
 [ -f "$bell_patch_file" ] || die "missing patch: $bell_patch_file"
+[ -f "$history_patch_file" ] || die "missing patch: $history_patch_file"
 
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
     die "codex submodule has local changes; restore it to the pinned clean state before installing"
@@ -186,7 +188,8 @@ patch_digest=$(sha256_files \
     "$handoff_patch_file" \
     "$auth_patch_file" \
     "$refresh_patch_file" \
-    "$bell_patch_file")
+    "$bell_patch_file" \
+    "$history_patch_file")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
 patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
 commit_display=$(printf '%s' "$commit" | cut -c1-8)
@@ -213,7 +216,8 @@ cat \
     "$handoff_patch_file" \
     "$auth_patch_file" \
     "$refresh_patch_file" \
-    "$bell_patch_file" >"$patch_bundle"
+    "$bell_patch_file" \
+    "$history_patch_file" >"$patch_bundle"
 git -C "$codex_dir" apply --check "$patch_bundle" ||
     die "the customization patch series no longer applies to the pinned codex revision"
 

@@ -23,6 +23,9 @@ repository as a submodule and carries a small, ordered patch series:
    canonical file.
 8. [`patches/cybersecurity-abort-bell.patch`](patches/cybersecurity-abort-bell.patch)
    rings the terminal bell when a turn is aborted by the cybersecurity policy.
+9. [`patches/resume-history-projection.patch`](patches/resume-history-projection.patch)
+   preserves paginated history across repeated resumes and repairs projections
+   already blocked by the affected ordinal replay.
 
 The original code patch adds the downstream `+k` version marker, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -55,7 +58,7 @@ usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
-expected auto-dismissed UI and `0.149.1+k` snapshot output.
+expected auto-dismissed UI and `0.150.1+k` snapshot output.
 
 The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
 flag present, a terminal typed `UsageLimitExceeded` error from either the main
@@ -123,6 +126,14 @@ to the same lock when they refer to the same canonical file.
 The cybersecurity-abort-bell patch emits an unconditional terminal BEL when a
 typed `CyberPolicy` rejection reaches the dedicated abort notice. It does not
 depend on desktop-notification settings or whether the terminal is focused.
+
+The resume-history projection patch fixes
+[#35746](https://github.com/openai/codex/issues/35746). Reverse rollout scans use
+Codex's canonical value-first decoder, so a structured `token_count` containing
+a fractional rate-limit percentage cannot make resume reuse the preceding
+ordinal. For histories written by the buggy path, projection catch-up skips the
+single replayed `thread_settings_applied` boundary record and continues from the
+next monotonic ordinal; other ordinal regressions remain errors.
 
 ## Install
 
@@ -192,7 +203,8 @@ cat \
     ../patches/quota-handoff.patch \
     ../patches/auth-file.patch \
     ../patches/canonical-auth-refresh.patch \
-    ../patches/cybersecurity-abort-bell.patch >"$patch_bundle"
+    ../patches/cybersecurity-abort-bell.patch \
+    ../patches/resume-history-projection.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
 git -C codex apply "$patch_bundle"
 rm -f -- "$patch_bundle"
@@ -208,6 +220,7 @@ cargo build --release --bin codex --bin codex-code-mode-host
 To return the submodule to its pinned clean state:
 
 ```sh
+git -C codex apply --reverse ../patches/resume-history-projection.patch
 git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
 git -C codex apply --reverse ../patches/canonical-auth-refresh.patch
 git -C codex apply --reverse ../patches/auth-file.patch
@@ -233,10 +246,10 @@ and testing.
    `git -C codex checkout --detach <tag>`.
 4. Run the ordered `git apply --check` command above. If it fails, refresh only
    the affected patch, preserving the same order and separation of concerns.
-5. Apply all eight patches and run `just fmt` from `codex/codex-rs`. Run every
+5. Apply all nine patches and run `just fmt` from `codex/codex-rs`. Run every
    focused test plus the `codex-tui` and `codex-cli` crate suites. Auth-file
    selection is process-local, so upstream auth tests cannot inherit it from a
    supervising Codex process.
-6. Reverse all eight patches in reverse order, verify the submodule is clean,
+6. Reverse all nine patches in reverse order, verify the submodule is clean,
    update the release tag and commit in this README, and commit the new submodule
    pointer together with the refreshed patches and this README's pin.

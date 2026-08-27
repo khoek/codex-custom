@@ -1,5 +1,5 @@
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index 01c039c083..9691e30a70 100644
+index 2949b7039a..7d8ec7ae9e 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
 @@ -37,6 +37,7 @@ use super::agent_identity::register_managed_chatgpt_agent_identity;
@@ -10,7 +10,7 @@ index 01c039c083..9691e30a70 100644
  use super::revoke::revoke_auth_tokens;
  use super::workload_identity::WorkloadIdentityExternalAuth;
  use super::workload_identity::WorkloadIdentitySessionError;
-@@ -2632,6 +2633,12 @@ impl AuthManager {
+@@ -2667,6 +2668,12 @@ impl AuthManager {
          self.external_auth_provider().is_some()
      }
  
@@ -23,7 +23,7 @@ index 01c039c083..9691e30a70 100644
      pub fn is_workload_identity_selected(&self) -> bool {
          self.workload_identity_selected
      }
-@@ -2744,6 +2751,15 @@ impl AuthManager {
+@@ -2779,6 +2786,15 @@ impl AuthManager {
          {
              return Ok(());
          }
@@ -39,7 +39,7 @@ index 01c039c083..9691e30a70 100644
          let expected_account_id = auth_before_reload
              .as_ref()
              .and_then(CodexAuth::get_account_id);
-@@ -2776,6 +2792,40 @@ impl AuthManager {
+@@ -2811,6 +2827,40 @@ impl AuthManager {
                  REFRESH_TOKEN_UNKNOWN_MESSAGE.to_string(),
              ))
          })?;
@@ -81,10 +81,10 @@ index 01c039c083..9691e30a70 100644
      }
  
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index 4bc6eebc7a..7a8b3113e0 100644
+index 9ee798df72..3f371ae5b3 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
-@@ -11,6 +11,7 @@ mod workload_identity;
+@@ -12,6 +12,7 @@ mod workload_identity;
  
  mod external_bearer;
  mod manager;
@@ -188,10 +188,10 @@ index 0000000000..dd1f0410d0
 +    }
 +}
 diff --git a/codex-rs/login/tests/suite/auth_refresh.rs b/codex-rs/login/tests/suite/auth_refresh.rs
-index 68a82feb2d..620264d794 100644
+index 3a8579282d..98eefc46a9 100644
 --- a/codex-rs/login/tests/suite/auth_refresh.rs
 +++ b/codex-rs/login/tests/suite/auth_refresh.rs
-@@ -256,6 +256,108 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
+@@ -258,6 +258,109 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
      Ok(())
  }
  
@@ -263,6 +263,7 @@ index 68a82feb2d..620264d794 100644
 +        agent_identity: None,
 +        personal_access_token: None,
 +        bedrock_api_key: None,
++        bedrock_access_keys: None,
 +    };
 +    save_auth(
 +        first_home.path(),

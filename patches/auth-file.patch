@@ -1,5 +1,5 @@
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
-index db312c9c7e..38d69804b1 100644
+index 3fba0e2fdf..ca8b9f9083 100644
 --- a/codex-rs/cli/src/doctor.rs
 +++ b/codex-rs/cli/src/doctor.rs
 @@ -53,6 +53,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
@@ -20,10 +20,10 @@ index db312c9c7e..38d69804b1 100644
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 45218a6d39..7a5cc37d19 100644
+index c9a2ed6c67..a6d37abcfc 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -116,6 +116,10 @@ struct MultitoolCli {
+@@ -118,6 +118,10 @@ struct MultitoolCli {
      #[clap(flatten)]
      pub config_overrides: CliConfigOverrides,
  
@@ -34,7 +34,7 @@ index 45218a6d39..7a5cc37d19 100644
      #[clap(flatten)]
      pub feature_toggles: FeatureToggles,
  
-@@ -1051,11 +1055,15 @@ async fn cli_main(
+@@ -1114,11 +1118,15 @@ async fn cli_main(
  ) -> anyhow::Result<ExitCode> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
@@ -50,7 +50,7 @@ index 45218a6d39..7a5cc37d19 100644
      // Fold --enable/--disable into config overrides so they flow to all subcommands.
      let toggle_overrides = feature_toggles.to_overrides()?;
      root_config_overrides.raw_overrides.extend(toggle_overrides);
-@@ -2997,6 +3005,7 @@ mod tests {
+@@ -3069,6 +3077,7 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -58,7 +58,7 @@ index 45218a6d39..7a5cc37d19 100644
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3039,6 +3048,7 @@ mod tests {
+@@ -3111,6 +3120,7 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -66,7 +66,7 @@ index 45218a6d39..7a5cc37d19 100644
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3083,6 +3093,7 @@ mod tests {
+@@ -3155,6 +3165,7 @@ mod tests {
          let MultitoolCli {
              interactive,
              config_overrides: root_overrides,
@@ -75,10 +75,10 @@ index 45218a6d39..7a5cc37d19 100644
              feature_toggles: _,
              remote: _,
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index 8c76713b8f..4bc6eebc7a 100644
+index e4898f0976..9ee798df72 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
-@@ -13,6 +13,19 @@ mod external_bearer;
+@@ -14,6 +14,19 @@ mod external_bearer;
  mod manager;
  mod revoke;
  
@@ -96,10 +96,10 @@ index 8c76713b8f..4bc6eebc7a 100644
 +}
 +
  pub use auth_headers::AuthHeaders;
- pub use bedrock_api_key::BedrockApiKeyAuth;
- pub use bedrock_api_key::login_with_bedrock_api_key;
+ pub use bedrock_access_keys::BedrockAccessKeysAuth;
+ pub use bedrock_access_keys::login_with_bedrock_access_keys;
 diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
-index ae195f3bff..b40a32d526 100644
+index 8a9d75f448..1bde537b8a 100644
 --- a/codex-rs/login/src/auth/storage.rs
 +++ b/codex-rs/login/src/auth/storage.rs
 @@ -16,6 +16,7 @@ use std::path::Path;
@@ -109,8 +109,8 @@ index ae195f3bff..b40a32d526 100644
 +use std::sync::OnceLock;
  use tracing::warn;
  
- use super::BedrockApiKeyAuth;
-@@ -147,8 +148,27 @@ impl From<AgentIdentityJwtClaims> for AgentIdentityAuthRecord {
+ use super::BedrockAccessKeysAuth;
+@@ -151,8 +152,27 @@ impl From<AgentIdentityJwtClaims> for AgentIdentityAuthRecord {
      }
  }
  
@@ -140,10 +140,10 @@ index ae195f3bff..b40a32d526 100644
  
  pub(super) fn delete_file_if_exists(codex_home: &Path) -> std::io::Result<bool> {
 diff --git a/codex-rs/login/src/auth/storage_tests.rs b/codex-rs/login/src/auth/storage_tests.rs
-index 647af79b65..fd882c8e93 100644
+index 0c69343808..6a8dd29924 100644
 --- a/codex-rs/login/src/auth/storage_tests.rs
 +++ b/codex-rs/login/src/auth/storage_tests.rs
-@@ -63,6 +63,25 @@ async fn file_storage_save_persists_auth_dot_json() -> anyhow::Result<()> {
+@@ -65,6 +65,25 @@ async fn file_storage_save_persists_auth_dot_json() -> anyhow::Result<()> {
      Ok(())
  }
  
@@ -170,7 +170,7 @@ index 647af79b65..fd882c8e93 100644
  async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
      let codex_home = tempdir()?;
 diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
-index 717bd0f4b0..d3fa9ed833 100644
+index 33659722fd..1e6c20d1a3 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
 @@ -48,6 +48,7 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
@@ -181,7 +181,7 @@ index 717bd0f4b0..d3fa9ed833 100644
  pub use auth::default_client;
  pub use auth::enforce_login_restrictions;
  pub use auth::is_workload_identity_selected;
-@@ -61,6 +62,7 @@ pub use auth::oauth_client_id;
+@@ -62,6 +63,7 @@ pub use auth::oauth_client_id;
  pub use auth::read_codex_access_token_from_env;
  pub use auth::read_openai_api_key_from_env;
  pub use auth::save_auth;
