@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index cfe317bc8b..a2fc1bef2d 100644
+index 84c22011bf..1c72e6b5cb 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -197,6 +197,9 @@ impl App {
+@@ -198,6 +198,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -13,10 +13,10 @@ index cfe317bc8b..a2fc1bef2d 100644
                  self.clear_terminal_ui(tui, /*redraw_header*/ false)?;
                  self.reset_app_ui_state_after_clear();
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index b5e00f55cc..0a9942bb26 100644
+index a8126066d9..71eb2c8ac1 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -396,6 +396,9 @@ pub(crate) enum AppEvent {
+@@ -403,6 +403,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -27,7 +27,7 @@ index b5e00f55cc..0a9942bb26 100644
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 37dbda20be..fbacbf3128 100644
+index 9261903843..86bdd4ad39 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 @@ -99,7 +99,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
@@ -77,10 +77,10 @@ index ee6694b357..f009606f4c 100644
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 623a9944a0..7a2419ee48 100644
+index 814e01d844..149dde33bc 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
-@@ -789,6 +789,13 @@ impl Tui {
+@@ -808,6 +808,13 @@ impl Tui {
          }
      }
  

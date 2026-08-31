@@ -77,7 +77,7 @@ index 90c5804690..0b46991808 100644
  
      #[test]
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index a0f7cb7515..51c4abe76c 100644
+index a4c49b3376..e9acff2c43 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -31,6 +31,7 @@ use codex_state::StateRuntime;
@@ -88,7 +88,7 @@ index a0f7cb7515..51c4abe76c 100644
  use codex_tui::UpdateAction;
  use codex_utils_absolute_path::AbsolutePathBuf;
  use codex_utils_cli::CliConfigOverrides;
-@@ -41,6 +42,7 @@ use std::collections::HashSet;
+@@ -40,6 +41,7 @@ use std::collections::HashSet;
  use std::io::IsTerminal;
  use std::io::Write;
  use std::path::PathBuf;
@@ -96,25 +96,7 @@ index a0f7cb7515..51c4abe76c 100644
  use std::sync::Arc;
  use supports_color::Stream;
  
-@@ -785,6 +787,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
- }
- 
- fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
-+    if let ExitReason::QuotaExceeded {
-+        thread_id,
-+        resume_args,
-+    } = &exit_info.exit_reason
-+    {
-+        let recovery = serde_json::json!({
-+            "version": 1,
-+            "resume_args": resume_args,
-+        });
-+        return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
-+    }
-     let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
-     let AppExitInfo {
-         token_usage,
-@@ -813,13 +826,14 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
+@@ -784,16 +786,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
  }
  
  /// Handle the app exit and print the results. Optionally run the update action.
@@ -127,14 +109,17 @@ index a0f7cb7515..51c4abe76c 100644
 -            true
 +            (ExitCode::FAILURE, false)
          }
--        ExitReason::UserRequested => false,
+         ExitReason::UserRequested
+         | ExitReason::Archived(_)
+         | ExitReason::TurnInterrupted
+-        | ExitReason::ThreadRemoved => false,
++        | ExitReason::ThreadRemoved => (ExitCode::SUCCESS, true),
 +        ExitReason::QuotaExceeded { .. } => (ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE), false),
-+        ExitReason::UserRequested => (ExitCode::SUCCESS, true),
      };
  
      let update_action = exit_info.update_action;
-@@ -827,14 +841,11 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
-     for line in format_exit_messages(exit_info, color_enabled) {
+@@ -801,14 +804,11 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+     for line in exit_info.format_exit_messages(color_enabled) {
          println!("{line}");
      }
 -    if is_fatal {
@@ -151,7 +136,7 @@ index a0f7cb7515..51c4abe76c 100644
  }
  
  /// Run the update action and print the result.
-@@ -1061,18 +1072,17 @@ fn stage_str(stage: Stage) -> &'static str {
+@@ -1035,18 +1035,17 @@ fn stage_str(stage: Stage) -> &'static str {
      }
  }
  
@@ -173,7 +158,7 @@ index a0f7cb7515..51c4abe76c 100644
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
          feature_toggles,
-@@ -1165,7 +1175,7 @@ async fn cli_main(
+@@ -1139,7 +1138,7 @@ async fn cli_main(
                  arg0_paths.clone(),
              )
              .await?;
@@ -182,7 +167,7 @@ index a0f7cb7515..51c4abe76c 100644
          }
          Some(Subcommand::Exec(mut exec_cli)) => {
              reject_remote_mode_for_subcommand(
-@@ -1449,7 +1459,7 @@ async fn cli_main(
+@@ -1423,7 +1422,7 @@ async fn cli_main(
                  arg0_paths.clone(),
              )
              .await?;
@@ -191,7 +176,7 @@ index a0f7cb7515..51c4abe76c 100644
          }
          Some(Subcommand::Archive(cmd)) => {
              let output = run_session_archive_cli_command(
-@@ -1536,7 +1546,7 @@ async fn cli_main(
+@@ -1510,7 +1509,7 @@ async fn cli_main(
                  arg0_paths.clone(),
              )
              .await?;
@@ -200,7 +185,7 @@ index a0f7cb7515..51c4abe76c 100644
          }
          Some(Subcommand::Login(mut login_cli)) => {
              reject_remote_mode_for_subcommand(
-@@ -1844,7 +1854,7 @@ async fn cli_main(
+@@ -1818,7 +1817,7 @@ async fn cli_main(
          },
      }
  
@@ -209,7 +194,7 @@ index a0f7cb7515..51c4abe76c 100644
  }
  
  fn profile_v2_for_subcommand<'a>(
-@@ -2825,6 +2835,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2819,6 +2818,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          approval_policy,
          web_search,
          no_alt_screen,
@@ -217,7 +202,7 @@ index a0f7cb7515..51c4abe76c 100644
          prompt,
          mut config_overrides,
          ..
-@@ -2845,6 +2856,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2839,6 +2839,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          interactive.web_search = true;
      }
      interactive.no_alt_screen |= no_alt_screen;
@@ -227,8 +212,8 @@ index a0f7cb7515..51c4abe76c 100644
      if strict_config {
          interactive.strict_config = true;
      }
-@@ -3760,6 +3774,55 @@ mod tests {
-         assert!(lines.is_empty());
+@@ -3815,6 +3818,55 @@ mod tests {
+         ");
      }
  
 +    #[test]
@@ -252,7 +237,7 @@ index a0f7cb7515..51c4abe76c 100644
 +            };
 +
 +            assert_eq!(
-+                format_exit_messages(exit_info, color_enabled),
++                exit_info.format_exit_messages(color_enabled),
 +                vec![concat!(
 +                    "codex+k (123e4567-e89b-12d3-a456-426614174000): quota exceeded ",
 +                    r#"{"version":1,"resume_args":["--model","gpt-5.6","-c","service_tier=\"default\"","-c","model_reasoning_effort=\"high\""]}"#,
@@ -283,7 +268,7 @@ index a0f7cb7515..51c4abe76c 100644
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -3930,6 +3993,22 @@ mod tests {
+@@ -3986,6 +4038,22 @@ mod tests {
          assert!(interactive.resume_show_all);
      }
  
@@ -307,13 +292,13 @@ index a0f7cb7515..51c4abe76c 100644
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index b6457a8d6e..a09b9c0761 100644
+index 6621bcab65..385a91571a 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -446,6 +446,10 @@ pub(crate) enum AppRunControl {
- #[derive(Debug, Clone)]
- pub enum ExitReason {
-     UserRequested,
+@@ -454,6 +454,10 @@ pub enum ExitReason {
+     TurnInterrupted,
+     /// The current thread was deleted, rather than disconnected.
+     ThreadRemoved,
 +    QuotaExceeded {
 +        thread_id: ThreadId,
 +        resume_args: Vec<String>,
@@ -321,7 +306,7 @@ index b6457a8d6e..a09b9c0761 100644
      Fatal(String),
  }
  
-@@ -583,6 +587,11 @@ pub(crate) struct App {
+@@ -591,6 +595,11 @@ pub(crate) struct App {
      /// Set when the user confirms an update; propagated on exit.
      pub(crate) pending_update_action: Option<UpdateAction>,
  
@@ -443,11 +428,51 @@ index 624768803c..83d984e3b1 100644
                  return;
              }
              ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
+diff --git a/codex-rs/tui/src/app/exit_summary.rs b/codex-rs/tui/src/app/exit_summary.rs
+index 6b23db555a..2b8ea74ba7 100644
+--- a/codex-rs/tui/src/app/exit_summary.rs
++++ b/codex-rs/tui/src/app/exit_summary.rs
+@@ -17,6 +17,7 @@ impl App {
+     pub(super) fn exit_info(&self, exit_reason: ExitReason) -> AppExitInfo {
+         let thread_id = match exit_reason {
+             ExitReason::Archived(_) | ExitReason::ThreadRemoved => None,
++            ExitReason::QuotaExceeded { thread_id, .. } => Some(thread_id),
+             ExitReason::UserRequested | ExitReason::TurnInterrupted | ExitReason::Fatal(_) => {
+                 self.chat_widget.thread_id().or(self.primary_thread_id)
+             }
+@@ -72,6 +73,17 @@ impl App {
+ impl AppExitInfo {
+     /// Format the terminal summary for both the CLI and standalone TUI binaries.
+     pub fn format_exit_messages(self, color_enabled: bool) -> Vec<String> {
++        if let ExitReason::QuotaExceeded {
++            thread_id,
++            resume_args,
++        } = &self.exit_reason
++        {
++            let recovery = serde_json::json!({
++                "version": 1,
++                "resume_args": resume_args,
++            });
++            return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
++        }
+         let color_command = |command: String| {
+             if color_enabled {
+                 format!("\u{1b}[36m{command}\u{1b}[39m")
+@@ -92,6 +104,9 @@ impl AppExitInfo {
+                 ExitReason::TurnInterrupted => {
+                     "Disconnected from this task. The current turn was stopped."
+                 }
++                ExitReason::QuotaExceeded { .. } => {
++                    "Disconnected from this task. Work may still be running."
++                }
+             };
+             lines.push(message.to_string());
+             let mut resume_command = disconnect.command.clone();
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 959ebca611..8f37de9cc9 100644
+index 3f9e665a6c..dad9edf07a 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -79,6 +79,7 @@ impl App {
+@@ -90,6 +90,7 @@ impl App {
          cloud_config_bundle: CloudConfigBundleLoader,
          initial_prompt: Option<String>,
          initial_images: Vec<PathBuf>,
@@ -455,7 +480,7 @@ index 959ebca611..8f37de9cc9 100644
          session_selection: SessionSelection,
          feedback: codex_feedback::CodexFeedback,
          is_first_run: bool,
-@@ -504,6 +505,8 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -515,6 +516,8 @@ See the Codex keymap documentation for supported actions and examples."
              environment_manager,
              app_server_target,
              pending_update_action: None,
@@ -464,7 +489,7 @@ index 959ebca611..8f37de9cc9 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -828,6 +831,13 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -885,6 +888,13 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -475,11 +500,11 @@ index 959ebca611..8f37de9cc9 100644
 +            },
 +            None => exit_reason,
 +        };
-         let thread_id = app.chat_widget.thread_id().or(app.primary_thread_id);
-         let resume_hint = resume_hint_for_resumable_thread(
-             thread_id,
+         Ok(app.exit_info(exit_reason))
+     }
+ }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 5a42a6f01e..d0b708c44f 100644
+index 82b833b33e..2ad40ea3ce 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
 @@ -57,6 +57,8 @@ pub(super) async fn make_test_app() -> App {
@@ -492,10 +517,10 @@ index 5a42a6f01e..d0b708c44f 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 82218f27df..2888af5d64 100644
+index a360285632..07e855f4e7 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5444,6 +5444,8 @@ async fn make_test_app() -> App {
+@@ -5448,6 +5448,8 @@ async fn make_test_app() -> App {
          environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
          app_server_target: crate::AppServerTarget::Embedded,
          pending_update_action: None,
@@ -504,7 +529,7 @@ index 82218f27df..2888af5d64 100644
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -5524,6 +5526,8 @@ async fn make_test_app_with_channels() -> (
+@@ -5529,6 +5531,8 @@ async fn make_test_app_with_channels() -> (
              environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
              app_server_target: crate::AppServerTarget::Embedded,
              pending_update_action: None,
@@ -514,10 +539,10 @@ index 82218f27df..2888af5d64 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index 21f0089f91..0af328e43b 100644
+index ccdfdcd043..5d93035f5c 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
-@@ -100,6 +100,134 @@ fn deliver_usage_limit_error(app: &mut App) {
+@@ -101,6 +101,135 @@ fn deliver_usage_limit_error(app: &mut App) {
      );
  }
  
@@ -529,6 +554,7 @@ index 21f0089f91..0af328e43b 100644
 +    codex_app_server_client::AppServerEvent::ServerNotification(Box::new(
 +        ServerNotification::Error(ErrorNotification {
 +            error: AppServerTurnError {
++                misalignment: None,
 +                message: "Usage limit reached.".to_string(),
 +                codex_error_info: Some(codex_error_info),
 +                additional_details: None,
@@ -668,19 +694,19 @@ index 641dd621e4..c53c6e3e9c 100644
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 2c0a96bf02..0799c915ed 100644
+index 0cd2d7ed24..c99edc3f8d 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -22,6 +22,8 @@ use additional_dirs::add_dir_warning_message;
- use app::App;
+@@ -23,6 +23,8 @@ use app::App;
  pub use app::AppExitInfo;
+ pub use app::DisconnectInfo;
  pub use app::ExitReason;
 +/// Process status emitted with a quota recovery marker.
 +pub const QUOTA_EXCEEDED_EXIT_CODE: u8 = 75;
  use app_server_session::AppServerSession;
  use app_server_session::ThreadParamsMode;
  use codex_app_server_client::AppServerClient;
-@@ -1588,6 +1590,7 @@ async fn run_ratatui_app(
+@@ -1601,6 +1603,7 @@ async fn run_ratatui_app(
          prompt,
          shared,
          no_alt_screen,
@@ -688,7 +714,7 @@ index 2c0a96bf02..0799c915ed 100644
          ..
      } = cli;
      let images = shared.into_inner().images;
-@@ -1709,6 +1712,7 @@ async fn run_ratatui_app(
+@@ -1727,6 +1730,7 @@ async fn run_ratatui_app(
          cloud_config_bundle,
          prompt,
          images,
@@ -697,11 +723,11 @@ index 2c0a96bf02..0799c915ed 100644
          feedback,
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
 diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
-index 486dbe6499..a546d91b0f 100644
+index f6261e9dbc..3f62329103 100644
 --- a/codex-rs/tui/src/main.rs
 +++ b/codex-rs/tui/src/main.rs
-@@ -5,12 +5,25 @@ use codex_config::LoaderOverrides;
- use codex_tui::AppExitInfo;
+@@ -4,9 +4,11 @@ use codex_arg0::arg0_dispatch_or_else;
+ use codex_config::LoaderOverrides;
  use codex_tui::Cli;
  use codex_tui::ExitReason;
 +use codex_tui::QUOTA_EXCEEDED_EXIT_CODE;
@@ -711,22 +737,8 @@ index 486dbe6499..a546d91b0f 100644
 +use std::process::ExitCode;
  use supports_color::Stream;
  
- fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
-+    if let ExitReason::QuotaExceeded {
-+        thread_id,
-+        resume_args,
-+    } = &exit_info.exit_reason
-+    {
-+        let recovery = serde_json::json!({
-+            "version": 1,
-+            "resume_args": resume_args,
-+        });
-+        return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
-+    }
-     let is_fatal = matches!(&exit_info.exit_reason, ExitReason::Fatal(_));
-     let AppExitInfo {
-         token_usage,
-@@ -47,7 +60,7 @@ struct TopCli {
+ #[derive(Parser, Debug)]
+@@ -18,7 +20,7 @@ struct TopCli {
      inner: Cli,
  }
  
@@ -735,7 +747,7 @@ index 486dbe6499..a546d91b0f 100644
      arg0_dispatch_or_else(|arg0_paths: Arg0DispatchPaths| async move {
          let top_cli = TopCli::parse();
          let mut inner = top_cli.inner;
-@@ -62,22 +75,20 @@ fn main() -> anyhow::Result<()> {
+@@ -33,25 +35,23 @@ fn main() -> anyhow::Result<()> {
              /*explicit_remote_endpoint*/ None,
          )
          .await?;
@@ -746,13 +758,16 @@ index 486dbe6499..a546d91b0f 100644
 -                true
 +                ExitCode::FAILURE
              }
--            ExitReason::UserRequested => false,
+             ExitReason::UserRequested
+             | ExitReason::Archived(_)
+             | ExitReason::TurnInterrupted
+-            | ExitReason::ThreadRemoved => false,
++            | ExitReason::ThreadRemoved => ExitCode::SUCCESS,
 +            ExitReason::QuotaExceeded { .. } => ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE),
-+            ExitReason::UserRequested => ExitCode::SUCCESS,
          };
  
          let color_enabled = supports_color::on(Stream::Stdout).is_some();
-         for line in format_exit_messages(exit_info, color_enabled) {
+         for line in exit_info.format_exit_messages(color_enabled) {
              println!("{line}");
          }
 -        if is_fatal {

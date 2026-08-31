@@ -1,8 +1,8 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 455682e142..a0f7cb7515 100644
+index 0bfea04498..a4c49b3376 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -103,7 +103,7 @@ use codex_terminal_detection::TerminalName;
+@@ -102,7 +102,7 @@ use codex_terminal_detection::TerminalName;
  #[derive(Debug, Parser)]
  #[clap(
      author,
@@ -12,7 +12,7 @@ index 455682e142..a0f7cb7515 100644
      subcommand_negates_reqs = true,
      // The executable is sometimes invoked via a platform‑specific name like
 diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
-index 8a46e6ce18..58f55f1797 100644
+index 2f4b489f96..6613fe684b 100644
 --- a/codex-rs/core/src/compact_remote_request.rs
 +++ b/codex-rs/core/src/compact_remote_request.rs
 @@ -7,9 +7,11 @@ use crate::client::CompactConversationRequestSettings;
@@ -27,7 +27,7 @@ index 8a46e6ce18..58f55f1797 100644
  use codex_protocol::error::Result as CodexResult;
  use codex_protocol::models::ResponseItem;
  use codex_rollout_trace::CompactionTraceContext;
-@@ -74,27 +76,40 @@ pub(super) async fn run_remote_compact_attempt(
+@@ -75,27 +77,40 @@ pub(super) async fn run_remote_compact_attempt(
              CodexResponsesRequestKind::Compaction(compaction_metadata),
          )
          .await;
@@ -36,11 +36,11 @@ index 8a46e6ce18..58f55f1797 100644
 -        .model_client
 -        .compact_conversation_history(
 -            &prompt,
--            &turn_context.model_info,
+-            turn_context.model_info(),
 -            turn_state,
 -            CompactConversationRequestSettings {
--                effort: turn_context.reasoning_effort.clone(),
--                summary: turn_context.reasoning_summary,
+-                effort: turn_context.reasoning_effort().cloned(),
+-                summary: turn_context.reasoning_summary(),
 -                service_tier: if sess.services.auth_manager.auth_mode() == Some(AuthMode::ApiKey) {
 -                    None
 -                } else {
@@ -52,11 +52,11 @@ index 8a46e6ce18..58f55f1797 100644
 +            .model_client
 +            .compact_conversation_history(
 +                &prompt,
-+                &turn_context.model_info,
++                turn_context.model_info(),
 +                turn_state.clone(),
 +                CompactConversationRequestSettings {
-+                    effort: turn_context.reasoning_effort.clone(),
-+                    summary: turn_context.reasoning_summary,
++                    effort: turn_context.reasoning_effort().cloned(),
++                    summary: turn_context.reasoning_summary(),
 +                    service_tier: if sess.services.auth_manager.auth_mode()
 +                        == Some(AuthMode::ApiKey)
 +                    {
@@ -89,7 +89,7 @@ index 8a46e6ce18..58f55f1797 100644
          new_history,
          trace_input_history,
 diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
-index b7cebf0b4d..abbbe21418 100644
+index ee82bbcb7a..adff1e6885 100644
 --- a/codex-rs/core/src/compact_remote_v2.rs
 +++ b/codex-rs/core/src/compact_remote_v2.rs
 @@ -26,6 +26,7 @@ use crate::responses_metadata::CompactionTurnMetadata;
@@ -100,7 +100,7 @@ index b7cebf0b4d..abbbe21418 100644
  use crate::session::session::Session;
  use crate::session::step_context::StepContext;
  use crate::session::turn_context::TurnContext;
-@@ -376,6 +377,7 @@ async fn run_remote_compaction_request_v2(
+@@ -378,6 +379,7 @@ async fn run_remote_compaction_request_v2(
          .stream_max_retries()
          .min(MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES);
      let mut retry_state = ResponsesStreamRetryState::default();
@@ -108,7 +108,7 @@ index b7cebf0b4d..abbbe21418 100644
      loop {
          let result = match client_session
              .stream(
-@@ -396,6 +398,10 @@ async fn run_remote_compaction_request_v2(
+@@ -398,6 +400,10 @@ async fn run_remote_compaction_request_v2(
  
          match result {
              Ok(compaction_output) => return Ok(compaction_output),
@@ -120,7 +120,7 @@ index b7cebf0b4d..abbbe21418 100644
              Err(err) => {
                  handle_retryable_response_stream_error(
 diff --git a/codex-rs/core/src/responses_retry.rs b/codex-rs/core/src/responses_retry.rs
-index 178c13df49..fb578083e9 100644
+index fb0505411e..ad235f03b9 100644
 --- a/codex-rs/core/src/responses_retry.rs
 +++ b/codex-rs/core/src/responses_retry.rs
 @@ -16,6 +16,8 @@ use tracing::warn;
@@ -169,10 +169,10 @@ index 178c13df49..fb578083e9 100644
      request: ResponsesStreamRequest,
      turn_context: &TurnContext,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index d14cadcad9..00cd8174de 100644
+index 363eda5446..475b653b98 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4187,14 +4187,19 @@ impl Session {
+@@ -4286,14 +4286,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -197,10 +197,10 @@ index d14cadcad9..00cd8174de 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
-index 850166360d..42e64951e1 100644
+index 4a749b28b8..3c2c0e13f3 100644
 --- a/codex-rs/core/src/session/turn.rs
 +++ b/codex-rs/core/src/session/turn.rs
-@@ -32,6 +32,7 @@ use crate::responses_metadata::CodexResponsesRequestKind;
+@@ -33,6 +33,7 @@ use crate::responses_metadata::CodexResponsesRequestKind;
  use crate::responses_retry::ResponsesStreamRequest;
  use crate::responses_retry::ResponsesStreamRetryState;
  use crate::responses_retry::handle_retryable_response_stream_error;
@@ -208,7 +208,7 @@ index 850166360d..42e64951e1 100644
  use crate::session::PreviousTurnSettings;
  use crate::session::TurnInput;
  use crate::session::session::Session;
-@@ -1375,6 +1376,7 @@ async fn run_sampling_request(
+@@ -1384,6 +1385,7 @@ async fn run_sampling_request(
      );
      let max_retries = turn_context.provider.info().stream_max_retries();
      let mut retry_state = ResponsesStreamRetryState::default();
@@ -216,7 +216,7 @@ index 850166360d..42e64951e1 100644
      let mut initial_input = Some(input);
      let mut original_input = None;
      let mut executed_tool_calls_by_output = HashMap::new();
-@@ -1434,6 +1436,13 @@ async fn run_sampling_request(
+@@ -1443,6 +1445,13 @@ async fn run_sampling_request(
              original_input = Some(prompt.input);
          }
  

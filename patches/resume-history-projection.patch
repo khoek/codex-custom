@@ -41,10 +41,10 @@ index 3f002aec8a..892df7eb74 100644
              return Err(io::Error::other(format!(
                  "rollout at {} does not start with session metadata",
 diff --git a/codex-rs/rollout/src/recorder_tests.rs b/codex-rs/rollout/src/recorder_tests.rs
-index 0c4e663aa3..9270f13277 100644
+index 0056d0ef77..95a2027073 100644
 --- a/codex-rs/rollout/src/recorder_tests.rs
 +++ b/codex-rs/rollout/src/recorder_tests.rs
-@@ -980,6 +980,33 @@ async fn resumed_paginated_rollout_continues_after_ordinal_gap() -> std::io::Res
+@@ -991,6 +991,33 @@ async fn resumed_paginated_rollout_continues_after_ordinal_gap() -> std::io::Res
      recorder.shutdown().await
  }
  
@@ -130,7 +130,7 @@ index ce70a00bf4..82287649fe 100644
                  continue;
              };
 diff --git a/codex-rs/thread-store/src/local/model_context_tests.rs b/codex-rs/thread-store/src/local/model_context_tests.rs
-index 7e83d8a74f..308e6dd332 100644
+index e86f040704..1a668aa844 100644
 --- a/codex-rs/thread-store/src/local/model_context_tests.rs
 +++ b/codex-rs/thread-store/src/local/model_context_tests.rs
 @@ -81,6 +81,49 @@ async fn loads_latest_checkpoint_with_required_turn_metadata() {

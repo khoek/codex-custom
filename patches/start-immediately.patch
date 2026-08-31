@@ -1,8 +1,8 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 51c4abe76c..737c0f379a 100644
+index e9acff2c43..b47d24f628 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -361,6 +361,15 @@ struct ResumeCommand {
+@@ -360,6 +360,15 @@ struct ResumeCommand {
      #[arg(long = "include-non-interactive", default_value_t = false)]
      include_non_interactive: bool,
  
@@ -18,7 +18,7 @@ index 51c4abe76c..737c0f379a 100644
      #[clap(flatten)]
      remote: InteractiveRemoteOptions,
  
-@@ -1437,6 +1446,7 @@ async fn cli_main(
+@@ -1400,6 +1409,7 @@ async fn cli_main(
              last,
              all,
              include_non_interactive,
@@ -26,7 +26,7 @@ index 51c4abe76c..737c0f379a 100644
              remote,
              config_overrides,
          })) => {
-@@ -1450,6 +1460,7 @@ async fn cli_main(
+@@ -1413,6 +1423,7 @@ async fn cli_main(
                  include_non_interactive,
                  config_overrides,
              );
@@ -34,7 +34,7 @@ index 51c4abe76c..737c0f379a 100644
              let exit_info = run_interactive_tui(
                  interactive,
                  remote.remote.or(root_remote.clone()),
-@@ -3049,6 +3060,7 @@ mod tests {
+@@ -3032,6 +3043,7 @@ mod tests {
              last,
              all,
              include_non_interactive,
@@ -42,7 +42,7 @@ index 51c4abe76c..737c0f379a 100644
              remote: _,
              config_overrides: resume_cli,
          }) = subcommand.expect("resume present")
-@@ -3057,7 +3069,7 @@ mod tests {
+@@ -3040,7 +3052,7 @@ mod tests {
          };
          let SessionTuiCli(resume_cli) = resume_cli;
  
@@ -51,7 +51,7 @@ index 51c4abe76c..737c0f379a 100644
              interactive,
              root_overrides,
              session_id,
-@@ -3065,7 +3077,9 @@ mod tests {
+@@ -3048,7 +3060,9 @@ mod tests {
              all,
              include_non_interactive,
              resume_cli,
@@ -62,7 +62,7 @@ index 51c4abe76c..737c0f379a 100644
      }
  
      fn finalize_fork_from_args(args: &[&str]) -> TuiCli {
-@@ -3986,6 +4000,29 @@ mod tests {
+@@ -4031,6 +4045,29 @@ mod tests {
          assert_eq!(interactive.prompt.as_deref(), Some("continue here"));
      }
  
@@ -93,10 +93,10 @@ index 51c4abe76c..737c0f379a 100644
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 8f37de9cc9..02a705bf99 100644
+index dad9edf07a..c789542c85 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -85,6 +85,7 @@ impl App {
+@@ -96,6 +96,7 @@ impl App {
          is_first_run: bool,
          should_prompt_windows_sandbox_nux_at_startup: bool,
          app_server_target: AppServerTarget,
@@ -104,7 +104,7 @@ index 8f37de9cc9..02a705bf99 100644
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -557,7 +558,21 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -572,7 +573,21 @@ See the Codex keymap documentation for supported actions and examples."
                  Ok(result) => result?,
                  Err(err) => return shutdown_on_startup_error(app_server, err).await,
              }
@@ -128,10 +128,10 @@ index 8f37de9cc9..02a705bf99 100644
                      .run_until(
                          tui,
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 2888af5d64..02cd50b4c5 100644
+index 07e855f4e7..ef9c80287c 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5762,6 +5762,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
+@@ -5768,6 +5768,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
      Ok(())
  }
  
@@ -341,7 +341,7 @@ index 28b88f89d1..0f84f12e4c 100644
              preserve_in_flight_turn && input_state.as_ref().is_some_and(|state| state.task_running);
          if let Some(input_state) = input_state {
 diff --git a/codex-rs/tui/src/chatwidget/input_submission.rs b/codex-rs/tui/src/chatwidget/input_submission.rs
-index c0b78cac92..06beb640f6 100644
+index 1fc8b6ba04..0eb06a2200 100644
 --- a/codex-rs/tui/src/chatwidget/input_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/input_submission.rs
 @@ -2,6 +2,8 @@
@@ -378,10 +378,10 @@ index c0b78cac92..06beb640f6 100644
          &mut self,
          user_message: UserMessage,
 diff --git a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-index 1acc1e5a27..e61111966b 100644
+index 394fe45c33..ff0a372e27 100644
 --- a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-@@ -314,6 +314,93 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
+@@ -334,6 +334,93 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
      assert_no_submit_op(&mut op_rx);
  }
  
@@ -511,10 +511,10 @@ index c53c6e3e9c..50d877cce1 100644
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 0799c915ed..6a421d8ea2 100644
+index c99edc3f8d..de527ffdd6 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1587,6 +1587,7 @@ async fn run_ratatui_app(
+@@ -1600,6 +1600,7 @@ async fn run_ratatui_app(
      let should_prompt_windows_sandbox_nux_at_startup = false;
  
      let Cli {
@@ -522,7 +522,7 @@ index 0799c915ed..6a421d8ea2 100644
          prompt,
          shared,
          no_alt_screen,
-@@ -1718,6 +1719,7 @@ async fn run_ratatui_app(
+@@ -1736,6 +1737,7 @@ async fn run_ratatui_app(
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,

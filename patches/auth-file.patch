@@ -1,5 +1,5 @@
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
-index 3fba0e2fdf..ca8b9f9083 100644
+index 5735044303..fd1e119bf9 100644
 --- a/codex-rs/cli/src/doctor.rs
 +++ b/codex-rs/cli/src/doctor.rs
 @@ -53,6 +53,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
@@ -10,7 +10,7 @@ index 3fba0e2fdf..ca8b9f9083 100644
  use codex_login::default_client::create_client_without_request_logging;
  use codex_login::default_client::default_headers;
  use codex_login::load_auth_dot_json;
-@@ -1251,7 +1252,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
+@@ -1255,7 +1256,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
  
  fn auth_check(config: &Config) -> DoctorCheck {
      let mut details = Vec::new();
@@ -20,10 +20,10 @@ index 3fba0e2fdf..ca8b9f9083 100644
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index c9a2ed6c67..a6d37abcfc 100644
+index f3c238a6c5..38c1d906f0 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -118,6 +118,10 @@ struct MultitoolCli {
+@@ -117,6 +117,10 @@ struct MultitoolCli {
      #[clap(flatten)]
      pub config_overrides: CliConfigOverrides,
  
@@ -34,7 +34,7 @@ index c9a2ed6c67..a6d37abcfc 100644
      #[clap(flatten)]
      pub feature_toggles: FeatureToggles,
  
-@@ -1114,11 +1118,15 @@ async fn cli_main(
+@@ -1066,11 +1070,15 @@ async fn cli_main(
  ) -> anyhow::Result<ExitCode> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
@@ -50,7 +50,7 @@ index c9a2ed6c67..a6d37abcfc 100644
      // Fold --enable/--disable into config overrides so they flow to all subcommands.
      let toggle_overrides = feature_toggles.to_overrides()?;
      root_config_overrides.raw_overrides.extend(toggle_overrides);
-@@ -3069,6 +3077,7 @@ mod tests {
+@@ -3041,6 +3049,7 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -58,7 +58,7 @@ index c9a2ed6c67..a6d37abcfc 100644
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3111,6 +3120,7 @@ mod tests {
+@@ -3083,6 +3092,7 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -66,7 +66,7 @@ index c9a2ed6c67..a6d37abcfc 100644
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3155,6 +3165,7 @@ mod tests {
+@@ -3127,6 +3137,7 @@ mod tests {
          let MultitoolCli {
              interactive,
              config_overrides: root_overrides,
