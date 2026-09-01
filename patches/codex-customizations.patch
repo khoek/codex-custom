@@ -12,7 +12,7 @@ index 0bfea04498..a4c49b3376 100644
      subcommand_negates_reqs = true,
      // The executable is sometimes invoked via a platform‑specific name like
 diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
-index 2f4b489f96..6613fe684b 100644
+index b6b418c7d0..86e98006ff 100644
 --- a/codex-rs/core/src/compact_remote_request.rs
 +++ b/codex-rs/core/src/compact_remote_request.rs
 @@ -7,9 +7,11 @@ use crate::client::CompactConversationRequestSettings;
@@ -44,7 +44,7 @@ index 2f4b489f96..6613fe684b 100644
 -                service_tier: if sess.services.auth_manager.auth_mode() == Some(AuthMode::ApiKey) {
 -                    None
 -                } else {
--                    turn_context.config.service_tier.clone()
+-                    step_context.settings.service_tier.clone()
 +    let mut server_overload_retries = 0;
 +    let new_history = loop {
 +        let result = sess
@@ -62,7 +62,7 @@ index 2f4b489f96..6613fe684b 100644
 +                    {
 +                        None
 +                    } else {
-+                        turn_context.config.service_tier.clone()
++                        step_context.settings.service_tier.clone()
 +                    },
                  },
 -            },
@@ -89,7 +89,7 @@ index 2f4b489f96..6613fe684b 100644
          new_history,
          trace_input_history,
 diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
-index ee82bbcb7a..adff1e6885 100644
+index e36d11387f..699ef63148 100644
 --- a/codex-rs/core/src/compact_remote_v2.rs
 +++ b/codex-rs/core/src/compact_remote_v2.rs
 @@ -26,6 +26,7 @@ use crate::responses_metadata::CompactionTurnMetadata;
@@ -100,7 +100,7 @@ index ee82bbcb7a..adff1e6885 100644
  use crate::session::session::Session;
  use crate::session::step_context::StepContext;
  use crate::session::turn_context::TurnContext;
-@@ -378,6 +379,7 @@ async fn run_remote_compaction_request_v2(
+@@ -381,6 +382,7 @@ async fn run_remote_compaction_request_v2(
          .stream_max_retries()
          .min(MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES);
      let mut retry_state = ResponsesStreamRetryState::default();
@@ -108,7 +108,7 @@ index ee82bbcb7a..adff1e6885 100644
      loop {
          let result = match client_session
              .stream(
-@@ -398,6 +400,10 @@ async fn run_remote_compaction_request_v2(
+@@ -401,6 +403,10 @@ async fn run_remote_compaction_request_v2(
  
          match result {
              Ok(compaction_output) => return Ok(compaction_output),
@@ -169,10 +169,10 @@ index fb0505411e..ad235f03b9 100644
      request: ResponsesStreamRequest,
      turn_context: &TurnContext,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 363eda5446..475b653b98 100644
+index c99599b7d6..140d661c1a 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4286,14 +4286,19 @@ impl Session {
+@@ -4402,14 +4402,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -197,7 +197,7 @@ index 363eda5446..475b653b98 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
-index 4a749b28b8..3c2c0e13f3 100644
+index 9ab25ca151..f3da043389 100644
 --- a/codex-rs/core/src/session/turn.rs
 +++ b/codex-rs/core/src/session/turn.rs
 @@ -33,6 +33,7 @@ use crate::responses_metadata::CodexResponsesRequestKind;
@@ -231,10 +231,10 @@ index 4a749b28b8..3c2c0e13f3 100644
              return Err(err);
          }
 diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
-index d8cd725a32..73047239a3 100644
+index 255b8e2897..16d0906bef 100644
 --- a/codex-rs/tui/src/chatwidget/rate_limits.rs
 +++ b/codex-rs/tui/src/chatwidget/rate_limits.rs
-@@ -442,6 +442,13 @@ impl ChatWidget {
+@@ -473,6 +473,13 @@ impl ChatWidget {
              items,
              ..Default::default()
          });

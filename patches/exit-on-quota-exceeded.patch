@@ -1,5 +1,5 @@
 diff --git a/codex-rs/arg0/src/lib.rs b/codex-rs/arg0/src/lib.rs
-index 90c5804690..0b46991808 100644
+index 4673f84e42..cb52dd47ff 100644
 --- a/codex-rs/arg0/src/lib.rs
 +++ b/codex-rs/arg0/src/lib.rs
 @@ -209,17 +209,18 @@ fn prepare_path_env_var_with_aliases(
@@ -292,10 +292,10 @@ index a4c49b3376..e9acff2c43 100644
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 6621bcab65..385a91571a 100644
+index f064fd018e..de87f3e231 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -454,6 +454,10 @@ pub enum ExitReason {
+@@ -456,6 +456,10 @@ pub enum ExitReason {
      TurnInterrupted,
      /// The current thread was deleted, rather than disconnected.
      ThreadRemoved,
@@ -306,7 +306,7 @@ index 6621bcab65..385a91571a 100644
      Fatal(String),
  }
  
-@@ -591,6 +595,11 @@ pub(crate) struct App {
+@@ -593,6 +597,11 @@ pub(crate) struct App {
      /// Set when the user confirms an update; propagated on exit.
      pub(crate) pending_update_action: Option<UpdateAction>,
  
@@ -319,17 +319,18 @@ index 6621bcab65..385a91571a 100644
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 624768803c..83d984e3b1 100644
+index aa5d89e2bc..f9aae002ef 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
-@@ -7,12 +7,14 @@ use super::app_server_event_targets::server_notification_thread_target;
+@@ -7,6 +7,7 @@ use super::app_server_event_targets::server_notification_thread_target;
  use super::app_server_event_targets::server_request_thread_id;
  use crate::app_command::AppCommand;
  use crate::app_event::AppEvent;
 +use crate::app_event::ExitMode;
+ use crate::app_event::RateLimitRefreshOrigin;
  use crate::app_info::app_info_from_api;
  use crate::app_server_session::AppServerSession;
- use crate::app_server_session::status_account_display_from_auth_mode;
+@@ -14,6 +15,7 @@ use crate::app_server_session::status_account_display_from_auth_mode;
  use codex_app_server_client::AppServerEvent;
  use codex_app_server_protocol::AuthMode;
  use codex_app_server_protocol::ClientRequest;
@@ -337,7 +338,7 @@ index 624768803c..83d984e3b1 100644
  use codex_app_server_protocol::RateLimitReachedType;
  use codex_app_server_protocol::RequestId;
  use codex_app_server_protocol::ServerNotification;
-@@ -22,9 +24,56 @@ use codex_app_server_protocol::ThreadReadParams;
+@@ -23,9 +25,56 @@ use codex_app_server_protocol::ThreadReadParams;
  use codex_app_server_protocol::ThreadReadResponse;
  use codex_app_server_protocol::ThreadSource;
  use codex_protocol::ThreadId;
@@ -394,7 +395,7 @@ index 624768803c..83d984e3b1 100644
      pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
          if self
              .current_displayed_thread_id()
-@@ -259,6 +308,17 @@ impl App {
+@@ -268,6 +317,17 @@ impl App {
              _ => {}
          }
  
@@ -412,7 +413,7 @@ index 624768803c..83d984e3b1 100644
          match server_notification_thread_target(&notification) {
              ServerNotificationThreadTarget::Thread(thread_id) => {
                  if self.primary_thread_id.is_none() && !self.pending_startup_thread_start {
-@@ -298,6 +358,15 @@ impl App {
+@@ -307,6 +367,15 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -469,7 +470,7 @@ index 6b23db555a..2b8ea74ba7 100644
              lines.push(message.to_string());
              let mut resume_command = disconnect.command.clone();
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 3f9e665a6c..dad9edf07a 100644
+index 6756b20294..9ebf8c5c14 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -90,6 +90,7 @@ impl App {
@@ -489,7 +490,7 @@ index 3f9e665a6c..dad9edf07a 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -885,6 +888,13 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -886,6 +889,13 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -504,7 +505,7 @@ index 3f9e665a6c..dad9edf07a 100644
      }
  }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 82b833b33e..2ad40ea3ce 100644
+index c8a891e1a6..7997760644 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
 @@ -57,6 +57,8 @@ pub(super) async fn make_test_app() -> App {
@@ -517,10 +518,10 @@ index 82b833b33e..2ad40ea3ce 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index a360285632..07e855f4e7 100644
+index adeca53331..c723e6c10a 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5448,6 +5448,8 @@ async fn make_test_app() -> App {
+@@ -5454,6 +5454,8 @@ async fn make_test_app() -> App {
          environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
          app_server_target: crate::AppServerTarget::Embedded,
          pending_update_action: None,
@@ -529,7 +530,7 @@ index a360285632..07e855f4e7 100644
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -5529,6 +5531,8 @@ async fn make_test_app_with_channels() -> (
+@@ -5536,6 +5538,8 @@ async fn make_test_app_with_channels() -> (
              environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
              app_server_target: crate::AppServerTarget::Embedded,
              pending_update_action: None,
@@ -539,10 +540,10 @@ index a360285632..07e855f4e7 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index ccdfdcd043..5d93035f5c 100644
+index 9801b6056e..13bf82cf10 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
-@@ -101,6 +101,135 @@ fn deliver_usage_limit_error(app: &mut App) {
+@@ -103,6 +103,135 @@ fn deliver_usage_limit_error(app: &mut App) {
      );
  }
  
@@ -676,8 +677,8 @@ index ccdfdcd043..5d93035f5c 100644
 +}
 +
  #[tokio::test]
- async fn rolling_workspace_hard_stops_invalidate_older_rate_limit_reads() -> Result<()> {
-     let (mut app, _app_event_rx, _op_rx) = make_test_app_with_channels().await;
+ async fn backend_banner_state_survives_widget_replacement() -> Result<()> {
+     for dismiss in [false, true] {
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
 index 641dd621e4..c53c6e3e9c 100644
 --- a/codex-rs/tui/src/cli.rs
@@ -694,7 +695,7 @@ index 641dd621e4..c53c6e3e9c 100644
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 0cd2d7ed24..c99edc3f8d 100644
+index 5cbf403654..7928f7f9cc 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
 @@ -23,6 +23,8 @@ use app::App;
@@ -706,7 +707,7 @@ index 0cd2d7ed24..c99edc3f8d 100644
  use app_server_session::AppServerSession;
  use app_server_session::ThreadParamsMode;
  use codex_app_server_client::AppServerClient;
-@@ -1601,6 +1603,7 @@ async fn run_ratatui_app(
+@@ -1603,6 +1605,7 @@ async fn run_ratatui_app(
          prompt,
          shared,
          no_alt_screen,
@@ -714,7 +715,7 @@ index 0cd2d7ed24..c99edc3f8d 100644
          ..
      } = cli;
      let images = shared.into_inner().images;
-@@ -1727,6 +1730,7 @@ async fn run_ratatui_app(
+@@ -1729,6 +1732,7 @@ async fn run_ratatui_app(
          cloud_config_bundle,
          prompt,
          images,

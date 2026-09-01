@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 84c22011bf..1c72e6b5cb 100644
+index 055612ef0b..a818837c57 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -198,6 +198,9 @@ impl App {
+@@ -200,6 +200,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -13,10 +13,10 @@ index 84c22011bf..1c72e6b5cb 100644
                  self.clear_terminal_ui(tui, /*redraw_header*/ false)?;
                  self.reset_app_ui_state_after_clear();
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index a8126066d9..71eb2c8ac1 100644
+index bb5b57aa3d..8d2809c744 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -403,6 +403,9 @@ pub(crate) enum AppEvent {
+@@ -405,6 +405,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -27,7 +27,7 @@ index a8126066d9..71eb2c8ac1 100644
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 9261903843..86bdd4ad39 100644
+index f4bd674cd6..2dba2210dd 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 @@ -99,7 +99,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
@@ -50,7 +50,7 @@ index 9261903843..86bdd4ad39 100644
      let rendered = lines_to_single_string(&cells[0]);
      assert!(rendered.contains("This content can't be shown"));
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index e4ea33c3ec..da1c364b6e 100644
+index 050dc94a4f..af0685b4a9 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
 @@ -385,6 +385,7 @@ impl ChatWidget {

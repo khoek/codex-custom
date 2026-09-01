@@ -109,10 +109,10 @@ index 70919a7e61..f2cf0724cf 100644
      where
          T: DeserializeOwned,
 diff --git a/codex-rs/thread-store/src/local/model_context.rs b/codex-rs/thread-store/src/local/model_context.rs
-index ce70a00bf4..82287649fe 100644
+index d27718e12f..6d88ad53cb 100644
 --- a/codex-rs/thread-store/src/local/model_context.rs
 +++ b/codex-rs/thread-store/src/local/model_context.rs
-@@ -8,7 +8,6 @@ use codex_rollout::ModelContextScan;
+@@ -7,7 +7,6 @@ use codex_rollout::ModelContextScan;
  use codex_rollout::ModelContextScanProgress;
  use codex_rollout::ReverseJsonlScanner;
  use codex_rollout::RolloutItem;
@@ -120,7 +120,7 @@ index ce70a00bf4..82287649fe 100644
  use codex_rollout::ScanOutcome;
  
  use super::LocalThreadStore;
-@@ -142,7 +141,7 @@ fn scan_model_context_from_lineage_blocking(
+@@ -137,7 +136,7 @@ fn scan_model_context_from_lineage_blocking(
              Some(end_byte_offset) => ReverseJsonlScanner::new_at(file, end_byte_offset)?,
              None => ReverseJsonlScanner::new(file)?,
          };
@@ -130,7 +130,7 @@ index ce70a00bf4..82287649fe 100644
                  continue;
              };
 diff --git a/codex-rs/thread-store/src/local/model_context_tests.rs b/codex-rs/thread-store/src/local/model_context_tests.rs
-index e86f040704..1a668aa844 100644
+index af8e75ae53..0d8683e011 100644
 --- a/codex-rs/thread-store/src/local/model_context_tests.rs
 +++ b/codex-rs/thread-store/src/local/model_context_tests.rs
 @@ -81,6 +81,49 @@ async fn loads_latest_checkpoint_with_required_turn_metadata() {
@@ -184,7 +184,7 @@ index e86f040704..1a668aa844 100644
  async fn fork_context_excludes_items_after_frozen_cutoff() {
      let home = TempDir::new().expect("temp dir");
 diff --git a/codex-rs/thread-store/src/local/thread_history_materialization.rs b/codex-rs/thread-store/src/local/thread_history_materialization.rs
-index a63ed7fcb1..1d55d28cde 100644
+index 58ea278803..7ce4a7cc3d 100644
 --- a/codex-rs/thread-store/src/local/thread_history_materialization.rs
 +++ b/codex-rs/thread-store/src/local/thread_history_materialization.rs
 @@ -5,6 +5,7 @@ use chrono::DateTime;
@@ -195,7 +195,7 @@ index a63ed7fcb1..1d55d28cde 100644
  use codex_rollout::RolloutItem;
  use tokio::io::AsyncReadExt;
  use tokio::io::AsyncSeekExt;
-@@ -112,6 +113,7 @@ async fn read_projection_steps(
+@@ -117,6 +118,7 @@ async fn read_projection_steps(
      let mut next_ordinal = expected_ordinal;
      let mut next_offset = start_offset;
      let mut pending_rejected_line_count = 0;
@@ -203,7 +203,7 @@ index a63ed7fcb1..1d55d28cde 100644
      let mut line_start_offset = start_offset;
      // Keep rejected lines pending until a later valid ordinal proves whether they consumed history.
      // This lets a same-ordinal retry replace a failed write without advancing only one checkpoint.
-@@ -186,6 +188,31 @@ async fn read_projection_steps(
+@@ -191,6 +193,31 @@ async fn read_projection_steps(
              }
          };
          if ordinal < next_ordinal {
@@ -236,7 +236,7 @@ index a63ed7fcb1..1d55d28cde 100644
                  message: format!(
                      "thread history projection for {thread_id} expected ordinal {next_ordinal}, got {ordinal}"
 diff --git a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
-index 4354e39244..0fe84f7eb8 100644
+index 295287f065..28872ecbd5 100644
 --- a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
 +++ b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
 @@ -6,6 +6,10 @@ use std::time::Duration;
@@ -269,7 +269,7 @@ index 4354e39244..0fe84f7eb8 100644
  use codex_protocol::protocol::TokenCountEvent;
  use codex_protocol::protocol::TurnCompleteEvent;
  use codex_protocol::protocol::TurnStartedEvent;
-@@ -1853,6 +1861,109 @@ SELECT
+@@ -1916,6 +1924,110 @@ SELECT
      assert_eq!(projection_state(&pool, thread_id).await, (rollout_len, 3));
  }
  
@@ -313,6 +313,7 @@ index 4354e39244..0fe84f7eb8 100644
 +
 +    let duplicate_settings = RolloutItem::EventMsg(EventMsg::ThreadSettingsApplied(
 +        ThreadSettingsAppliedEvent {
++            thread_id: None,
 +            thread_settings: ThreadSettingsSnapshot {
 +                model: "gpt-5".to_string(),
 +                model_provider_id: "openai".to_string(),

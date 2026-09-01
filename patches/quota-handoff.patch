@@ -138,10 +138,10 @@ index b47d24f628..f3c238a6c5 100644
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 385a91571a..ff9058a270 100644
+index de87f3e231..78c051ea88 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -457,6 +457,7 @@ pub enum ExitReason {
+@@ -459,6 +459,7 @@ pub enum ExitReason {
      QuotaExceeded {
          thread_id: ThreadId,
          resume_args: Vec<String>,
@@ -149,7 +149,7 @@ index 385a91571a..ff9058a270 100644
      },
      Fatal(String),
  }
-@@ -599,6 +600,10 @@ pub(crate) struct App {
+@@ -601,6 +602,10 @@ pub(crate) struct App {
      exit_on_quota_exceeded: bool,
      /// The resumable primary thread recorded by the first quota error that requested shutdown.
      quota_exceeded_exit_thread_id: Option<ThreadId>,
@@ -160,7 +160,7 @@ index 385a91571a..ff9058a270 100644
  
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
-@@ -794,6 +799,11 @@ impl App {
+@@ -797,6 +802,11 @@ impl App {
          event: TuiEvent,
      ) -> Result<AppRunControl> {
          let screen_size = tui.screen_size_for_event(&event)?;
@@ -173,10 +173,10 @@ index 385a91571a..ff9058a270 100644
              &event,
              TuiEvent::Key(_) | TuiEvent::Paste(_) | TuiEvent::FocusLost
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 83d984e3b1..c1d449fb27 100644
+index f9aae002ef..f972a3abc7 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
-@@ -28,10 +28,7 @@ use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
+@@ -29,10 +29,7 @@ use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
  use codex_protocol::protocol::SubAgentSource;
  
  fn quota_recovery_config_override(key: &str, value: &str) -> String {
@@ -188,7 +188,7 @@ index 83d984e3b1..c1d449fb27 100644
  }
  
  impl App {
-@@ -74,6 +71,27 @@ impl App {
+@@ -75,6 +72,27 @@ impl App {
          args
      }
  
@@ -216,7 +216,7 @@ index 83d984e3b1..c1d449fb27 100644
      pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
          if self
              .current_displayed_thread_id()
-@@ -346,6 +364,11 @@ impl App {
+@@ -355,6 +373,11 @@ impl App {
                  {
                      return;
                  }
@@ -228,7 +228,7 @@ index 83d984e3b1..c1d449fb27 100644
                  let result = if self.primary_thread_id == Some(thread_id)
                      || self.primary_thread_id.is_none()
                  {
-@@ -358,12 +381,7 @@ impl App {
+@@ -367,12 +390,7 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -275,7 +275,7 @@ index 2b8ea74ba7..2012d87f04 100644
          }
          let color_command = |command: String| {
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index c789542c85..d69b3b1f21 100644
+index 4def256c84..61786815bb 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -97,6 +97,7 @@ impl App {
@@ -295,7 +295,7 @@ index c789542c85..d69b3b1f21 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -573,6 +576,14 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -574,6 +577,14 @@ See the Codex keymap documentation for supported actions and examples."
                  Ok(result) => result?,
                  Err(err) => return shutdown_on_startup_error(app_server, err).await,
              }
@@ -310,7 +310,7 @@ index c789542c85..d69b3b1f21 100644
              if start_immediately {
                  let resumed = match startup_draft
                      .run_until(
-@@ -585,7 +596,11 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -586,7 +597,11 @@ See the Codex keymap documentation for supported actions and examples."
                      Err(err) => return shutdown_on_startup_error(app_server, err).await,
                  };
                  if resumed {
@@ -323,7 +323,7 @@ index c789542c85..d69b3b1f21 100644
                  }
              } else if should_prompt_for_paused_goal_after_startup_resume
                  && let Err(err) = startup_draft
-@@ -600,6 +615,15 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -601,6 +616,15 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, err).await;
              }
@@ -339,7 +339,7 @@ index c789542c85..d69b3b1f21 100644
          }
          let initial_session_ms = initial_session_started_at.elapsed().as_millis();
  
-@@ -903,12 +927,19 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -904,12 +928,19 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -363,7 +363,7 @@ index c789542c85..d69b3b1f21 100644
          Ok(app.exit_info(exit_reason))
      }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 2ad40ea3ce..9059503fa1 100644
+index 7997760644..4a082155d6 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
 @@ -59,6 +59,8 @@ pub(super) async fn make_test_app() -> App {
@@ -376,10 +376,10 @@ index 2ad40ea3ce..9059503fa1 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index ef9c80287c..10afeffbe8 100644
+index e475ede4d8..80badf6936 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5450,6 +5450,8 @@ async fn make_test_app() -> App {
+@@ -5456,6 +5456,8 @@ async fn make_test_app() -> App {
          pending_update_action: None,
          exit_on_quota_exceeded: false,
          quota_exceeded_exit_thread_id: None,
@@ -388,7 +388,7 @@ index ef9c80287c..10afeffbe8 100644
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -5533,6 +5535,8 @@ async fn make_test_app_with_channels() -> (
+@@ -5540,6 +5542,8 @@ async fn make_test_app_with_channels() -> (
              pending_update_action: None,
              exit_on_quota_exceeded: false,
              quota_exceeded_exit_thread_id: None,
@@ -398,10 +398,10 @@ index ef9c80287c..10afeffbe8 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index c2f24cd3b9..c6cfb94570 100644
+index e14a52a3a0..3577007d98 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-@@ -429,7 +429,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
+@@ -433,7 +433,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
          )
  }
  
@@ -412,10 +412,10 @@ index c2f24cd3b9..c6cfb94570 100644
      Plain,
      /// Preserve model-input provenance when paste expansion reveals a leading shell sigil.
 diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
-index 592c835e20..034603d367 100644
+index fd2fd4a104..6e3e16226e 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
-@@ -85,13 +85,13 @@ pub(crate) use status_line_style::status_line_from_segments;
+@@ -90,13 +90,13 @@ pub(crate) use status_line_style::status_line_from_segments;
  mod bottom_pane_view;
  mod effort_ignition;
  
@@ -432,7 +432,7 @@ index 592c835e20..034603d367 100644
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index b5215116e6..6065aa3101 100644
+index 4b601e5728..77888e6a10 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
 @@ -359,6 +359,7 @@ mod input_flow;
@@ -780,17 +780,17 @@ index 0000000000..9ff21dee61
 +        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
 +}
 diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
-index 2de6b97774..76f7412722 100644
+index d59533eb29..b7f2f28e0b 100644
 --- a/codex-rs/tui/src/chatwidget/tests.rs
 +++ b/codex-rs/tui/src/chatwidget/tests.rs
-@@ -252,6 +252,7 @@ mod plan_mode;
+@@ -254,6 +254,7 @@ mod plan_mode;
  #[path = "tests/plugin_catalog_tests.rs"]
  mod plugin_catalog;
  mod popups_and_settings;
 +mod quota_handoff;
+ #[path = "tests/rate_limit_recovery_tests.rs"]
+ mod rate_limit_recovery_tests;
  mod review_mode;
- mod side;
- mod slash_commands;
 diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 new file mode 100644
 index 0000000000..418d1e45e4
@@ -1028,10 +1028,10 @@ index 50d877cce1..5ce1c3a0b7 100644
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index de527ffdd6..b21b2adaa6 100644
+index 69ad63898c..5a59a2b920 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1601,6 +1601,7 @@ async fn run_ratatui_app(
+@@ -1603,6 +1603,7 @@ async fn run_ratatui_app(
  
      let Cli {
          start_immediately,
@@ -1039,7 +1039,7 @@ index de527ffdd6..b21b2adaa6 100644
          prompt,
          shared,
          no_alt_screen,
-@@ -1738,6 +1739,7 @@ async fn run_ratatui_app(
+@@ -1740,6 +1741,7 @@ async fn run_ratatui_app(
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,
          start_immediately,
