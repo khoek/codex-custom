@@ -1,5 +1,5 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index b47d24f628..f3c238a6c5 100644
+index a8dcdff6b7..aa86733c00 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -369,6 +369,15 @@ struct ResumeCommand {
@@ -50,7 +50,7 @@ index b47d24f628..f3c238a6c5 100644
          interactive
      }
  
-@@ -3850,6 +3863,7 @@ mod tests {
+@@ -3853,6 +3866,7 @@ mod tests {
                      "-c".to_string(),
                      "model_reasoning_effort=\"high\"".to_string(),
                  ],
@@ -58,7 +58,7 @@ index b47d24f628..f3c238a6c5 100644
              };
  
              assert_eq!(
-@@ -3873,6 +3887,7 @@ mod tests {
+@@ -3876,6 +3890,7 @@ mod tests {
          exit_info.exit_reason = ExitReason::QuotaExceeded {
              thread_id,
              resume_args: vec!["--model".to_string(), "gpt-5.6".to_string()],
@@ -66,7 +66,7 @@ index b47d24f628..f3c238a6c5 100644
          };
  
          assert_eq!(
-@@ -3881,6 +3896,31 @@ mod tests {
+@@ -3884,6 +3899,31 @@ mod tests {
          );
      }
  
@@ -98,7 +98,7 @@ index b47d24f628..f3c238a6c5 100644
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -4068,6 +4108,38 @@ mod tests {
+@@ -4093,6 +4133,38 @@ mod tests {
          }
      }
  
@@ -138,10 +138,10 @@ index b47d24f628..f3c238a6c5 100644
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index de87f3e231..78c051ea88 100644
+index d7f956203d..afa76faf59 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -459,6 +459,7 @@ pub enum ExitReason {
+@@ -463,6 +463,7 @@ pub enum ExitReason {
      QuotaExceeded {
          thread_id: ThreadId,
          resume_args: Vec<String>,
@@ -149,7 +149,7 @@ index de87f3e231..78c051ea88 100644
      },
      Fatal(String),
  }
-@@ -601,6 +602,10 @@ pub(crate) struct App {
+@@ -600,6 +601,10 @@ pub(crate) struct App {
      exit_on_quota_exceeded: bool,
      /// The resumable primary thread recorded by the first quota error that requested shutdown.
      quota_exceeded_exit_thread_id: Option<ThreadId>,
@@ -160,9 +160,9 @@ index de87f3e231..78c051ea88 100644
  
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
-@@ -797,6 +802,11 @@ impl App {
-         event: TuiEvent,
-     ) -> Result<AppRunControl> {
+@@ -832,6 +837,11 @@ impl App {
+             return Ok(AppRunControl::Exit(ExitReason::UserRequested));
+         }
          let screen_size = tui.screen_size_for_event(&event)?;
 +        if self.quota_exceeded_exit_thread_id.is_some()
 +            && matches!(&event, TuiEvent::Key(_) | TuiEvent::Paste(_))
@@ -173,7 +173,7 @@ index de87f3e231..78c051ea88 100644
              &event,
              TuiEvent::Key(_) | TuiEvent::Paste(_) | TuiEvent::FocusLost
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index f9aae002ef..f972a3abc7 100644
+index a80f33a4bf..74385c7522 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -29,10 +29,7 @@ use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
@@ -216,7 +216,7 @@ index f9aae002ef..f972a3abc7 100644
      pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
          if self
              .current_displayed_thread_id()
-@@ -355,6 +373,11 @@ impl App {
+@@ -360,6 +378,11 @@ impl App {
                  {
                      return;
                  }
@@ -228,7 +228,7 @@ index f9aae002ef..f972a3abc7 100644
                  let result = if self.primary_thread_id == Some(thread_id)
                      || self.primary_thread_id.is_none()
                  {
-@@ -367,12 +390,7 @@ impl App {
+@@ -372,12 +395,7 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -243,10 +243,10 @@ index f9aae002ef..f972a3abc7 100644
                          .send(AppEvent::Exit(ExitMode::ShutdownFirst));
                  }
 diff --git a/codex-rs/tui/src/app/exit_summary.rs b/codex-rs/tui/src/app/exit_summary.rs
-index 2b8ea74ba7..2012d87f04 100644
+index cb30671b92..e96a72698e 100644
 --- a/codex-rs/tui/src/app/exit_summary.rs
 +++ b/codex-rs/tui/src/app/exit_summary.rs
-@@ -76,12 +76,23 @@ impl AppExitInfo {
+@@ -84,12 +84,23 @@ impl AppExitInfo {
          if let ExitReason::QuotaExceeded {
              thread_id,
              resume_args,
@@ -275,10 +275,10 @@ index 2b8ea74ba7..2012d87f04 100644
          }
          let color_command = |command: String| {
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 4def256c84..61786815bb 100644
+index 65d5de1ad1..807172fb50 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -97,6 +97,7 @@ impl App {
+@@ -96,6 +96,7 @@ impl App {
          should_prompt_windows_sandbox_nux_at_startup: bool,
          app_server_target: AppServerTarget,
          start_immediately: bool,
@@ -286,7 +286,7 @@ index 4def256c84..61786815bb 100644
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -519,6 +520,8 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -523,6 +524,8 @@ See the Codex keymap documentation for supported actions and examples."
              pending_update_action: None,
              exit_on_quota_exceeded,
              quota_exceeded_exit_thread_id: None,
@@ -295,7 +295,7 @@ index 4def256c84..61786815bb 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -574,6 +577,14 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -580,6 +583,14 @@ See the Codex keymap documentation for supported actions and examples."
                  Ok(result) => result?,
                  Err(err) => return shutdown_on_startup_error(app_server, err).await,
              }
@@ -310,7 +310,7 @@ index 4def256c84..61786815bb 100644
              if start_immediately {
                  let resumed = match startup_draft
                      .run_until(
-@@ -586,7 +597,11 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -592,7 +603,11 @@ See the Codex keymap documentation for supported actions and examples."
                      Err(err) => return shutdown_on_startup_error(app_server, err).await,
                  };
                  if resumed {
@@ -323,7 +323,7 @@ index 4def256c84..61786815bb 100644
                  }
              } else if should_prompt_for_paused_goal_after_startup_resume
                  && let Err(err) = startup_draft
-@@ -601,6 +616,15 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -607,6 +622,15 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, err).await;
              }
@@ -339,7 +339,7 @@ index 4def256c84..61786815bb 100644
          }
          let initial_session_ms = initial_session_started_at.elapsed().as_millis();
  
-@@ -904,12 +928,19 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -949,12 +973,19 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -363,10 +363,10 @@ index 4def256c84..61786815bb 100644
          Ok(app.exit_info(exit_reason))
      }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 7997760644..4a082155d6 100644
+index 4a9f7b9c74..aa1920d1d6 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -59,6 +59,8 @@ pub(super) async fn make_test_app() -> App {
+@@ -60,6 +60,8 @@ pub(super) async fn make_test_app() -> App {
          pending_update_action: None,
          exit_on_quota_exceeded: false,
          quota_exceeded_exit_thread_id: None,
@@ -376,10 +376,10 @@ index 7997760644..4a082155d6 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index e475ede4d8..80badf6936 100644
+index 3a460ca4f7..78337b50ed 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5456,6 +5456,8 @@ async fn make_test_app() -> App {
+@@ -5468,6 +5468,8 @@ async fn make_test_app() -> App {
          pending_update_action: None,
          exit_on_quota_exceeded: false,
          quota_exceeded_exit_thread_id: None,
@@ -388,7 +388,7 @@ index e475ede4d8..80badf6936 100644
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -5540,6 +5542,8 @@ async fn make_test_app_with_channels() -> (
+@@ -5553,6 +5555,8 @@ async fn make_test_app_with_channels() -> (
              pending_update_action: None,
              exit_on_quota_exceeded: false,
              quota_exceeded_exit_thread_id: None,
@@ -398,10 +398,10 @@ index e475ede4d8..80badf6936 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index e14a52a3a0..3577007d98 100644
+index 953f2e9263..05b87de163 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-@@ -433,7 +433,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
+@@ -448,7 +448,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
          )
  }
  
@@ -412,10 +412,10 @@ index e14a52a3a0..3577007d98 100644
      Plain,
      /// Preserve model-input provenance when paste expansion reveals a leading shell sigil.
 diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
-index fd2fd4a104..6e3e16226e 100644
+index f4caf92490..d532ca15cb 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
-@@ -90,13 +90,13 @@ pub(crate) use status_line_style::status_line_from_segments;
+@@ -91,13 +91,13 @@ pub(crate) use status_line_style::status_line_from_segments;
  mod bottom_pane_view;
  mod effort_ignition;
  
@@ -432,10 +432,10 @@ index fd2fd4a104..6e3e16226e 100644
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index 4b601e5728..77888e6a10 100644
+index 40eadfaf58..4403052fa9 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
-@@ -359,6 +359,7 @@ mod input_flow;
+@@ -360,6 +360,7 @@ mod input_flow;
  mod input_restore;
  mod input_submission;
  mod interrupts;
@@ -957,7 +957,7 @@ index 0000000000..418d1e45e4
 +    );
 +}
 diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
-index 5c7c18e594..899f5490bf 100644
+index 50feb09b80..e8556b9562 100644
 --- a/codex-rs/tui/src/chatwidget/user_messages.rs
 +++ b/codex-rs/tui/src/chatwidget/user_messages.rs
 @@ -26,7 +26,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
@@ -1028,10 +1028,10 @@ index 50d877cce1..5ce1c3a0b7 100644
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 69ad63898c..5a59a2b920 100644
+index 96a5a6d437..59a0cecba0 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1603,6 +1603,7 @@ async fn run_ratatui_app(
+@@ -1604,6 +1604,7 @@ async fn run_ratatui_app(
  
      let Cli {
          start_immediately,
@@ -1039,7 +1039,7 @@ index 69ad63898c..5a59a2b920 100644
          prompt,
          shared,
          no_alt_screen,
-@@ -1740,6 +1741,7 @@ async fn run_ratatui_app(
+@@ -1741,6 +1742,7 @@ async fn run_ratatui_app(
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,
          start_immediately,

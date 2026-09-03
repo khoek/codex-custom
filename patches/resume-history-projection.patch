@@ -41,10 +41,10 @@ index 3f002aec8a..892df7eb74 100644
              return Err(io::Error::other(format!(
                  "rollout at {} does not start with session metadata",
 diff --git a/codex-rs/rollout/src/recorder_tests.rs b/codex-rs/rollout/src/recorder_tests.rs
-index 0056d0ef77..95a2027073 100644
+index e1714f814c..f4b8dc6578 100644
 --- a/codex-rs/rollout/src/recorder_tests.rs
 +++ b/codex-rs/rollout/src/recorder_tests.rs
-@@ -991,6 +991,33 @@ async fn resumed_paginated_rollout_continues_after_ordinal_gap() -> std::io::Res
+@@ -995,6 +995,33 @@ async fn resumed_paginated_rollout_continues_after_ordinal_gap() -> std::io::Res
      recorder.shutdown().await
  }
  
@@ -130,10 +130,10 @@ index d27718e12f..6d88ad53cb 100644
                  continue;
              };
 diff --git a/codex-rs/thread-store/src/local/model_context_tests.rs b/codex-rs/thread-store/src/local/model_context_tests.rs
-index af8e75ae53..0d8683e011 100644
+index 2891baacf8..7f3e730f4e 100644
 --- a/codex-rs/thread-store/src/local/model_context_tests.rs
 +++ b/codex-rs/thread-store/src/local/model_context_tests.rs
-@@ -81,6 +81,49 @@ async fn loads_latest_checkpoint_with_required_turn_metadata() {
+@@ -82,6 +82,49 @@ async fn loads_latest_checkpoint_with_required_turn_metadata() {
      }));
  }
  
@@ -181,7 +181,7 @@ index af8e75ae53..0d8683e011 100644
 +}
 +
  #[tokio::test]
- async fn fork_context_excludes_items_after_frozen_cutoff() {
+ async fn loads_recent_context_after_many_empty_wake_turns() {
      let home = TempDir::new().expect("temp dir");
 diff --git a/codex-rs/thread-store/src/local/thread_history_materialization.rs b/codex-rs/thread-store/src/local/thread_history_materialization.rs
 index 58ea278803..7ce4a7cc3d 100644
@@ -236,7 +236,7 @@ index 58ea278803..7ce4a7cc3d 100644
                  message: format!(
                      "thread history projection for {thread_id} expected ordinal {next_ordinal}, got {ordinal}"
 diff --git a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
-index 295287f065..28872ecbd5 100644
+index 373419c16e..7da3a7a2a6 100644
 --- a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
 +++ b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
 @@ -6,6 +6,10 @@ use std::time::Duration;
@@ -269,7 +269,7 @@ index 295287f065..28872ecbd5 100644
  use codex_protocol::protocol::TokenCountEvent;
  use codex_protocol::protocol::TurnCompleteEvent;
  use codex_protocol::protocol::TurnStartedEvent;
-@@ -1916,6 +1924,110 @@ SELECT
+@@ -1919,6 +1927,110 @@ SELECT
      assert_eq!(projection_state(&pool, thread_id).await, (rollout_len, 3));
  }
  
@@ -402,7 +402,7 @@ index a1044f02fb..ded3114572 100644
              Ok(None) => break,
              Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
 diff --git a/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs b/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs
-index efc9a4b043..5a34b7d5c3 100644
+index d08b188ea2..79874dd763 100644
 --- a/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs
 +++ b/codex-rs/tui/src/resume_picker_transcript_preview_tests.rs
 @@ -18,6 +18,7 @@ use codex_protocol::protocol::AgentMessageEvent;
