@@ -1,8 +1,8 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index e9acff2c43..b47d24f628 100644
+index f57ffee726f257ff10637b124c4478792f9a872d..5c7429fe1b0bb55789e147f723628602b087afb1 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -360,6 +360,15 @@ struct ResumeCommand {
+@@ -365,6 +365,15 @@ struct ResumeCommand {
      #[arg(long = "include-non-interactive", default_value_t = false)]
      include_non_interactive: bool,
  
@@ -18,7 +18,7 @@ index e9acff2c43..b47d24f628 100644
      #[clap(flatten)]
      remote: InteractiveRemoteOptions,
  
-@@ -1400,6 +1409,7 @@ async fn cli_main(
+@@ -1406,6 +1415,7 @@ async fn cli_main(
              last,
              all,
              include_non_interactive,
@@ -26,7 +26,7 @@ index e9acff2c43..b47d24f628 100644
              remote,
              config_overrides,
          })) => {
-@@ -1413,6 +1423,7 @@ async fn cli_main(
+@@ -1419,6 +1429,7 @@ async fn cli_main(
                  include_non_interactive,
                  config_overrides,
              );
@@ -34,7 +34,7 @@ index e9acff2c43..b47d24f628 100644
              let exit_info = run_interactive_tui(
                  interactive,
                  remote.remote.or(root_remote.clone()),
-@@ -3032,6 +3043,7 @@ mod tests {
+@@ -3049,6 +3060,7 @@ mod tests {
              last,
              all,
              include_non_interactive,
@@ -42,7 +42,7 @@ index e9acff2c43..b47d24f628 100644
              remote: _,
              config_overrides: resume_cli,
          }) = subcommand.expect("resume present")
-@@ -3040,7 +3052,7 @@ mod tests {
+@@ -3057,7 +3069,7 @@ mod tests {
          };
          let SessionTuiCli(resume_cli) = resume_cli;
  
@@ -51,7 +51,7 @@ index e9acff2c43..b47d24f628 100644
              interactive,
              root_overrides,
              session_id,
-@@ -3048,7 +3060,9 @@ mod tests {
+@@ -3065,7 +3077,9 @@ mod tests {
              all,
              include_non_interactive,
              resume_cli,
@@ -62,7 +62,7 @@ index e9acff2c43..b47d24f628 100644
      }
  
      fn finalize_fork_from_args(args: &[&str]) -> TuiCli {
-@@ -4031,6 +4045,29 @@ mod tests {
+@@ -4073,6 +4087,29 @@ mod tests {
          assert_eq!(interactive.prompt.as_deref(), Some("continue here"));
      }
  
@@ -93,10 +93,10 @@ index e9acff2c43..b47d24f628 100644
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 9ebf8c5c14..4def256c84 100644
+index 87bb92d2b1b46fa223f5499d927c8917d626db34..2ee88b9104a7dd5327876d671611af5328dc3dde 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -96,6 +96,7 @@ impl App {
+@@ -95,6 +95,7 @@ impl App {
          is_first_run: bool,
          should_prompt_windows_sandbox_nux_at_startup: bool,
          app_server_target: AppServerTarget,
@@ -104,7 +104,7 @@ index 9ebf8c5c14..4def256c84 100644
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -573,7 +574,21 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -607,7 +608,21 @@ See the Codex keymap documentation for supported actions and examples."
                  Ok(result) => result?,
                  Err(err) => return shutdown_on_startup_error(app_server, err).await,
              }
@@ -128,10 +128,10 @@ index 9ebf8c5c14..4def256c84 100644
                      .run_until(
                          tui,
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index c723e6c10a..e475ede4d8 100644
+index 0307353286b47b0deb9ae84531b317bbf6117090..89446246b99d7b0865dea128306536e29ae46ec4 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5776,6 +5776,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
+@@ -5827,6 +5827,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
      Ok(())
  }
  
@@ -177,7 +177,7 @@ index c723e6c10a..e475ede4d8 100644
  async fn replace_goal_confirmation_snapshot() {
      let mut app = make_test_app().await;
 diff --git a/codex-rs/tui/src/app/thread_goal_actions.rs b/codex-rs/tui/src/app/thread_goal_actions.rs
-index e1557e68f1..54dac13a10 100644
+index e1557e68f1c5eb7d613fb4666f47aec737a637ca..54dac13a10261b2a1ffd857a36d290b5250c93c3 100644
 --- a/codex-rs/tui/src/app/thread_goal_actions.rs
 +++ b/codex-rs/tui/src/app/thread_goal_actions.rs
 @@ -85,6 +85,43 @@ impl App {
@@ -265,7 +265,7 @@ index e1557e68f1..54dac13a10 100644
      }
  
 diff --git a/codex-rs/tui/src/chatwidget/input_queue.rs b/codex-rs/tui/src/chatwidget/input_queue.rs
-index f14059e3ca..b9deb81dfa 100644
+index 48a0916c0a17d39e340ac6ea932a6cdc8376bc14..4d5ea981bac0ead51c6e5551c229f33573004335 100644
 --- a/codex-rs/tui/src/chatwidget/input_queue.rs
 +++ b/codex-rs/tui/src/chatwidget/input_queue.rs
 @@ -41,6 +41,8 @@ pub(super) struct InputQueueState {
@@ -277,7 +277,7 @@ index f14059e3ca..b9deb81dfa 100644
      pub(super) suppress_queue_autosend: bool,
      /// Hold submissions while a usage failure or backend-directed model fallback is resolved.
      pub(super) rate_limit_recovery_pending: bool,
-@@ -59,6 +61,7 @@ impl InputQueueState {
+@@ -61,6 +63,7 @@ impl InputQueueState {
          self.rejected_steer_history_records.clear();
          self.pending_steers.clear();
          self.submit_pending_steers_after_interrupt = false;
@@ -285,7 +285,7 @@ index f14059e3ca..b9deb81dfa 100644
          self.rate_limit_recovery_pending = false;
      }
  
-@@ -143,6 +146,7 @@ mod tests {
+@@ -146,6 +149,7 @@ mod tests {
              .push_back(UserMessage::from("rejected"));
          state.user_turn_pending_start = true;
          state.submit_pending_steers_after_interrupt = true;
@@ -293,7 +293,7 @@ index f14059e3ca..b9deb81dfa 100644
  
          state.clear();
  
-@@ -153,5 +157,6 @@ mod tests {
+@@ -156,5 +160,6 @@ mod tests {
          assert!(state.rejected_steer_history_records.is_empty());
          assert!(state.pending_steers.is_empty());
          assert!(!state.submit_pending_steers_after_interrupt);
@@ -301,10 +301,10 @@ index f14059e3ca..b9deb81dfa 100644
      }
  }
 diff --git a/codex-rs/tui/src/chatwidget/input_restore.rs b/codex-rs/tui/src/chatwidget/input_restore.rs
-index d4afa1bfc8..5c41231b1a 100644
+index d7e7ae3390b1ece543fc922f13ca4d4ba4510d6a..0797ee3513558be3f3a51db059c4c35c8c93f59d 100644
 --- a/codex-rs/tui/src/chatwidget/input_restore.rs
 +++ b/codex-rs/tui/src/chatwidget/input_restore.rs
-@@ -229,13 +229,15 @@ impl ChatWidget {
+@@ -232,13 +232,15 @@ impl ChatWidget {
      /// When there are queued user messages, restore them into the composer
      /// separated by newlines rather than auto-submitting the next one.
      pub(super) fn on_interrupted_turn(&mut self, reason: TurnAbortReason) {
@@ -321,7 +321,7 @@ index d4afa1bfc8..5c41231b1a 100644
                  self.add_to_history(history_cell::new_info_event(
                      "Model interrupted to submit steer instructions.".to_owned(),
                      /*hint*/ None,
-@@ -250,7 +252,9 @@ impl ChatWidget {
+@@ -253,7 +255,9 @@ impl ChatWidget {
          // The server has already discarded pending input by the time the
          // interrupted turn reaches the UI, so any unacknowledged steers still
          // tracked here must be restored locally instead of waiting for a later commit.
@@ -332,7 +332,7 @@ index d4afa1bfc8..5c41231b1a 100644
              let pending_steers = self
                  .input_queue
                  .pending_steers
-@@ -484,6 +488,7 @@ impl ChatWidget {
+@@ -471,6 +475,7 @@ impl ChatWidget {
          restore_mode: ThreadInputStateRestoreMode,
      ) {
          let preserve_in_flight_turn = restore_mode.preserve_in_flight_turn;
@@ -341,7 +341,7 @@ index d4afa1bfc8..5c41231b1a 100644
              preserve_in_flight_turn && input_state.as_ref().is_some_and(|state| state.task_running);
          if let Some(input_state) = input_state {
 diff --git a/codex-rs/tui/src/chatwidget/input_submission.rs b/codex-rs/tui/src/chatwidget/input_submission.rs
-index 8571519c7f..260d2b2271 100644
+index 27a6e7eb51be1625dbdb77a2d6368eb7ffd074a9..a732b805a9bd9784acb06ab3b1d32fd00677238b 100644
 --- a/codex-rs/tui/src/chatwidget/input_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/input_submission.rs
 @@ -2,6 +2,8 @@
@@ -353,7 +353,7 @@ index 8571519c7f..260d2b2271 100644
  impl ChatWidget {
      pub(crate) fn set_task_mentions_enabled(&mut self, enabled: bool) {
          self.bottom_pane.set_task_mentions_enabled(enabled);
-@@ -79,6 +81,23 @@ impl ChatWidget {
+@@ -81,6 +83,23 @@ impl ChatWidget {
          );
      }
  
@@ -378,10 +378,10 @@ index 8571519c7f..260d2b2271 100644
          &mut self,
          user_message: UserMessage,
 diff --git a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-index 394fe45c33..ff0a372e27 100644
+index d763e044a7c57b04d05f545a3c041675b16dff09..1eacc43ce7f09ed7a1b47c40768a3b0875da0320 100644
 --- a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-@@ -334,6 +334,93 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
+@@ -345,6 +345,93 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
      assert_no_submit_op(&mut op_rx);
  }
  
@@ -476,10 +476,10 @@ index 394fe45c33..ff0a372e27 100644
  async fn parent_owned_thread_preserves_queued_input_before_draining() {
      let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ Some("gpt-5")).await;
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index 3d9e698e1b..050dc94a4f 100644
+index bcc2d34329c1a04ed15cf4b33e9ad26833922f3f..7e2b091358e6b6d4473eae59a38d9b677b0ab4f8 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-@@ -108,6 +108,7 @@ impl ChatWidget {
+@@ -117,6 +117,7 @@ impl ChatWidget {
          from_replay: bool,
      ) {
          self.input_queue.submit_pending_steers_after_interrupt = false;
@@ -487,16 +487,16 @@ index 3d9e698e1b..050dc94a4f 100644
          let sanitized_last_agent_message = last_agent_message.as_deref().map(|message| {
              parse_assistant_markdown(message, self.config.cwd.as_path()).visible_markdown
          });
-@@ -313,6 +314,7 @@ impl ChatWidget {
-     /// This does not clear MCP startup tracking, because MCP startup can overlap with turn cleanup
+@@ -323,6 +324,7 @@ impl ChatWidget {
      /// and should continue to drive the bottom-pane running indicator while it is in progress.
      pub(super) fn finalize_turn(&mut self) {
+         self.clear_context_compaction();
 +        self.input_queue.submit_queued_after_interrupt = false;
          self.clear_safety_buffering();
          // Drop preview-only stream tail content on any termination path before
          // failed-cell finalization, so transient tail cells are never persisted.
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
-index c53c6e3e9c..50d877cce1 100644
+index c53c6e3e9cbbba809353c05f92f65bb5de377969..50d877cce1ebaad6727e4fc011ab2fc4196c1e32 100644
 --- a/codex-rs/tui/src/cli.rs
 +++ b/codex-rs/tui/src/cli.rs
 @@ -41,6 +41,10 @@ pub struct Cli {
@@ -511,10 +511,10 @@ index c53c6e3e9c..50d877cce1 100644
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 7928f7f9cc..69ad63898c 100644
+index d3b72ee6927a1775e8bcd7721b1c1895478abb6f..3e048a2631b91729e80d9c97c875d2fb49a9276f 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1602,6 +1602,7 @@ async fn run_ratatui_app(
+@@ -1642,6 +1642,7 @@ async fn run_ratatui_app(
      let should_prompt_windows_sandbox_nux_at_startup = false;
  
      let Cli {
@@ -522,7 +522,7 @@ index 7928f7f9cc..69ad63898c 100644
          prompt,
          shared,
          no_alt_screen,
-@@ -1738,6 +1739,7 @@ async fn run_ratatui_app(
+@@ -1779,6 +1780,7 @@ async fn run_ratatui_app(
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,

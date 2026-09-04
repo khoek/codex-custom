@@ -1,5 +1,5 @@
 diff --git a/codex-rs/arg0/src/lib.rs b/codex-rs/arg0/src/lib.rs
-index 4673f84e42..cb52dd47ff 100644
+index 4673f84e4280c2cf4a8f1998a939eb13105c4f11..cb52dd47fff37a193ddc1a7969f6e736cfa2c781 100644
 --- a/codex-rs/arg0/src/lib.rs
 +++ b/codex-rs/arg0/src/lib.rs
 @@ -209,17 +209,18 @@ fn prepare_path_env_var_with_aliases(
@@ -77,10 +77,10 @@ index 4673f84e42..cb52dd47ff 100644
  
      #[test]
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 832e620a2b..05b18c6825 100644
+index d371e8f5c21dc5c64571ad54454268c740b8c09e..f57ffee726f257ff10637b124c4478792f9a872d 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -31,6 +31,7 @@ use codex_state::StateRuntime;
+@@ -36,6 +36,7 @@ use codex_state::StateRuntime;
  use codex_tui::AppExitInfo;
  use codex_tui::Cli as TuiCli;
  use codex_tui::ExitReason;
@@ -88,7 +88,7 @@ index 832e620a2b..05b18c6825 100644
  use codex_tui::UpdateAction;
  use codex_utils_absolute_path::AbsolutePathBuf;
  use codex_utils_cli::CliConfigOverrides;
-@@ -40,6 +41,7 @@ use std::collections::HashSet;
+@@ -45,6 +46,7 @@ use std::collections::HashSet;
  use std::io::IsTerminal;
  use std::io::Write;
  use std::path::PathBuf;
@@ -96,7 +96,7 @@ index 832e620a2b..05b18c6825 100644
  use std::sync::Arc;
  use supports_color::Stream;
  
-@@ -784,16 +786,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
+@@ -789,16 +791,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
  }
  
  /// Handle the app exit and print the results. Optionally run the update action.
@@ -118,7 +118,7 @@ index 832e620a2b..05b18c6825 100644
      };
  
      let update_action = exit_info.update_action;
-@@ -801,14 +804,11 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+@@ -806,14 +809,11 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
      for line in exit_info.format_exit_messages(color_enabled) {
          println!("{line}");
      }
@@ -136,12 +136,13 @@ index 832e620a2b..05b18c6825 100644
  }
  
  /// Run the update action and print the result.
-@@ -1035,18 +1035,17 @@ fn stage_str(stage: Stage) -> &'static str {
+@@ -1040,19 +1040,18 @@ fn stage_str(stage: Stage) -> &'static str {
      }
  }
  
 -fn main() -> anyhow::Result<()> {
 +fn main() -> anyhow::Result<ExitCode> {
+     codex_build_info::initialize!();
      let remote_control_disabled = codex_app_server::take_remote_control_disabled_env();
      arg0_dispatch_or_else(move |arg0_paths: Arg0DispatchPaths| async move {
 -        cli_main(arg0_paths, remote_control_disabled).await?;
@@ -158,7 +159,7 @@ index 832e620a2b..05b18c6825 100644
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
          feature_toggles,
-@@ -1139,7 +1138,7 @@ async fn cli_main(
+@@ -1145,7 +1144,7 @@ async fn cli_main(
                  arg0_paths.clone(),
              )
              .await?;
@@ -167,7 +168,7 @@ index 832e620a2b..05b18c6825 100644
          }
          Some(Subcommand::Exec(mut exec_cli)) => {
              reject_remote_mode_for_subcommand(
-@@ -1423,7 +1422,7 @@ async fn cli_main(
+@@ -1429,7 +1428,7 @@ async fn cli_main(
                  arg0_paths.clone(),
              )
              .await?;
@@ -176,7 +177,7 @@ index 832e620a2b..05b18c6825 100644
          }
          Some(Subcommand::Archive(cmd)) => {
              let output = run_session_archive_cli_command(
-@@ -1510,7 +1509,7 @@ async fn cli_main(
+@@ -1516,7 +1515,7 @@ async fn cli_main(
                  arg0_paths.clone(),
              )
              .await?;
@@ -185,7 +186,7 @@ index 832e620a2b..05b18c6825 100644
          }
          Some(Subcommand::Login(mut login_cli)) => {
              reject_remote_mode_for_subcommand(
-@@ -1818,7 +1817,7 @@ async fn cli_main(
+@@ -1824,7 +1823,7 @@ async fn cli_main(
          },
      }
  
@@ -194,7 +195,7 @@ index 832e620a2b..05b18c6825 100644
  }
  
  fn profile_v2_for_subcommand<'a>(
-@@ -2819,6 +2818,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2836,6 +2835,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          approval_policy,
          web_search,
          no_alt_screen,
@@ -202,7 +203,7 @@ index 832e620a2b..05b18c6825 100644
          prompt,
          mut config_overrides,
          ..
-@@ -2839,6 +2839,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2856,6 +2856,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          interactive.web_search = true;
      }
      interactive.no_alt_screen |= no_alt_screen;
@@ -212,7 +213,7 @@ index 832e620a2b..05b18c6825 100644
      if strict_config {
          interactive.strict_config = true;
      }
-@@ -3818,6 +3821,55 @@ mod tests {
+@@ -3835,6 +3838,55 @@ mod tests {
          ");
      }
  
@@ -268,7 +269,7 @@ index 832e620a2b..05b18c6825 100644
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -4011,6 +4063,22 @@ mod tests {
+@@ -4028,6 +4080,22 @@ mod tests {
          assert!(interactive.resume_show_all);
      }
  
@@ -292,10 +293,10 @@ index 832e620a2b..05b18c6825 100644
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index a8650e70fb..d7f956203d 100644
+index 1959d1f6a5a05940180898f9ff65eac31563fc90..54c87527942ad79702c7d9a70119a5134ae7283a 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -460,6 +460,10 @@ pub enum ExitReason {
+@@ -464,6 +464,10 @@ pub enum ExitReason {
      TurnInterrupted,
      /// The current thread was deleted, rather than disconnected.
      ThreadRemoved,
@@ -306,7 +307,7 @@ index a8650e70fb..d7f956203d 100644
      Fatal(String),
  }
  
-@@ -592,6 +596,11 @@ pub(crate) struct App {
+@@ -597,6 +601,11 @@ pub(crate) struct App {
      /// Set when the user confirms an update; propagated on exit.
      pub(crate) pending_update_action: Option<UpdateAction>,
  
@@ -319,7 +320,7 @@ index a8650e70fb..d7f956203d 100644
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 5783787dd5..a80f33a4bf 100644
+index 9137eef904d368c8f2e789c897aa92d98145bb94..33f2440e146332e179df44f9d42e4f14636681b7 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -7,6 +7,7 @@ use super::app_server_event_targets::server_notification_thread_target;
@@ -338,7 +339,7 @@ index 5783787dd5..a80f33a4bf 100644
  use codex_app_server_protocol::RateLimitReachedType;
  use codex_app_server_protocol::RequestId;
  use codex_app_server_protocol::ServerNotification;
-@@ -23,9 +25,56 @@ use codex_app_server_protocol::ThreadReadParams;
+@@ -24,9 +26,56 @@ use codex_app_server_protocol::ThreadReadParams;
  use codex_app_server_protocol::ThreadReadResponse;
  use codex_app_server_protocol::ThreadSource;
  use codex_protocol::ThreadId;
@@ -395,7 +396,7 @@ index 5783787dd5..a80f33a4bf 100644
      pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
          if self
              .current_displayed_thread_id()
-@@ -273,6 +322,17 @@ impl App {
+@@ -291,6 +340,17 @@ impl App {
              _ => {}
          }
  
@@ -412,8 +413,8 @@ index 5783787dd5..a80f33a4bf 100644
 +
          match server_notification_thread_target(&notification) {
              ServerNotificationThreadTarget::Thread(thread_id) => {
-                 if self.primary_thread_id.is_none() && !self.pending_startup_thread_start {
-@@ -312,6 +372,15 @@ impl App {
+                 if self.current_displayed_thread_id() != Some(thread_id)
+@@ -358,6 +418,15 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -430,7 +431,7 @@ index 5783787dd5..a80f33a4bf 100644
              }
              ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
 diff --git a/codex-rs/tui/src/app/exit_summary.rs b/codex-rs/tui/src/app/exit_summary.rs
-index 39b023805b..cb30671b92 100644
+index 39b023805bf434fc921394744da63bbc93ba589b..cb30671b92e188a7f9606c68a9ae6cdfeeb469b5 100644
 --- a/codex-rs/tui/src/app/exit_summary.rs
 +++ b/codex-rs/tui/src/app/exit_summary.rs
 @@ -25,6 +25,7 @@ impl App {
@@ -470,7 +471,7 @@ index 39b023805b..cb30671b92 100644
              lines.push(message.to_string());
              let mut resume_command = disconnect.command.clone();
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 06c9402ce6..4c03eab96c 100644
+index 9a9913e344edae370fd092cdaedce7421c487d1d..87bb92d2b1b46fa223f5499d927c8917d626db34 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -89,6 +89,7 @@ impl App {
@@ -481,7 +482,7 @@ index 06c9402ce6..4c03eab96c 100644
          session_selection: SessionSelection,
          feedback: codex_feedback::CodexFeedback,
          is_first_run: bool,
-@@ -519,6 +520,8 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -547,6 +548,8 @@ See the Codex keymap documentation for supported actions and examples."
              app_server_target,
              reconnect: Default::default(),
              pending_update_action: None,
@@ -490,7 +491,7 @@ index 06c9402ce6..4c03eab96c 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -931,6 +934,13 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -975,6 +978,13 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -505,10 +506,10 @@ index 06c9402ce6..4c03eab96c 100644
      }
  }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 9ef42b70fc..4a9f7b9c74 100644
+index ece72fa1dd73be25a10e63caaae703c35f10a5e2..564f81d296a9a0cf1a9d6f6cf539d8c4b5920d14 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -58,6 +58,8 @@ pub(super) async fn make_test_app() -> App {
+@@ -59,6 +59,8 @@ pub(super) async fn make_test_app() -> App {
          app_server_target: crate::AppServerTarget::Embedded,
          reconnect: Default::default(),
          pending_update_action: None,
@@ -518,10 +519,10 @@ index 9ef42b70fc..4a9f7b9c74 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 3a9b3db5a9..3b4fefcb57 100644
+index 37efe5f4539137f8a765c978651c8e1381e0a68b..0307353286b47b0deb9ae84531b317bbf6117090 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5466,6 +5466,8 @@ async fn make_test_app() -> App {
+@@ -5503,6 +5503,8 @@ async fn make_test_app() -> App {
          app_server_target: crate::AppServerTarget::Embedded,
          reconnect: Default::default(),
          pending_update_action: None,
@@ -530,7 +531,7 @@ index 3a9b3db5a9..3b4fefcb57 100644
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -5549,6 +5551,8 @@ async fn make_test_app_with_channels() -> (
+@@ -5587,6 +5589,8 @@ pub(super) async fn make_test_app_with_channels() -> (
              app_server_target: crate::AppServerTarget::Embedded,
              reconnect: Default::default(),
              pending_update_action: None,
@@ -540,10 +541,10 @@ index 3a9b3db5a9..3b4fefcb57 100644
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index 9801b6056e..13bf82cf10 100644
+index e84e8a4334f8313ff0d3868cf6428c16a0cf5ca6..12acdeed6721f5e043a1888aeb99d0465cbe12c7 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
-@@ -103,6 +103,135 @@ fn deliver_usage_limit_error(app: &mut App) {
+@@ -105,6 +105,135 @@ fn deliver_usage_limit_error(app: &mut App) {
      );
  }
  
@@ -680,7 +681,7 @@ index 9801b6056e..13bf82cf10 100644
  async fn backend_banner_state_survives_widget_replacement() -> Result<()> {
      for dismiss in [false, true] {
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
-index 641dd621e4..c53c6e3e9c 100644
+index 641dd621e45ace897cdcc9c9a70af7d1ebe59762..c53c6e3e9cbbba809353c05f92f65bb5de377969 100644
 --- a/codex-rs/tui/src/cli.rs
 +++ b/codex-rs/tui/src/cli.rs
 @@ -69,6 +69,10 @@ pub struct Cli {
@@ -695,7 +696,7 @@ index 641dd621e4..c53c6e3e9c 100644
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 36852ab013..93ce921fa2 100644
+index 3aa701b5cc0f2d9d8daa473fcaf154841e8dcf01..d3b72ee6927a1775e8bcd7721b1c1895478abb6f 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
 @@ -24,6 +24,8 @@ pub use app::AppExitInfo;
@@ -707,7 +708,7 @@ index 36852ab013..93ce921fa2 100644
  use app_server_session::AppServerSession;
  use app_server_session::ThreadParamsMode;
  use codex_app_server_client::AppServerClient;
-@@ -1604,6 +1606,7 @@ async fn run_ratatui_app(
+@@ -1643,6 +1645,7 @@ async fn run_ratatui_app(
          prompt,
          shared,
          no_alt_screen,
@@ -715,7 +716,7 @@ index 36852ab013..93ce921fa2 100644
          ..
      } = cli;
      let images = shared.into_inner().images;
-@@ -1730,6 +1733,7 @@ async fn run_ratatui_app(
+@@ -1770,6 +1773,7 @@ async fn run_ratatui_app(
          cloud_config_bundle,
          prompt,
          images,
@@ -724,7 +725,7 @@ index 36852ab013..93ce921fa2 100644
          feedback,
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
 diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
-index f6261e9dbc..3f62329103 100644
+index f6261e9dbccdd2f9276ecf0b47cfe7a5f44a407c..3f62329103b0d00b93efb14301c221c8409a5602 100644
 --- a/codex-rs/tui/src/main.rs
 +++ b/codex-rs/tui/src/main.rs
 @@ -4,9 +4,11 @@ use codex_arg0::arg0_dispatch_or_else;

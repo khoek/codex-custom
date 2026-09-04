@@ -1,5 +1,5 @@
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index 2949b7039a..7d8ec7ae9e 100644
+index 2949b7039a9b190fad53e2c9598767b321a74b97..7d8ec7ae9e0efbb29822236e5a75958f00c3e410 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
 @@ -37,6 +37,7 @@ use super::agent_identity::register_managed_chatgpt_agent_identity;
@@ -81,7 +81,7 @@ index 2949b7039a..7d8ec7ae9e 100644
      }
  
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index 9ee798df72..3f371ae5b3 100644
+index 9ee798df72d48fe5f64bb8a2f283fac1984b84ae..3f371ae5b32e0eaf977c736c0a9aad45463bd73f 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
 @@ -12,6 +12,7 @@ mod workload_identity;
@@ -94,7 +94,7 @@ index 9ee798df72..3f371ae5b3 100644
  /// Select the file used for file-backed CLI credentials in this process.
 diff --git a/codex-rs/login/src/auth/refresh_lock.rs b/codex-rs/login/src/auth/refresh_lock.rs
 new file mode 100644
-index 0000000000..dd1f0410d0
+index 0000000000000000000000000000000000000000..dd1f0410d0b66809d9687d4372b9b59f3a207cca
 --- /dev/null
 +++ b/codex-rs/login/src/auth/refresh_lock.rs
 @@ -0,0 +1,89 @@
@@ -188,7 +188,7 @@ index 0000000000..dd1f0410d0
 +    }
 +}
 diff --git a/codex-rs/login/tests/suite/auth_refresh.rs b/codex-rs/login/tests/suite/auth_refresh.rs
-index 3a8579282d..98eefc46a9 100644
+index 3a8579282dfdc6037e1bdc85a50031d13e1c1354..98eefc46a938b5b9ddd45f97b3f63d8f871c8586 100644
 --- a/codex-rs/login/tests/suite/auth_refresh.rs
 +++ b/codex-rs/login/tests/suite/auth_refresh.rs
 @@ -258,6 +258,109 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
