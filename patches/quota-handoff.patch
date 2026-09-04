@@ -780,10 +780,10 @@ index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d323
 +        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
 +}
 diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
-index dfc3f3c8c1f55eb9ac4d623c79882b5833855abc..f710aeb946e17f347a479e0b3ce1516190521412 100644
+index 37827ac07c8636681a532b87ba03b4b00e5a3568..865d6235033dd0b3c5817ca3c035b3d9b6cf09c5 100644
 --- a/codex-rs/tui/src/chatwidget/tests.rs
 +++ b/codex-rs/tui/src/chatwidget/tests.rs
-@@ -259,6 +259,7 @@ mod plan_mode;
+@@ -261,6 +261,7 @@ mod plan_mode;
  #[path = "tests/plugin_catalog_tests.rs"]
  mod plugin_catalog;
  mod popups_and_settings;
