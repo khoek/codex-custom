@@ -1,9 +1,51 @@
+diff --git a/codex-rs/rollout/src/ordinal.rs b/codex-rs/rollout/src/ordinal.rs
+index 3f002aec8a64bbc47d470c6bca77ed6068e31100..892df7eb741f7b446e8de5346930aa6c72edf5b0 100644
+--- a/codex-rs/rollout/src/ordinal.rs
++++ b/codex-rs/rollout/src/ordinal.rs
+@@ -10,7 +10,6 @@ use codex_protocol::protocol::HistoryPosition;
+ use codex_protocol::protocol::ThreadHistoryMode;
+ 
+ use crate::RolloutItem;
+-use crate::RolloutLine;
+ use crate::reverse_jsonl_scanner::ReverseJsonlScanner;
+ use crate::reverse_jsonl_scanner::ScanOutcome;
+ 
+@@ -67,7 +66,7 @@ pub(crate) fn ordinal_state_for_rollout(
+ 
+     let mut scanner = ReverseJsonlScanner::new(file)?;
+     let record = loop {
+-        match scanner.scan_next::<RolloutLine>()? {
++        match scanner.scan_next_rollout_line()? {
+             Some(ScanOutcome::Parsed(record)) => break record,
+             Some(ScanOutcome::Rejected(_)) => continue,
+             None => {
+@@ -111,12 +110,14 @@ fn read_history_metadata(
+         if line.trim().is_empty() {
+             continue;
+         }
+-        let record: RolloutLine = serde_json::from_str(line.as_str()).map_err(|error| {
+-            io::Error::other(format!(
+-                "failed to parse first rollout record at {}: {error}",
+-                path.display()
+-            ))
+-        })?;
++        let record = serde_json::from_str(line.as_str())
++            .and_then(crate::decode_rollout_line)
++            .map_err(|error| {
++                io::Error::other(format!(
++                    "failed to parse first rollout record at {}: {error}",
++                    path.display()
++                ))
++            })?;
+         let RolloutItem::SessionMeta(session_meta) = record.item else {
+             return Err(io::Error::other(format!(
+                 "rollout at {} does not start with session metadata",
 diff --git a/codex-rs/rollout/src/recorder_tests.rs b/codex-rs/rollout/src/recorder_tests.rs
-index 936955a0dc5575b0ed36eac08685896025833570..52134d01f392a4265bfc9cff84f97127a16119a5 100644
+index e1714f814cca757958b60eed709c67eff783b12e..f4b8dc65787ef3676ebd7057074d51fae1179640 100644
 --- a/codex-rs/rollout/src/recorder_tests.rs
 +++ b/codex-rs/rollout/src/recorder_tests.rs
-@@ -1060,6 +1060,33 @@ async fn resumed_paginated_rollout_continues_after_decimal_token_count() -> std:
-     Ok(())
+@@ -995,6 +995,33 @@ async fn resumed_paginated_rollout_continues_after_ordinal_gap() -> std::io::Res
+     recorder.shutdown().await
  }
  
 +#[tokio::test]
@@ -36,8 +78,59 @@ index 936955a0dc5575b0ed36eac08685896025833570..52134d01f392a4265bfc9cff84f97127
  #[tokio::test]
  async fn resumed_paginated_rollout_repairs_unsafe_tail() -> std::io::Result<()> {
      let valid_unterminated = serde_json::to_string(&RolloutLine {
+diff --git a/codex-rs/rollout/src/reverse_jsonl_scanner.rs b/codex-rs/rollout/src/reverse_jsonl_scanner.rs
+index 70919a7e61c3f76154003f5b4ec3d9c5aa6ad913..f2cf0724cf60fe197ff06eabdddf0dee6e00a108 100644
+--- a/codex-rs/rollout/src/reverse_jsonl_scanner.rs
++++ b/codex-rs/rollout/src/reverse_jsonl_scanner.rs
+@@ -128,6 +128,25 @@ where
+         }
+     }
+ 
++    /// Scans the next persisted rollout record with the canonical JSON decoder.
++    ///
++    /// Rollout envelopes cannot always be deserialized directly when
++    /// `serde_json/arbitrary_precision` is enabled. Keep reverse readers on the same
++    /// value-first path as forward rollout loading.
++    pub fn scan_next_rollout_line(
++        &mut self,
++    ) -> io::Result<Option<ScanOutcome<crate::RolloutLine>>> {
++        Ok(self
++            .scan_next::<serde_json::Value>()?
++            .map(|outcome| match outcome {
++                ScanOutcome::Parsed(value) => match crate::decode_rollout_line(value) {
++                    Ok(line) => ScanOutcome::Parsed(line),
++                    Err(error) => ScanOutcome::Rejected(error),
++                },
++                ScanOutcome::Rejected(error) => ScanOutcome::Rejected(error),
++            }))
++    }
++
+     fn finish_record<T>(&mut self) -> Option<ScanOutcome<T>>
+     where
+         T: DeserializeOwned,
+diff --git a/codex-rs/thread-store/src/local/model_context.rs b/codex-rs/thread-store/src/local/model_context.rs
+index d27718e12f7c9176020a7d353f302d3e28e1245b..6d88ad53cb3a09cbbb276387593d24a97a08dd30 100644
+--- a/codex-rs/thread-store/src/local/model_context.rs
++++ b/codex-rs/thread-store/src/local/model_context.rs
+@@ -7,7 +7,6 @@ use codex_rollout::ModelContextScan;
+ use codex_rollout::ModelContextScanProgress;
+ use codex_rollout::ReverseJsonlScanner;
+ use codex_rollout::RolloutItem;
+-use codex_rollout::RolloutLine;
+ use codex_rollout::ScanOutcome;
+ 
+ use super::LocalThreadStore;
+@@ -137,7 +136,7 @@ fn scan_model_context_from_lineage_blocking(
+             Some(end_byte_offset) => ReverseJsonlScanner::new_at(file, end_byte_offset)?,
+             None => ReverseJsonlScanner::new(file)?,
+         };
+-        while let Some(outcome) = scanner.scan_next::<RolloutLine>()? {
++        while let Some(outcome) = scanner.scan_next_rollout_line()? {
+             let ScanOutcome::Parsed(line) = outcome else {
+                 continue;
+             };
 diff --git a/codex-rs/thread-store/src/local/model_context_tests.rs b/codex-rs/thread-store/src/local/model_context_tests.rs
-index 6c32c8ea078f7021e3d8987181fefe1963e755c4..dcc5797d159c93839efeaefc52d76e27d42566d3 100644
+index 2891baacf8714535e030a4d41dd9780b6d0fc2b0..7f3e730f4ed9f4004757f53b1513c0130541c132 100644
 --- a/codex-rs/thread-store/src/local/model_context_tests.rs
 +++ b/codex-rs/thread-store/src/local/model_context_tests.rs
 @@ -82,6 +82,49 @@ async fn loads_latest_checkpoint_with_required_turn_metadata() {
@@ -91,7 +184,7 @@ index 6c32c8ea078f7021e3d8987181fefe1963e755c4..dcc5797d159c93839efeaefc52d76e27
  async fn loads_recent_context_after_many_empty_wake_turns() {
      let home = TempDir::new().expect("temp dir");
 diff --git a/codex-rs/thread-store/src/local/thread_history_materialization.rs b/codex-rs/thread-store/src/local/thread_history_materialization.rs
-index 34eeede51b4169b0fc4978b2501a8216bcea9983..e7c649393854eb49f543560d8b3d3bbb9c404b5d 100644
+index 58ea278803d6a78fb9cdd319b1b46bf93c70df40..ace423fadbe10ffdc87263d999153117a7023188 100644
 --- a/codex-rs/thread-store/src/local/thread_history_materialization.rs
 +++ b/codex-rs/thread-store/src/local/thread_history_materialization.rs
 @@ -5,6 +5,7 @@ use chrono::DateTime;
@@ -102,25 +195,28 @@ index 34eeede51b4169b0fc4978b2501a8216bcea9983..e7c649393854eb49f543560d8b3d3bbb
  use codex_rollout::RolloutItem;
  use tokio::io::AsyncReadExt;
  use tokio::io::AsyncSeekExt;
-@@ -129,6 +130,7 @@ async fn read_projection_steps(
+@@ -116,6 +117,7 @@ async fn read_projection_steps(
      let mut projections = Vec::new();
      let mut next_ordinal = expected_ordinal;
      let mut next_offset = start_offset;
 +    let mut skipped_resume_boundary_duplicate = false;
+     let mut pending_rejected_line_count = 0;
      let mut line_start_offset = start_offset;
-     for line_bytes in bytes[..complete_byte_count].split_inclusive(|byte| *byte == b'\n') {
-         let line_end_offset = line_start_offset
-@@ -204,6 +206,28 @@ async fn read_projection_steps(
+     // Keep rejected lines pending until a later valid ordinal proves whether they consumed history.
+@@ -191,6 +193,31 @@ async fn read_projection_steps(
              }
          };
          if ordinal < next_ordinal {
 +            if !skipped_resume_boundary_duplicate
 +                && projections.is_empty()
++                && pending_rejected_line_count == 0
 +                && ordinal.checked_add(1) == Some(next_ordinal)
-+                && matches!(
-+                    &line.item,
-+                    RolloutItem::EventMsg(EventMsg::ThreadSettingsApplied(_))
-+                )
++                && line.as_ref().is_some_and(|line| {
++                    matches!(
++                        &line.item,
++                        RolloutItem::EventMsg(EventMsg::ThreadSettingsApplied(_))
++                    )
++                })
 +            {
 +                warn!(
 +                    thread_id = %thread_id,
@@ -136,11 +232,11 @@ index 34eeede51b4169b0fc4978b2501a8216bcea9983..e7c649393854eb49f543560d8b3d3bbb
 +                line_start_offset = line_end_offset;
 +                continue;
 +            }
-             warn!(
-                 thread_id = %thread_id,
-                 rollout_path = %rollout_path.display(),
+             return Err(ThreadStoreError::Internal {
+                 message: format!(
+                     "thread history projection for {thread_id} expected ordinal {next_ordinal}, got {ordinal}"
 diff --git a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
-index f0b71bbbb030acd34f1f8454da53c183f915eafa..2ac38cdb20fb9140d149c5df9cf4f9e79610a054 100644
+index 373419c16eda839d80a9a76a9c74dbd35745668a..7da3a7a2a65e2975462786112c48acb6ae89b6f0 100644
 --- a/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
 +++ b/codex-rs/thread-store/src/local/thread_history_materialization_tests.rs
 @@ -6,6 +6,10 @@ use std::time::Duration;
@@ -173,7 +269,7 @@ index f0b71bbbb030acd34f1f8454da53c183f915eafa..2ac38cdb20fb9140d149c5df9cf4f9e7
  use codex_protocol::protocol::TokenCountEvent;
  use codex_protocol::protocol::TurnCompleteEvent;
  use codex_protocol::protocol::TurnStartedEvent;
-@@ -1920,6 +1928,110 @@ SELECT
+@@ -1919,6 +1927,110 @@ SELECT
      assert_eq!(projection_state(&pool, thread_id).await, (rollout_len, 3));
  }
  
@@ -284,36 +380,3 @@ index f0b71bbbb030acd34f1f8454da53c183f915eafa..2ac38cdb20fb9140d149c5df9cf4f9e7
  #[tokio::test]
  async fn synchronized_catch_up_does_not_replay_old_rows() {
      let home = TempDir::new().expect("temp dir");
-diff --git a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap
-index ed2031fd70f508561ed22509e6be29ed121fd120..387b0cc2412fadb8154dbbbc8e6f4e675f98ce38 100644
---- a/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap
-+++ b/codex-rs/tui/src/chatwidget/snapshots/codex_tui__chatwidget__tests__safety_buffering_retry_prompt.snap
-@@ -2,13 +2,9 @@
- source: tui/src/chatwidget/tests/app_server.rs
- expression: popup
- ---
--  Giving this request a little extra thought
--  If you'd rather not wait, retry with a faster model. It may be less capable
--  of handling complex requests.
--
--› Ask Codex to do anything
--
--  gpt-5.6-sol default · /tmp/project
-+• Working (0s • esc to interrupt)
-+  └ Giving this request a little extra thought If you'd rather not wait, retry
-+    with a faster model. It may be less capable of handling complex requests.
- 
- 
- › Ask Codex to do anything
-diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
-index 418d1e45e48f8b4b30bb707d139a7cb8d25c4439..25bb94a8d9e76b72fd958e7a507ed26a54bdc18c 100644
---- a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
-+++ b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
-@@ -43,6 +43,7 @@ async fn quota_handoff_restores_each_pending_input_separately_and_keeps_the_draf
-         .rejected_steer_history_records
-         .push_back(UserMessageHistoryRecord::UserMessageText);
-     chat.input_queue.pending_steers.push_back(PendingSteer {
-+        client_id: "pending-steer".to_string(),
-         user_message: UserMessage::from("pending steer"),
-         history_record: UserMessageHistoryRecord::UserMessageText,
-         compare_key: PendingSteerCompareKey {

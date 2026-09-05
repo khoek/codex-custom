@@ -249,10 +249,10 @@ index cd88e565aa0925259ed63fce21b389ae4ef1fe25..3f4f6b3e24aa56748afcfc89eaa6f9cc
  
      pub(super) fn open_workspace_owner_nudge_prompt(
 diff --git a/codex-rs/tui/src/chatwidget/safety_buffering.rs b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6ff6a577e 100644
+index be65e5ee581b97a1f41d3146545534e45faa4430..491758ec263c35dceb7a31a45851cd0cd1ccf426 100644
 --- a/codex-rs/tui/src/chatwidget/safety_buffering.rs
 +++ b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-@@ -234,6 +234,9 @@ impl ChatWidget {
+@@ -215,5 +215,8 @@ impl ChatWidget {
              items,
              ..Default::default()
          });
@@ -260,8 +260,7 @@ index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6
 +        self.bottom_pane
 +            .dismiss_view_by_id(SAFETY_BUFFERING_PROMPT_VIEW_ID);
      }
- 
-     pub(crate) fn confirm_safety_buffered_retry(
+ }
 diff --git a/codex-rs/tui/src/version.rs b/codex-rs/tui/src/version.rs
 index 8c8d108dc61314c01eeb31a987f48cf508f6fa9d..ada5b67880c5b34a6b57e6237c8b61f4354ec047 100644
 --- a/codex-rs/tui/src/version.rs

@@ -1,7 +1,9 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule and carries a small, ordered patch series:
+repository as a submodule at stable release `rust-v0.153.4`
+(`3d2ee51ca2d5db578f328aa75e20aa22c0197c9a`) and carries a small, ordered patch
+series:
 
 1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
    contains only the original UI, version-marker, and capacity-retry code
@@ -58,7 +60,7 @@ usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
-expected auto-dismissed UI and `0.154.0-alpha.3+k` snapshot output.
+expected auto-dismissed UI and `0.153.4+k` snapshot output.
 
 The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
 flag present, a terminal typed `UsageLimitExceeded` error from either the main
@@ -273,7 +275,10 @@ and testing.
 5. Apply all nine patches and run `just fmt` from `codex/codex-rs`. Run every
    focused test plus the `codex-tui` and `codex-cli` crate suites. Auth-file
    selection is process-local, so upstream auth tests cannot inherit it from a
-   supervising Codex process.
+   supervising Codex process. Unset `CODEX_SQLITE_HOME` and `NO_COLOR` for test
+   commands so database paths stay within the test homes and color assertions
+   use their expected terminal output. Run tests with `umask 077` so temporary
+   IDE socket directories satisfy the permission checks.
 6. Reverse all nine patches in reverse order, verify the submodule is clean,
    update the release tag and commit in this README, and commit the new submodule
    pointer together with the refreshed patches and this README's pin.

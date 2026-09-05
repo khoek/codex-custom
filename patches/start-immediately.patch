@@ -476,10 +476,10 @@ index d763e044a7c57b04d05f545a3c041675b16dff09..1eacc43ce7f09ed7a1b47c40768a3b08
  async fn parent_owned_thread_preserves_queued_input_before_draining() {
      let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ Some("gpt-5")).await;
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index bcc2d34329c1a04ed15cf4b33e9ad26833922f3f..7e2b091358e6b6d4473eae59a38d9b677b0ab4f8 100644
+index 2d3467476da8cf576887be5404a619ad8cccc76d..c973d8b54dd13b1a138818f126801942c1231b7e 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-@@ -117,6 +117,7 @@ impl ChatWidget {
+@@ -109,6 +109,7 @@ impl ChatWidget {
          from_replay: bool,
      ) {
          self.input_queue.submit_pending_steers_after_interrupt = false;
@@ -487,10 +487,10 @@ index bcc2d34329c1a04ed15cf4b33e9ad26833922f3f..7e2b091358e6b6d4473eae59a38d9b67
          let sanitized_last_agent_message = last_agent_message.as_deref().map(|message| {
              parse_assistant_markdown(message, self.config.cwd.as_path()).visible_markdown
          });
-@@ -323,6 +324,7 @@ impl ChatWidget {
+@@ -313,6 +314,7 @@ impl ChatWidget {
+     /// This does not clear MCP startup tracking, because MCP startup can overlap with turn cleanup
      /// and should continue to drive the bottom-pane running indicator while it is in progress.
      pub(super) fn finalize_turn(&mut self) {
-         self.clear_context_compaction();
 +        self.input_queue.submit_queued_after_interrupt = false;
          self.clear_safety_buffering();
          // Drop preview-only stream tail content on any termination path before
