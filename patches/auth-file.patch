@@ -1,5 +1,17 @@
+diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
+index 782f8d2535..751c18c749 100644
+--- a/codex-rs/Cargo.lock
++++ b/codex-rs/Cargo.lock
+@@ -3631,6 +3631,7 @@ dependencies = [
+  "http 1.4.0",
+  "jsonwebtoken",
+  "keyring",
++ "libc",
+  "once_cell",
+  "os_info",
+  "pretty_assertions",
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
-index be6a02dbdc13eec94ba570015123f77c3743fd82..9c8e56bedb1b651c518b1a5887f6e75721d8bc71 100644
+index be6a02dbdc..9c8e56bedb 100644
 --- a/codex-rs/cli/src/doctor.rs
 +++ b/codex-rs/cli/src/doctor.rs
 @@ -53,6 +53,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
@@ -11,7 +23,7 @@ index be6a02dbdc13eec94ba570015123f77c3743fd82..9c8e56bedb1b651c518b1a5887f6e757
  use codex_login::default_client::default_headers;
  use codex_login::load_auth_dot_json;
 @@ -1149,7 +1150,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
- 
+
  fn auth_check(config: &Config) -> DoctorCheck {
      let mut details = Vec::new();
 -    let auth_path = config.codex_home.join("auth.json");
@@ -20,68 +32,1159 @@ index be6a02dbdc13eec94ba570015123f77c3743fd82..9c8e56bedb1b651c518b1a5887f6e757
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 1b00045ed884c35a573b76414d58889113043973..fd44bd0608cd6b49f7d9d04217b8da1d5a484015 100644
+index e6ec1fb69e..c45744406d 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -122,6 +122,10 @@ struct MultitoolCli {
+@@ -122,6 +122,91 @@ struct MultitoolCli {
      #[clap(flatten)]
      pub config_overrides: CliConfigOverrides,
- 
+
 +    /// Select an alternate file-backed CLI credential file for this process.
-+    #[arg(long = "auth-file", value_name = "PATH", global = true, hide = true)]
++    #[arg(
++        long = "auth-file",
++        value_name = "PATH",
++        global = true,
++        hide = true,
++        requires = "credential_protocol_version",
++        requires = "credential_use_lock",
++        requires = "credential_mutation_lock",
++        requires = "credential_startup_socket",
++        requires = "credential_startup_nonce"
++    )]
 +    auth_file: Option<PathBuf>,
++
++    /// Select the managed credential protocol spoken by this process.
++    #[arg(
++        long = "credential-protocol-version",
++        value_name = "VERSION",
++        global = true,
++        hide = true,
++        value_parser = clap::value_parser!(u16).range(2..=2),
++        requires = "auth_file",
++        requires = "credential_use_lock",
++        requires = "credential_mutation_lock",
++        requires = "credential_startup_socket",
++        requires = "credential_startup_nonce"
++    )]
++    credential_protocol_version: Option<u16>,
++
++    /// Hold the provider's lock for the lifetime of a process using brokered credentials.
++    #[arg(
++        long = "credential-use-lock",
++        value_name = "PATH",
++        global = true,
++        hide = true,
++        requires = "auth_file",
++        requires = "credential_protocol_version",
++        requires = "credential_mutation_lock",
++        requires = "credential_use_lock_mode"
++    )]
++    credential_use_lock: Option<PathBuf>,
++
++    #[arg(long, global = true, hide = true, requires = "credential_use_lock")]
++    credential_use_lock_mode: Option<codex_login::CredentialUseLockMode>,
++
++    /// Serialize writes to a brokered credential file across processes.
++    #[arg(
++        long = "credential-mutation-lock",
++        value_name = "PATH",
++        global = true,
++        hide = true,
++        requires = "auth_file",
++        requires = "credential_protocol_version",
++        requires = "credential_use_lock"
++    )]
++    credential_mutation_lock: Option<PathBuf>,
++
++    /// Coordinate an atomic handoff into a brokered credential consumer.
++    #[arg(
++        long = "credential-startup-socket",
++        value_name = "PATH",
++        global = true,
++        hide = true,
++        requires = "auth_file",
++        requires = "credential_protocol_version",
++        requires = "credential_use_lock",
++        requires = "credential_mutation_lock",
++        requires = "credential_startup_nonce"
++    )]
++    credential_startup_socket: Option<PathBuf>,
++
++    /// Authenticate the brokered credential startup handshake.
++    #[arg(
++        long = "credential-startup-nonce",
++        value_name = "HEX",
++        global = true,
++        hide = true,
++        requires = "auth_file",
++        requires = "credential_protocol_version",
++        requires = "credential_use_lock",
++        requires = "credential_mutation_lock",
++        requires = "credential_startup_socket"
++    )]
++    credential_startup_nonce: Option<String>,
 +
      #[clap(flatten)]
      pub feature_toggles: FeatureToggles,
- 
-@@ -1072,11 +1076,15 @@ async fn cli_main(
+
+@@ -1072,11 +1157,63 @@ async fn cli_main(
  ) -> anyhow::Result<ExitCode> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
 +        auth_file,
++        credential_protocol_version,
++        credential_use_lock,
++        credential_use_lock_mode,
++        credential_mutation_lock,
++        credential_startup_socket,
++        credential_startup_nonce,
          feature_toggles,
          remote,
          mut interactive,
          subcommand,
      } = MultitoolCli::parse();
-+    if let Some(auth_file) = auth_file {
++    let managed_credential = match (
++        auth_file,
++        credential_protocol_version,
++        credential_use_lock,
++        credential_use_lock_mode,
++        credential_mutation_lock,
++        credential_startup_socket,
++        credential_startup_nonce,
++    ) {
++        (
++            Some(auth_file),
++            Some(2),
++            Some(use_lock),
++            Some(use_mode),
++            Some(mutation_lock),
++            Some(startup_socket),
++            Some(startup_nonce),
++        ) => Some((
++            auth_file,
++            use_lock,
++            use_mode,
++            mutation_lock,
++            startup_socket,
++            startup_nonce,
++        )),
++        (None, None, None, None, None, None, None) => None,
++        _ => anyhow::bail!(
++            "managed credentials require --auth-file, --credential-protocol-version 2, \
++             --credential-use-lock, --credential-use-lock-mode, \
++             --credential-mutation-lock, --credential-startup-socket, and \
++             --credential-startup-nonce together"
++        ),
++    };
++    if let Some((auth_file, use_lock, use_mode, mutation_lock, startup_socket, startup_nonce)) =
++        managed_credential
++    {
 +        codex_login::set_auth_file_override(auth_file)?;
++        codex_login::configure_credential_locks(
++            use_lock,
++            use_mode,
++            mutation_lock,
++            startup_socket,
++            startup_nonce,
++        )?;
 +    }
      // Fold --enable/--disable into config overrides so they flow to all subcommands.
      let toggle_overrides = feature_toggles.to_overrides()?;
      root_config_overrides.raw_overrides.extend(toggle_overrides);
-@@ -3058,6 +3066,7 @@ mod tests {
+@@ -3058,6 +3195,13 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
 +            auth_file: _,
++            credential_protocol_version: _,
++            credential_use_lock: _,
++            credential_use_lock_mode: _,
++            credential_mutation_lock: _,
++            credential_startup_socket: _,
++            credential_startup_nonce: _,
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3100,6 +3109,7 @@ mod tests {
+@@ -3100,6 +3244,13 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
 +            auth_file: _,
++            credential_protocol_version: _,
++            credential_use_lock: _,
++            credential_use_lock_mode: _,
++            credential_mutation_lock: _,
++            credential_startup_socket: _,
++            credential_startup_nonce: _,
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3144,6 +3154,7 @@ mod tests {
+@@ -3144,6 +3295,13 @@ mod tests {
          let MultitoolCli {
              interactive,
              config_overrides: root_overrides,
 +            auth_file: _,
++            credential_protocol_version: _,
++            credential_use_lock: _,
++            credential_use_lock_mode: _,
++            credential_mutation_lock: _,
++            credential_startup_socket: _,
++            credential_startup_nonce: _,
              subcommand,
              feature_toggles: _,
              remote: _,
+@@ -3336,6 +3494,149 @@ mod tests {
+         }
+     }
+
++    #[test]
++    fn credential_slot_flags_are_hidden_and_parse_as_a_complete_protocol() {
++        let cli = MultitoolCli::try_parse_from([
++            "codex",
++            "--auth-file",
++            "/broker/slot/auth.json",
++            "--credential-protocol-version",
++            "2",
++            "--credential-use-lock",
++            "/broker/slot/use.lock",
++            "--credential-use-lock-mode",
++            "shared",
++            "--credential-mutation-lock",
++            "/broker/slot/mutation.lock",
++            "--credential-startup-socket",
++            "/broker/slot/startup.sock",
++            "--credential-startup-nonce",
++            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
++        ])
++        .expect("complete credential slot arguments should parse");
++        assert_eq!(
++            (
++                cli.auth_file,
++                cli.credential_protocol_version,
++                cli.credential_use_lock,
++                cli.credential_use_lock_mode,
++                cli.credential_mutation_lock,
++                cli.credential_startup_socket,
++                cli.credential_startup_nonce,
++            ),
++            (
++                Some(PathBuf::from("/broker/slot/auth.json")),
++                Some(2),
++                Some(PathBuf::from("/broker/slot/use.lock")),
++                Some(codex_login::CredentialUseLockMode::Shared),
++                Some(PathBuf::from("/broker/slot/mutation.lock")),
++                Some(PathBuf::from("/broker/slot/startup.sock")),
++                Some(
++                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string()
++                ),
++            )
++        );
++
++        let help = help_from_args(&["codex", "--help"]);
++        for flag in [
++            "--auth-file",
++            "--credential-protocol-version",
++            "--credential-use-lock",
++            "--credential-mutation-lock",
++            "--credential-startup-socket",
++            "--credential-startup-nonce",
++        ] {
++            assert!(!help.contains(flag), "{help}");
++        }
++    }
++
++    #[test]
++    fn credential_slot_requires_complete_protocol_and_preserves_ordinary_invocations() {
++        let ordinary = MultitoolCli::try_parse_from(["codex"])
++            .expect("an ordinary invocation should remain valid");
++        assert_eq!(
++            (
++                ordinary.auth_file,
++                ordinary.credential_protocol_version,
++                ordinary.credential_use_lock,
++                ordinary.credential_use_lock_mode,
++                ordinary.credential_mutation_lock,
++                ordinary.credential_startup_socket,
++                ordinary.credential_startup_nonce,
++            ),
++            (None, None, None, None, None, None, None)
++        );
++
++        for args in [
++            vec!["codex", "--auth-file", "/broker/slot/auth.json"],
++            vec![
++                "codex",
++                "--auth-file",
++                "/broker/slot/auth.json",
++                "--credential-use-lock",
++                "/broker/slot/use.lock",
++            ],
++            vec![
++                "codex",
++                "--auth-file",
++                "/broker/slot/auth.json",
++                "--credential-mutation-lock",
++                "/broker/slot/mutation.lock",
++            ],
++            vec![
++                "codex",
++                "--auth-file",
++                "/broker/slot/auth.json",
++                "--credential-use-lock",
++                "/broker/slot/use.lock",
++                "--credential-mutation-lock",
++                "/broker/slot/mutation.lock",
++                "--credential-startup-socket",
++                "/broker/slot/startup.sock",
++            ],
++            vec![
++                "codex",
++                "--auth-file",
++                "/broker/slot/auth.json",
++                "--credential-use-lock",
++                "/broker/slot/use.lock",
++                "--credential-mutation-lock",
++                "/broker/slot/mutation.lock",
++                "--credential-startup-socket",
++                "/broker/slot/startup.sock",
++                "--credential-startup-nonce",
++                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
++            ],
++        ] {
++            let error = MultitoolCli::try_parse_from(args)
++                .expect_err("partial credential lock arguments should be rejected");
++            assert_eq!(
++                error.kind(),
++                clap::error::ErrorKind::MissingRequiredArgument
++            );
++        }
++
++        let unsupported = MultitoolCli::try_parse_from([
++            "codex",
++            "--auth-file",
++            "/broker/slot/auth.json",
++            "--credential-protocol-version",
++            "3",
++            "--credential-use-lock",
++            "/broker/slot/use.lock",
++            "--credential-use-lock-mode",
++            "shared",
++            "--credential-mutation-lock",
++            "/broker/slot/mutation.lock",
++            "--credential-startup-socket",
++            "/broker/slot/startup.sock",
++            "--credential-startup-nonce",
++            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
++        ])
++        .expect_err("unsupported credential protocol versions must fail closed");
++        assert_eq!(unsupported.kind(), clap::error::ErrorKind::ValueValidation);
++    }
++
+     #[test]
+     fn approve_for_me_defaults_propagate_from_root_to_exec() {
+         let exec = finalize_exec_from_args(&["codex", "--approve-for-me", "exec", "summarize"]);
+diff --git a/codex-rs/login/Cargo.toml b/codex-rs/login/Cargo.toml
+index 2971dec6c1..ac8621bf6c 100644
+--- a/codex-rs/login/Cargo.toml
++++ b/codex-rs/login/Cargo.toml
+@@ -22,12 +22,14 @@ codex-terminal-detection = { workspace = true }
+ codex-utils-template = { workspace = true }
+ codex-workload-identity = { workspace = true }
+ http = { workspace = true }
++libc = { workspace = true }
+ once_cell = { workspace = true }
+ os_info = { workspace = true }
+ rand = { workspace = true }
+ serde = { workspace = true, features = ["derive"] }
+ serde_json = { workspace = true }
+ sha2 = { workspace = true }
++tempfile = { workspace = true }
+ thiserror = { workspace = true }
+ tiny_http = { workspace = true }
+ tokio = { workspace = true, features = [
+@@ -50,7 +52,6 @@ keyring = { workspace = true }
+ pretty_assertions = { workspace = true }
+ regex-lite = { workspace = true }
+ serial_test = { workspace = true }
+-tempfile = { workspace = true }
+ tracing-subscriber = { workspace = true }
+ wiremock = { workspace = true }
+
+diff --git a/codex-rs/login/src/auth/credential_lock.rs b/codex-rs/login/src/auth/credential_lock.rs
+new file mode 100644
+index 0000000000..98dae4a3a5
+--- /dev/null
++++ b/codex-rs/login/src/auth/credential_lock.rs
+@@ -0,0 +1,343 @@
++//! Consumer-side participation in the broker-managed credential lock protocol.
++//!
++//! A configured process retains the transferred use lock for its entire lifetime. Every
++//! mutation takes the independent mutation lock exclusively. The broker can
++//! therefore take both locks exclusively before replacing or reclaiming a slot,
++//! while multiple consumers can safely share a slot between broker operations.
++
++use std::fs::File;
++use std::fs::OpenOptions;
++use std::io;
++#[cfg(unix)]
++use std::io::Read;
++#[cfg(unix)]
++use std::io::Write;
++#[cfg(unix)]
++use std::os::fd::AsRawFd;
++#[cfg(unix)]
++use std::os::fd::FromRawFd;
++#[cfg(unix)]
++use std::os::unix::fs::MetadataExt;
++#[cfg(unix)]
++use std::os::unix::fs::OpenOptionsExt;
++#[cfg(unix)]
++use std::os::unix::net::UnixStream;
++use std::path::Path;
++use std::path::PathBuf;
++use std::sync::OnceLock;
++use std::sync::atomic::AtomicBool;
++use std::sync::atomic::Ordering;
++const STARTUP_NONCE_HEX_LEN: usize = 64;
++
++struct ProcessCredentialLocks {
++    mutation_path: PathBuf,
++    _use_guard: Guard,
++    invalid: AtomicBool,
++}
++
++static PROCESS_CREDENTIAL_LOCKS: OnceLock<ProcessCredentialLocks> = OnceLock::new();
++
++#[derive(Debug)]
++pub(super) struct Guard {
++    _file: File,
++}
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum CredentialUseLockMode {
++    Shared,
++    Exclusive,
++}
++
++impl std::str::FromStr for CredentialUseLockMode {
++    type Err = String;
++
++    fn from_str(value: &str) -> Result<Self, Self::Err> {
++        match value {
++            "shared" => Ok(Self::Shared),
++            "exclusive" => Ok(Self::Exclusive),
++            _ => Err("expected shared or exclusive".to_string()),
++        }
++    }
++}
++
++use CredentialUseLockMode as LockMode;
++
++pub(super) fn configure(
++    use_path: PathBuf,
++    use_mode: CredentialUseLockMode,
++    mutation_path: PathBuf,
++    startup_socket: PathBuf,
++    startup_nonce: String,
++) -> io::Result<()> {
++    validate_lock_path(&use_path, "credential use")?;
++    validate_lock_path(&mutation_path, "credential mutation")?;
++    validate_lock_path(&startup_socket, "credential startup socket")?;
++    validate_startup_nonce(&startup_nonce)?;
++    if use_path == mutation_path {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidInput,
++            "credential use and mutation locks must be different files",
++        ));
++    }
++
++    // Validate both broker-owned files before taking the lifetime use lock so a
++    // malformed slot fails at startup rather than at its first token refresh.
++    let mutation_file = open_lock_file(&mutation_path)?;
++    let use_file = open_lock_file(&use_path)?;
++    ensure_distinct_files(&use_file, &mutation_file)?;
++    let use_guard = join_startup_barrier(&use_path, use_mode, &startup_socket, &startup_nonce)?;
++    PROCESS_CREDENTIAL_LOCKS
++        .set(ProcessCredentialLocks {
++            mutation_path,
++            _use_guard: use_guard,
++            invalid: AtomicBool::new(false),
++        })
++        .map_err(|_| {
++            io::Error::new(
++                io::ErrorKind::AlreadyExists,
++                "credential locks are already configured",
++            )
++        })
++}
++
++fn join_startup_barrier(
++    use_path: &Path,
++    use_mode: CredentialUseLockMode,
++    startup_socket: &Path,
++    startup_nonce: &str,
++) -> io::Result<Guard> {
++    let mut startup = connect_startup_socket(startup_socket)?;
++    let use_file = complete_startup_barrier(&mut startup, startup_nonce)?;
++    validate_broker_managed_file(use_path, &use_file.metadata()?)?;
++    // SCM_RIGHTS preserves the already locked open-file description, including
++    // an exclusive lock, without an unlock/relock gap during process startup.
++    match use_mode {
++        LockMode::Shared => use_file.try_lock_shared(),
++        LockMode::Exclusive => use_file.try_lock(),
++    }
++    .map_err(io::Error::other)?;
++    Ok(Guard { _file: use_file })
++}
++
++#[cfg(unix)]
++fn connect_startup_socket(path: &Path) -> io::Result<UnixStream> {
++    UnixStream::connect(path)
++}
++
++#[cfg(not(unix))]
++fn connect_startup_socket(_path: &Path) -> io::Result<()> {
++    Err(io::Error::new(
++        io::ErrorKind::Unsupported,
++        "managed credential startup barriers require Unix sockets",
++    ))
++}
++
++#[cfg(unix)]
++fn complete_startup_barrier(stream: &mut UnixStream, nonce: &str) -> io::Result<File> {
++    let ready = format!("READY {nonce}\n");
++    stream.write_all(ready.as_bytes())?;
++    stream.flush()?;
++
++    let expected = format!("GO {nonce}\n");
++    let mut response = vec![0_u8; expected.len()];
++    let mut iov = libc::iovec {
++        iov_base: response.as_mut_ptr().cast(),
++        iov_len: response.len(),
++    };
++    // A cmsghdr array provides the alignment required by the ancillary-message API.
++    let mut control = [unsafe { std::mem::zeroed::<libc::cmsghdr>() }; 2];
++    let mut message = unsafe { std::mem::zeroed::<libc::msghdr>() };
++    message.msg_iov = &mut iov;
++    message.msg_iovlen = 1;
++    message.msg_control = control.as_mut_ptr().cast();
++    message.msg_controllen = std::mem::size_of_val(&control) as _;
++    let read = unsafe { libc::recvmsg(stream.as_raw_fd(), &mut message, 0) };
++    if read < 0 {
++        return Err(io::Error::last_os_error());
++    }
++    let mut descriptors = Vec::new();
++    unsafe {
++        let mut header = libc::CMSG_FIRSTHDR(&message);
++        while !header.is_null() {
++            if (*header).cmsg_level == libc::SOL_SOCKET && (*header).cmsg_type == libc::SCM_RIGHTS {
++                let count = ((*header).cmsg_len as usize - libc::CMSG_LEN(0) as usize)
++                    / std::mem::size_of::<libc::c_int>();
++                let data = libc::CMSG_DATA(header).cast::<libc::c_int>();
++                for index in 0..count {
++                    descriptors.push(File::from_raw_fd(*data.add(index)));
++                }
++            }
++            header = libc::CMSG_NXTHDR(&message, header);
++        }
++    }
++    if read == 0 {
++        return Err(io::Error::new(
++            io::ErrorKind::UnexpectedEof,
++            "credential startup barrier closed before GO",
++        ));
++    }
++    if message.msg_flags & libc::MSG_CTRUNC != 0 || descriptors.len() != 1 {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidData,
++            "credential startup requires one use-lock descriptor",
++        ));
++    }
++    let file = descriptors.pop().ok_or_else(|| {
++        io::Error::new(
++            io::ErrorKind::InvalidData,
++            "missing credential use-lock descriptor",
++        )
++    })?;
++    if unsafe { libc::fcntl(file.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) } < 0 {
++        return Err(io::Error::last_os_error());
++    }
++    stream.read_exact(&mut response[read as usize..])?;
++    if response != expected.as_bytes() {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidData,
++            "credential startup barrier returned an invalid response",
++        ));
++    }
++    Ok(file)
++}
++
++#[cfg(not(unix))]
++fn complete_startup_barrier(_stream: &mut (), _nonce: &str) -> io::Result<File> {
++    unreachable!("connect_startup_socket always fails on non-Unix platforms")
++}
++
++pub(super) fn acquire_configured_mutation() -> io::Result<Option<Guard>> {
++    PROCESS_CREDENTIAL_LOCKS
++        .get()
++        .map(|locks| acquire_blocking(&locks.mutation_path, LockMode::Exclusive))
++        .transpose()
++}
++
++pub(super) fn is_configured() -> bool {
++    PROCESS_CREDENTIAL_LOCKS.get().is_some()
++}
++
++pub fn managed_credential_is_invalid() -> bool {
++    PROCESS_CREDENTIAL_LOCKS
++        .get()
++        .is_some_and(|locks| locks.invalid.load(Ordering::Relaxed))
++}
++
++pub(super) fn mark_invalid() {
++    if let Some(locks) = PROCESS_CREDENTIAL_LOCKS.get() {
++        locks.invalid.store(true, Ordering::Relaxed);
++    }
++}
++
++fn acquire_blocking(path: &Path, mode: LockMode) -> io::Result<Guard> {
++    let file = open_lock_file(path)?;
++    match mode {
++        LockMode::Shared => file.lock_shared()?,
++        LockMode::Exclusive => file.lock()?,
++    }
++    validate_broker_managed_file(path, &file.metadata()?)?;
++    Ok(Guard { _file: file })
++}
++
++fn open_lock_file(path: &Path) -> io::Result<File> {
++    let mut options = OpenOptions::new();
++    options.read(true).write(true).truncate(false);
++    #[cfg(unix)]
++    options.custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW);
++    let file = options.open(path)?;
++    let opened = file.metadata()?;
++    if !opened.is_file() {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidInput,
++            format!("credential lock {} is not a regular file", path.display()),
++        ));
++    }
++    validate_broker_managed_file(path, &opened)?;
++    Ok(file)
++}
++
++fn ensure_distinct_files(first: &File, second: &File) -> io::Result<()> {
++    #[cfg(unix)]
++    if first.metadata()?.dev() == second.metadata()?.dev()
++        && first.metadata()?.ino() == second.metadata()?.ino()
++    {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidInput,
++            "credential use and mutation locks must be different files",
++        ));
++    }
++    Ok(())
++}
++
++fn validate_broker_managed_file(path: &Path, opened: &std::fs::Metadata) -> io::Result<()> {
++    let named = std::fs::symlink_metadata(path)?;
++    if named.file_type().is_symlink() || !named.is_file() {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidInput,
++            format!("credential lock {} is not a regular file", path.display()),
++        ));
++    }
++    #[cfg(unix)]
++    {
++        if opened.dev() != named.dev() || opened.ino() != named.ino() {
++            return Err(io::Error::new(
++                io::ErrorKind::InvalidInput,
++                format!("credential lock {} changed while opening", path.display()),
++            ));
++        }
++        if opened.mode() & 0o777 != 0o600 {
++            return Err(io::Error::new(
++                io::ErrorKind::PermissionDenied,
++                format!("credential lock {} must have mode 0600", path.display()),
++            ));
++        }
++        if opened.nlink() != 1 {
++            return Err(io::Error::new(
++                io::ErrorKind::InvalidInput,
++                format!(
++                    "credential lock {} must have exactly one hard link",
++                    path.display()
++                ),
++            ));
++        }
++        // SAFETY: geteuid takes no pointers and has no preconditions.
++        if opened.uid() != unsafe { libc::geteuid() } {
++            return Err(io::Error::new(
++                io::ErrorKind::PermissionDenied,
++                format!(
++                    "credential lock {} is owned by another user",
++                    path.display()
++                ),
++            ));
++        }
++    }
++    Ok(())
++}
++
++fn validate_lock_path(path: &Path, name: &str) -> io::Result<()> {
++    if path.as_os_str().is_empty() {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidInput,
++            format!("{name} lock path cannot be empty"),
++        ));
++    }
++    Ok(())
++}
++
++fn validate_startup_nonce(nonce: &str) -> io::Result<()> {
++    if nonce.len() != STARTUP_NONCE_HEX_LEN
++        || !nonce
++            .bytes()
++            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
++    {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidInput,
++            "credential startup nonce must be exactly 64 lowercase hexadecimal characters",
++        ));
++    }
++    Ok(())
++}
++
++#[cfg(test)]
++#[path = "credential_lock_tests.rs"]
++mod tests;
+diff --git a/codex-rs/login/src/auth/credential_lock_tests.rs b/codex-rs/login/src/auth/credential_lock_tests.rs
+new file mode 100644
+index 0000000000..6e01c393e8
+--- /dev/null
++++ b/codex-rs/login/src/auth/credential_lock_tests.rs
+@@ -0,0 +1,369 @@
++use std::env;
++use std::fs;
++#[cfg(unix)]
++use std::io::BufRead;
++#[cfg(unix)]
++use std::io::Read;
++#[cfg(unix)]
++use std::os::unix::net::UnixListener;
++use std::path::Path;
++use std::path::PathBuf;
++use std::process::Child;
++use std::process::Command;
++use std::time::Duration;
++use std::time::Instant;
++
++use tempfile::tempdir;
++
++use super::*;
++
++const HELPER_MODE: &str = "CODEX_CREDENTIAL_LOCK_TEST_MODE";
++const HELPER_LOCK_PATH: &str = "CODEX_CREDENTIAL_LOCK_TEST_PATH";
++const HELPER_READY_PATH: &str = "CODEX_CREDENTIAL_LOCK_TEST_READY";
++const HELPER_RELEASE_PATH: &str = "CODEX_CREDENTIAL_LOCK_TEST_RELEASE";
++const HELPER_TEST_NAME: &str = "auth::credential_lock::tests::credential_lock_holder_process";
++const TEST_NONCE: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
++
++fn write_private_lock(path: &Path) {
++    fs::write(path, b"").unwrap();
++    #[cfg(unix)]
++    {
++        use std::os::unix::fs::PermissionsExt;
++        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
++    }
++}
++
++#[test]
++fn credential_lock_holder_process() {
++    let Ok(mode) = env::var(HELPER_MODE) else {
++        return;
++    };
++    let lock_path = PathBuf::from(env::var_os(HELPER_LOCK_PATH).expect("lock path"));
++    let ready_path = PathBuf::from(env::var_os(HELPER_READY_PATH).expect("ready path"));
++    let release_path = PathBuf::from(env::var_os(HELPER_RELEASE_PATH).expect("release path"));
++    let mode = match mode.as_str() {
++        "shared" => LockMode::Shared,
++        "exclusive" => LockMode::Exclusive,
++        other => panic!("unknown helper lock mode: {other}"),
++    };
++    let _guard = acquire_blocking(&lock_path, mode).expect("acquire helper lock");
++    fs::write(ready_path, b"ready").expect("write ready marker");
++    while !release_path.exists() {
++        std::thread::sleep(Duration::from_millis(10));
++    }
++}
++
++#[test]
++fn shared_use_lock_survives_until_normal_or_forced_process_exit() {
++    let directory = tempdir().unwrap();
++    let lock_path = directory.path().join("use.lock");
++    write_private_lock(&lock_path);
++
++    let mut first = spawn_holder(directory.path(), &lock_path, "first", "shared");
++    let mut second = spawn_holder(directory.path(), &lock_path, "second", "shared");
++    wait_for_path(&directory.path().join("first.ready"));
++    wait_for_path(&directory.path().join("second.ready"));
++
++    let mut exclusive = spawn_holder(directory.path(), &lock_path, "exclusive", "exclusive");
++    assert_path_stays_absent(&directory.path().join("exclusive.ready"));
++
++    fs::write(directory.path().join("first.release"), b"").unwrap();
++    wait_for_success(&mut first);
++    assert_path_stays_absent(&directory.path().join("exclusive.ready"));
++
++    second.kill().unwrap();
++    second.wait().unwrap();
++    wait_for_path(&directory.path().join("exclusive.ready"));
++    fs::write(directory.path().join("exclusive.release"), b"").unwrap();
++    wait_for_success(&mut exclusive);
++}
++
++#[test]
++fn mutation_lock_serializes_processes() {
++    let directory = tempdir().unwrap();
++    let lock_path = directory.path().join("mutation.lock");
++    write_private_lock(&lock_path);
++
++    let mut first = spawn_holder(directory.path(), &lock_path, "first", "exclusive");
++    wait_for_path(&directory.path().join("first.ready"));
++    let mut second = spawn_holder(directory.path(), &lock_path, "second", "exclusive");
++    assert_path_stays_absent(&directory.path().join("second.ready"));
++
++    fs::write(directory.path().join("first.release"), b"").unwrap();
++    wait_for_success(&mut first);
++    wait_for_path(&directory.path().join("second.ready"));
++    fs::write(directory.path().join("second.release"), b"").unwrap();
++    wait_for_success(&mut second);
++}
++
++#[test]
++fn distinct_lock_paths_are_independent() {
++    let directory = tempdir().unwrap();
++    let first = directory.path().join("first.lock");
++    let second = directory.path().join("second.lock");
++    write_private_lock(&first);
++    write_private_lock(&second);
++
++    let _shared = acquire_blocking(&first, LockMode::Shared).unwrap();
++    let _exclusive = acquire_blocking(&second, LockMode::Exclusive).unwrap();
++}
++
++#[test]
++fn broker_managed_lock_files_must_exist() {
++    let directory = tempdir().unwrap();
++    let missing = directory.path().join("missing.lock");
++    let error = acquire_blocking(&missing, LockMode::Shared)
++        .expect_err("broker lock should not be created by Codex");
++    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
++}
++
++#[cfg(unix)]
++#[test]
++fn broker_managed_locks_reject_broad_modes_and_hard_links() {
++    use std::os::unix::fs::PermissionsExt;
++
++    let directory = tempdir().unwrap();
++    let broad = directory.path().join("broad.lock");
++    write_private_lock(&broad);
++    fs::set_permissions(&broad, fs::Permissions::from_mode(0o640)).unwrap();
++    assert_eq!(
++        open_lock_file(&broad).unwrap_err().kind(),
++        std::io::ErrorKind::PermissionDenied
++    );
++
++    let linked = directory.path().join("linked.lock");
++    let alias = directory.path().join("alias.lock");
++    write_private_lock(&linked);
++    fs::hard_link(&linked, &alias).unwrap();
++    assert_eq!(
++        open_lock_file(&linked).unwrap_err().kind(),
++        std::io::ErrorKind::InvalidInput
++    );
++}
++
++#[test]
++fn configuration_validates_the_mutation_file_before_taking_the_use_lock() {
++    let directory = tempdir().unwrap();
++    let use_path = directory.path().join("use.lock");
++    write_private_lock(&use_path);
++
++    let error = configure(
++        use_path,
++        LockMode::Shared,
++        directory.path().join("missing-mutation.lock"),
++        directory.path().join("startup.sock"),
++        TEST_NONCE.to_string(),
++    )
++    .expect_err("configuration should reject a missing mutation lock");
++    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
++    assert!(!is_configured());
++}
++
++#[cfg(unix)]
++#[test]
++fn startup_barrier_holds_the_use_lock_across_ready_and_go() {
++    for mode in [LockMode::Shared, LockMode::Exclusive] {
++        let directory = tempdir().unwrap();
++        let use_path = directory.path().join("use.lock");
++        let socket_path = directory.path().join("startup.sock");
++        write_private_lock(&use_path);
++        let listener = UnixListener::bind(&socket_path).unwrap();
++        let parent_guard = acquire_blocking(&use_path, mode).unwrap();
++
++        let child_use_path = use_path.clone();
++        let child_socket_path = socket_path;
++        let (release_tx, release_rx) = std::sync::mpsc::channel();
++        let child = std::thread::spawn(move || {
++            let guard = join_startup_barrier(&child_use_path, mode, &child_socket_path, TEST_NONCE)
++                .unwrap();
++            release_rx.recv().unwrap();
++            drop(guard);
++        });
++
++        let (mut stream, _) = listener.accept().unwrap();
++        read_exact_frame(&mut stream, &format!("READY {TEST_NONCE}\n"));
++        assert_exclusive_blocked(&use_path);
++        send_use_descriptor(&stream, &parent_guard._file, &format!("GO {TEST_NONCE}\n"));
++        drop(parent_guard);
++        assert_exclusive_blocked(&use_path);
++        release_tx.send(()).unwrap();
++        child.join().unwrap();
++        assert_exclusive_available(&use_path);
++    }
++}
++
++#[cfg(unix)]
++fn send_use_descriptor(stream: &UnixStream, file: &File, frame: &str) {
++    let mut iov = libc::iovec {
++        iov_base: frame.as_ptr().cast_mut().cast(),
++        iov_len: frame.len(),
++    };
++    let mut control = [unsafe { std::mem::zeroed::<libc::cmsghdr>() }; 2];
++    let mut message = unsafe { std::mem::zeroed::<libc::msghdr>() };
++    message.msg_iov = &mut iov;
++    message.msg_iovlen = 1;
++    message.msg_control = control.as_mut_ptr().cast();
++    message.msg_controllen =
++        unsafe { libc::CMSG_SPACE(std::mem::size_of::<libc::c_int>() as _) } as _;
++    unsafe {
++        let header = libc::CMSG_FIRSTHDR(&message);
++        (*header).cmsg_level = libc::SOL_SOCKET;
++        (*header).cmsg_type = libc::SCM_RIGHTS;
++        (*header).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<libc::c_int>() as _) as _;
++        *libc::CMSG_DATA(header).cast::<libc::c_int>() = file.as_raw_fd();
++        assert_eq!(
++            libc::sendmsg(stream.as_raw_fd(), &message, 0),
++            frame.len() as isize
++        );
++    }
++}
++
++#[cfg(unix)]
++#[test]
++fn startup_barrier_aborts_without_a_live_parent_before_connect() {
++    let directory = tempdir().unwrap();
++    let use_path = directory.path().join("use.lock");
++    let socket_path = directory.path().join("startup.sock");
++    write_private_lock(&use_path);
++    let listener = UnixListener::bind(&socket_path).unwrap();
++    drop(listener);
++    fs::remove_file(&socket_path).unwrap();
++
++    let error =
++        join_startup_barrier(&use_path, LockMode::Shared, &socket_path, TEST_NONCE).unwrap_err();
++    assert!(matches!(
++        error.kind(),
++        std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused
++    ));
++    assert_exclusive_available(&use_path);
++}
++
++#[test]
++fn startup_nonce_requires_256_bits_of_canonical_hex() {
++    for nonce in [
++        "short",
++        "0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef",
++        "g123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
++    ] {
++        assert_eq!(
++            validate_startup_nonce(nonce).unwrap_err().kind(),
++            std::io::ErrorKind::InvalidInput
++        );
++    }
++    validate_startup_nonce(TEST_NONCE).unwrap();
++}
++
++#[cfg(unix)]
++#[test]
++fn startup_barrier_aborts_and_unlocks_if_parent_dies_after_ready() {
++    let directory = tempdir().unwrap();
++    let use_path = directory.path().join("use.lock");
++    let socket_path = directory.path().join("startup.sock");
++    write_private_lock(&use_path);
++    let listener = UnixListener::bind(&socket_path).unwrap();
++
++    let parent_guard = acquire_blocking(&use_path, LockMode::Shared).unwrap();
++
++    let child_use_path = use_path.clone();
++    let child_socket_path = socket_path;
++    let child = std::thread::spawn(move || {
++        join_startup_barrier(
++            &child_use_path,
++            LockMode::Shared,
++            &child_socket_path,
++            TEST_NONCE,
++        )
++        .expect_err("EOF before GO must abort startup")
++        .kind()
++    });
++
++    let (mut stream, _) = listener.accept().unwrap();
++    read_exact_frame(&mut stream, &format!("READY {TEST_NONCE}\n"));
++    assert_exclusive_blocked(&use_path);
++    drop(stream);
++    drop(parent_guard);
++    assert_eq!(child.join().unwrap(), std::io::ErrorKind::UnexpectedEof);
++    assert_exclusive_available(&use_path);
++}
++
++#[cfg(unix)]
++fn read_exact_frame(stream: &mut std::os::unix::net::UnixStream, expected: &str) {
++    let mut bytes = Vec::with_capacity(expected.len());
++    let limit = u64::try_from(expected.len() + 1).unwrap_or(u64::MAX);
++    std::io::BufReader::new(stream.take(limit))
++        .read_until(b'\n', &mut bytes)
++        .unwrap();
++    assert_eq!(bytes, expected.as_bytes());
++}
++
++#[cfg(unix)]
++fn assert_exclusive_blocked(path: &Path) {
++    let file = std::fs::OpenOptions::new()
++        .read(true)
++        .write(true)
++        .open(path)
++        .unwrap();
++    assert!(matches!(
++        file.try_lock(),
++        Err(std::fs::TryLockError::WouldBlock)
++    ));
++}
++
++#[cfg(unix)]
++fn assert_exclusive_available(path: &Path) {
++    let file = std::fs::OpenOptions::new()
++        .read(true)
++        .write(true)
++        .open(path)
++        .unwrap();
++    let started = Instant::now();
++    loop {
++        match file.try_lock() {
++            Ok(()) => return,
++            Err(std::fs::TryLockError::WouldBlock)
++                if started.elapsed() < Duration::from_secs(1) =>
++            {
++                std::thread::sleep(Duration::from_millis(10));
++            }
++            Err(error) => panic!("exclusive lock should be available: {error:?}"),
++        }
++    }
++}
++
++fn spawn_holder(directory: &Path, lock_path: &Path, name: &str, mode: &str) -> Child {
++    Command::new(env::current_exe().unwrap())
++        .arg("--exact")
++        .arg(HELPER_TEST_NAME)
++        .arg("--nocapture")
++        .env(HELPER_MODE, mode)
++        .env(HELPER_LOCK_PATH, lock_path)
++        .env(HELPER_READY_PATH, directory.join(format!("{name}.ready")))
++        .env(
++            HELPER_RELEASE_PATH,
++            directory.join(format!("{name}.release")),
++        )
++        .spawn()
++        .unwrap()
++}
++
++fn wait_for_path(path: &Path) {
++    let started = Instant::now();
++    while !path.exists() {
++        assert!(
++            started.elapsed() < Duration::from_secs(10),
++            "timed out waiting for {}",
++            path.display()
++        );
++        std::thread::sleep(Duration::from_millis(10));
++    }
++}
++
++fn assert_path_stays_absent(path: &Path) {
++    std::thread::sleep(Duration::from_millis(200));
++    assert!(!path.exists(), "{} unexpectedly exists", path.display());
++}
++
++fn wait_for_success(child: &mut Child) {
++    let status = child.wait().unwrap();
++    assert!(status.success(), "lock helper failed with {status}");
++}
+diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
+index 2949b7039a..c91f0ca301 100644
+--- a/codex-rs/login/src/auth/manager.rs
++++ b/codex-rs/login/src/auth/manager.rs
+@@ -36,6 +36,7 @@ use super::agent_identity::record_needs_task_registration;
+ use super::agent_identity::register_managed_chatgpt_agent_identity;
+ use super::agent_identity::require_agent_identity_authapi_base_url;
+ use super::agent_identity::verified_record_from_jwt;
++use super::credential_lock;
+ use super::external_bearer::BearerTokenRefresher;
+ use super::revoke::revoke_auth_tokens;
+ use super::workload_identity::WorkloadIdentityExternalAuth;
+@@ -894,6 +895,7 @@ fn persist_agent_identity_record(
+     storage: &Arc<dyn AuthStorageBackend>,
+     record: AgentIdentityAuthRecord,
+ ) -> std::io::Result<()> {
++    let _mutation_guard = credential_lock::acquire_configured_mutation()?;
+     let mut guard = auth_dot_json
+         .lock()
+         .map_err(|_| std::io::Error::other("failed to lock auth state"))?;
+@@ -940,6 +942,7 @@ pub fn logout(
+     auth_credentials_store_mode: AuthCredentialsStoreMode,
+     keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> std::io::Result<bool> {
++    let _mutation_guard = credential_lock::acquire_configured_mutation()?;
+     let storage = create_auth_storage(
+         codex_home.to_path_buf(),
+         auth_credentials_store_mode,
+@@ -1109,6 +1112,7 @@ pub fn save_auth(
+     auth_credentials_store_mode: AuthCredentialsStoreMode,
+     keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> std::io::Result<()> {
++    let _mutation_guard = credential_lock::acquire_configured_mutation()?;
+     let storage = create_auth_storage(
+         codex_home.to_path_buf(),
+         auth_credentials_store_mode,
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index e4898f097636e7eb5890878e91024338dfbf95b9..9ee798df72d48fe5f64bb8a2f283fac1984b84ae 100644
+index e4898f0976..c2fca37c83 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
-@@ -14,6 +14,19 @@ mod external_bearer;
+@@ -10,10 +10,48 @@ mod storage;
+ mod util;
+ mod workload_identity;
+
++mod credential_lock;
++pub use credential_lock::CredentialUseLockMode;
++pub use credential_lock::managed_credential_is_invalid;
+ mod external_bearer;
  mod manager;
  mod revoke;
- 
+
 +/// Select the file used for file-backed CLI credentials in this process.
 +///
 +/// This downstream `+k` seam is intentionally process-local: unlike an
@@ -95,11 +1198,33 @@ index e4898f097636e7eb5890878e91024338dfbf95b9..9ee798df72d48fe5f64bb8a2f283fac1
 +    storage::get_auth_file(codex_home)
 +}
 +
++/// Join the broker-managed credential lock protocol for this process.
++///
++/// The startup socket transfers the caller's shared or exclusive use lock;
++/// that lock remains held until process exit. Credential mutations take
++/// the separate mutation lock exclusively. Both files must already exist so
++/// their lifecycle remains owned by the credential provider rather than Codex.
++pub fn configure_credential_locks(
++    use_lock: std::path::PathBuf,
++    use_mode: CredentialUseLockMode,
++    mutation_lock: std::path::PathBuf,
++    startup_socket: std::path::PathBuf,
++    startup_nonce: String,
++) -> std::io::Result<()> {
++    credential_lock::configure(
++        use_lock,
++        use_mode,
++        mutation_lock,
++        startup_socket,
++        startup_nonce,
++    )
++}
++
  pub use auth_headers::AuthHeaders;
  pub use bedrock_access_keys::BedrockAccessKeysAuth;
  pub use bedrock_access_keys::login_with_bedrock_access_keys;
 diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
-index 8a9d75f4487631b39faf057b39e23bbeb98aec04..1bde537b8a24068291f87172e98037457ea9fc7a 100644
+index 8a9d75f448..751aeee127 100644
 --- a/codex-rs/login/src/auth/storage.rs
 +++ b/codex-rs/login/src/auth/storage.rs
 @@ -16,6 +16,7 @@ use std::path::Path;
@@ -108,12 +1233,12 @@ index 8a9d75f4487631b39faf057b39e23bbeb98aec04..1bde537b8a24068291f87172e9803745
  use std::sync::Mutex;
 +use std::sync::OnceLock;
  use tracing::warn;
- 
+
  use super::BedrockAccessKeysAuth;
 @@ -151,8 +152,27 @@ impl From<AgentIdentityJwtClaims> for AgentIdentityAuthRecord {
      }
  }
- 
+
 +static AUTH_FILE_OVERRIDE: OnceLock<PathBuf> = OnceLock::new();
 +
 +pub(super) fn set_auth_file_override(path: PathBuf) -> std::io::Result<()> {
@@ -137,16 +1262,50 @@ index 8a9d75f4487631b39faf057b39e23bbeb98aec04..1bde537b8a24068291f87172e9803745
 +        None => codex_home.join("auth.json"),
 +    }
  }
- 
+
  pub(super) fn delete_file_if_exists(codex_home: &Path) -> std::io::Result<bool> {
+@@ -210,6 +230,23 @@ impl AuthStorageBackend for FileAuthStorage {
+             std::fs::create_dir_all(parent)?;
+         }
+         let json_data = serde_json::to_string_pretty(auth_dot_json)?;
++        if super::credential_lock::is_configured() {
++            let parent = auth_file.parent().ok_or_else(|| {
++                std::io::Error::new(std::io::ErrorKind::InvalidInput, "auth file has no parent")
++            })?;
++            let mut file = tempfile::NamedTempFile::new_in(parent)?;
++            #[cfg(unix)]
++            {
++                use std::os::unix::fs::PermissionsExt;
++                file.as_file()
++                    .set_permissions(std::fs::Permissions::from_mode(0o600))?;
++            }
++            file.write_all(json_data.as_bytes())?;
++            file.as_file().sync_all()?;
++            file.persist(&auth_file)?;
++            File::open(parent)?.sync_all()?;
++            return Ok(());
++        }
+         let mut options = OpenOptions::new();
+         options.truncate(true).write(true).create(true);
+         #[cfg(unix)]
+@@ -514,6 +551,9 @@ fn create_auth_storage_with_store(
+     keyring_store: Arc<dyn KeyringStore>,
+     keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> Arc<dyn AuthStorageBackend> {
++    if super::credential_lock::is_configured() {
++        return Arc::new(FileAuthStorage::new(codex_home));
++    }
+     match mode {
+         AuthCredentialsStoreMode::File => Arc::new(FileAuthStorage::new(codex_home)),
+         AuthCredentialsStoreMode::Keyring => {
 diff --git a/codex-rs/login/src/auth/storage_tests.rs b/codex-rs/login/src/auth/storage_tests.rs
-index 0c693438081508e58820bd3c426c2f9661ad2463..6a8dd29924d27c1b103300b3474412c5334ac98e 100644
+index 0c69343808..6a8dd29924 100644
 --- a/codex-rs/login/src/auth/storage_tests.rs
 +++ b/codex-rs/login/src/auth/storage_tests.rs
 @@ -65,6 +65,25 @@ async fn file_storage_save_persists_auth_dot_json() -> anyhow::Result<()> {
      Ok(())
  }
- 
+
 +#[test]
 +fn resolves_process_local_auth_file_override() {
 +    let codex_home = tempdir().unwrap();
@@ -170,18 +1329,32 @@ index 0c693438081508e58820bd3c426c2f9661ad2463..6a8dd29924d27c1b103300b3474412c5
  async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
      let codex_home = tempdir()?;
 diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
-index 33659722fdd28e3a71727cbaac459126c1ca2831..1e6c20d1a333cac1557686a5c16f4b0532160ee1 100644
+index 33659722fd..f58741555c 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
-@@ -48,6 +48,7 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
+@@ -39,6 +39,7 @@ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
+ pub use auth::CODEX_ACCESS_TOKEN_ENV_VAR;
+ pub use auth::CODEX_API_KEY_ENV_VAR;
+ pub use auth::CodexAuth;
++pub use auth::CredentialUseLockMode;
+ pub use auth::ExternalAuth;
+ pub use auth::ExternalAuthFuture;
+ pub use auth::ExternalAuthRefreshContext;
+@@ -48,6 +49,8 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
  pub use auth::REVOKE_TOKEN_URL_OVERRIDE_ENV_VAR;
  pub use auth::RefreshTokenError;
  pub use auth::UnauthorizedRecovery;
 +pub use auth::auth_file_path;
++pub use auth::configure_credential_locks;
  pub use auth::default_client;
  pub use auth::enforce_login_restrictions;
  pub use auth::is_workload_identity_selected;
-@@ -62,6 +63,7 @@ pub use auth::oauth_client_id;
+@@ -58,10 +61,12 @@ pub use auth::login_with_bedrock_access_keys;
+ pub use auth::login_with_bedrock_api_key;
+ pub use auth::logout;
+ pub use auth::logout_with_revoke;
++pub use auth::managed_credential_is_invalid;
+ pub use auth::oauth_client_id;
  pub use auth::read_codex_access_token_from_env;
  pub use auth::read_openai_api_key_from_env;
  pub use auth::save_auth;

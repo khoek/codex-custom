@@ -16,11 +16,11 @@ repository as a submodule and carries a small, ordered patch series:
 5. [`patches/quota-handoff.patch`](patches/quota-handoff.patch) durably carries
    queued TUI input and the composer draft across a quota-triggered restart.
 6. [`patches/auth-file.patch`](patches/auth-file.patch) adds the `+k`-only
-   hidden `--auth-file PATH` option used by Kai to select a canonical enrolled
-   account file without moving the rest of Codex state.
+   hidden credential-slot arguments. They select one auth file and join the
+   generic broker lock protocol without moving the rest of Codex state.
 7. [`patches/canonical-auth-refresh.patch`](patches/canonical-auth-refresh.patch)
-   serializes reload, refresh, and persistence across processes that share that
-   canonical file.
+   serializes reload, refresh, and persistence across processes that share a
+   broker mutation lock.
 8. [`patches/cybersecurity-abort-bell.patch`](patches/cybersecurity-abort-bell.patch)
    rings the terminal bell when a turn is aborted by the cybersecurity policy.
 9. [`patches/resume-history-projection.patch`](patches/resume-history-projection.patch)
@@ -71,20 +71,27 @@ quota signal; the line carries recovery data. The quota-handoff patch makes it
 point at a durable companion file:
 
 ```text
-codex+k (CODEX_UUID_WHICH_YOU_CAN_USE_TO_RESUME): quota exceeded {"version":2,"handoff_path":"/…/rollout.jsonl.codex+k-…-handoff.json"}
+codex+k (CODEX_UUID_WHICH_YOU_CAN_USE_TO_RESUME): supervised exit {"version":3,"outcome":"quota-exhausted","unavailable_until":1789000000,"handoff_path":"/…/rollout.jsonl.codex+k-…-handoff.json"}
 ```
 
-Kai only interprets the marker after status `75`, and searches backward through
-the captured PTY tail so terminal cleanup output after the marker cannot hide
-the recovery request. A missing or malformed marker at that status is a hard
-error. Marker-looking output accompanying any other status is ordinary output.
+Managed credential refresh failures also use this marker, with
+`"outcome":"credential-invalid"` and `"unavailable_until":null`. Only terminal
+expired, reused, revoked, or invalid-grant responses qualify. Quota reset times
+come from the authority's exhausted usage windows; unavailable times are null.
+
+An external supervisor should interpret the marker only after status `75` and
+search backward through its captured PTY tail so terminal cleanup output after
+the marker cannot hide the recovery request. A missing or malformed marker at
+that status is a hard error. Marker-looking output accompanying any other status
+is ordinary output.
 
 The sidecar is written atomically with mode `0600` beside the rollout (or in the
 persistent sessions directory if that path cannot be resolved). It contains the
 exact model/config recovery arguments, each rejected steer, pending steer, and
 queued follow-up as a separate message, plus unsent composer text, attachments,
-mention bindings, and pending paste contents. Kai validates the sidecar, rotates
-credentials, and passes its path to the hidden
+mention bindings, and pending paste contents. A supervisor validates the
+sidecar, performs any out-of-process recovery required by its own policy, and
+passes the path to the hidden
 `codex resume ... --start-immediately --restore-input-handoff PATH` option. Codex
 restores each saved message into the normal queue independently, starts the first
 one, and puts the unfinished draft back in the composer. The sidecar is retained
@@ -92,10 +99,6 @@ after restore for at-least-once delivery if the restarted process exits again
 before all queued input is delivered. Retryable errors, model-capacity errors,
 and runs without the flag retain their existing behavior. The flag can be
 supplied to a fresh interactive run or to `codex resume` and `codex fork`.
-
-Kai also repairs absolute rollout paths left in `state_5.sqlite` by an older
-supervised run. Those paths can point into a deleted `.agent-*` home; the repair
-rewrites them to the existing persistent `CODEX_HOME` location before resuming.
 
 The start-immediately patch reactivates a paused, blocked, or usage-limited goal,
 then submits `You were interrupted, continue work`. If the resumed turn is still
@@ -107,21 +110,42 @@ new turn.
 making it sort below the corresponding official release, as a `-k` prerelease
 suffix would.
 
-The auth-file patch is deliberately small: the hidden global `--auth-file PATH`
-option selects the file used for file-backed CLI credential reads, refreshes,
-and deletes (relative values are resolved under `CODEX_HOME`) instead of
-`CODEX_HOME/auth.json`. The option is parsed once into process-local state, so
-commands launched by Codex cannot inherit it. Sessions, SQLite, configuration,
-plugins, and skills still use the ordinary `CODEX_HOME`. Kai supplies the
-option to each supervised `+k` child and quota app-server, selecting the
-enrolled account's canonical writable profile file.
+The auth-file patch exposes one complete, generic managed-credential protocol:
+`--auth-file PATH`, `--credential-protocol-version 2`,
+`--credential-use-lock PATH`, `--credential-use-lock-mode shared|exclusive`,
+`--credential-mutation-lock PATH`,
+`--credential-startup-socket PATH`, and `--credential-startup-nonce HEX`.
+These hidden global arguments are process-local and cannot leak into commands
+launched by Codex. Supplying any one requires the complete set, and unsupported
+protocol versions are rejected. Managed credentials always use file storage,
+including when configuration selects keyring storage. The auth file is used for
+reads, writes, refreshes, and deletes; relative auth paths are
+resolved under `CODEX_HOME`. Sessions, SQLite, configuration, plugins, and
+skills continue to use the ordinary `CODEX_HOME`.
 
-The canonical-auth-refresh patch adds an advisory OS file lock beside that
-resolved credential file. A `+k` refresh acquires it before reloading from disk
-and keeps it through the token request and persistence. A second Codex process
-therefore reloads the newly issued refresh token instead of replaying a stale
-one. Active `CODEX_HOME/auth.json` links and explicit `--auth-file` paths resolve
-to the same lock when they refer to the same canonical file.
+The two lock files are created and managed by the credential provider, not
+Codex. Codex opens them without `create` and requires private, single-link,
+caller-owned regular files. It connects to the private startup socket, sends
+`READY <nonce>`, and receives `GO <nonce>` with the caller's already locked use
+descriptor via `SCM_RIGHTS`. Shared and exclusive modes both transfer without
+an unlock/relock gap. No credential is accessed before the descriptor arrives.
+Codex retains its descriptor until process exit, including app-server runs;
+normal exit, forced termination, and crashes therefore unlock through ordinary
+OS cleanup. Every credential write or delete acquires the mutation file
+exclusively. A provider can safely replace or reclaim a slot by acquiring the
+use file exclusively and then the mutation file exclusively. All participants
+use that lock order. Managed auth writes atomically replace and durably flush
+the shared file, so concurrent consumers never read a partial token update.
+
+The canonical-auth-refresh patch keeps the mutation lock across the complete
+reload, authority request, and persistence transaction. A second process then
+reloads the newly issued refresh token instead of replaying a stale one. Codex
+does not create an adjacent `.refresh.lock`; the explicit broker mutation lock
+is the sole managed-credential refresh lock. Invocations without any downstream
+credential arguments retain the ordinary Codex auth path and behavior.
+OAuth refresh failures retain response bodies only long enough to classify them internally; logs
+and returned transient errors expose only the HTTP status and a closed, nonsecret failure class.
+No backend body, error code, or free-form message is emitted.
 
 The cybersecurity-abort-bell patch emits an unconditional terminal BEL when a
 typed `CyberPolicy` rejection reaches the dedicated abort notice. It does not

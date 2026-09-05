@@ -1,11 +1,11 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 5c7429fe1b0bb55789e147f723628602b087afb1..1b00045ed884c35a573b76414d58889113043973 100644
+index 5c7429fe1b..e6ec1fb69e 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -374,6 +374,15 @@ struct ResumeCommand {
      )]
      start_immediately: bool,
- 
+
 +    /// Restore local TUI input persisted by a +k quota-triggered restart.
 +    #[arg(
 +        long = "restore-input-handoff",
@@ -17,7 +17,16 @@ index 5c7429fe1b0bb55789e147f723628602b087afb1..1b00045ed884c35a573b76414d588891
 +
      #[clap(flatten)]
      remote: InteractiveRemoteOptions,
- 
+
+@@ -810,7 +819,7 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<ExitCode> {
+         | ExitReason::Archived(_)
+         | ExitReason::TurnInterrupted
+         | ExitReason::ThreadRemoved => (ExitCode::SUCCESS, true),
+-        ExitReason::QuotaExceeded { .. } => (ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE), false),
++        ExitReason::Supervised { .. } => (ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE), false),
+     };
+
+     let update_action = exit_info.update_action;
 @@ -1416,6 +1425,7 @@ async fn cli_main(
              all,
              include_non_interactive,
@@ -49,27 +58,63 @@ index 5c7429fe1b0bb55789e147f723628602b087afb1..1b00045ed884c35a573b76414d588891
 +        interactive.restore_input_handoff = restore_input_handoff;
          interactive
      }
- 
-@@ -3870,6 +3883,7 @@ mod tests {
-                     "-c".to_string(),
-                     "model_reasoning_effort=\"high\"".to_string(),
-                 ],
-+                handoff_path: None,
+
+@@ -3853,30 +3866,25 @@ mod tests {
+     }
+
+     #[test]
+-    fn format_exit_messages_for_quota_exceeded_is_exact_and_unstyled() {
++    fn format_exit_messages_for_supervised_exit_is_exact_and_unstyled() {
+         let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
+         for color_enabled in [false, true] {
+             let mut exit_info = sample_exit_info(
+                 Some("123e4567-e89b-12d3-a456-426614174000"),
+                 /*thread_name*/ None,
+             );
+-            exit_info.exit_reason = ExitReason::QuotaExceeded {
++            exit_info.exit_reason = ExitReason::Supervised {
+                 thread_id,
+-                resume_args: vec![
+-                    "--model".to_string(),
+-                    "gpt-5.6".to_string(),
+-                    "-c".to_string(),
+-                    "service_tier=\"default\"".to_string(),
+-                    "-c".to_string(),
+-                    "model_reasoning_effort=\"high\"".to_string(),
+-                ],
++                outcome: codex_tui::SupervisedOutcome::QuotaExhausted,
++                unavailable_until: Some(1_800_000_000),
++                handoff_path: PathBuf::from("/tmp/handoff.json"),
              };
- 
+
              assert_eq!(
-@@ -3893,6 +3907,7 @@ mod tests {
-         exit_info.exit_reason = ExitReason::QuotaExceeded {
+                 exit_info.format_exit_messages(color_enabled),
+                 vec![concat!(
+-                    "codex+k (123e4567-e89b-12d3-a456-426614174000): quota exceeded ",
+-                    r#"{"version":1,"resume_args":["--model","gpt-5.6","-c","service_tier=\"default\"","-c","model_reasoning_effort=\"high\""]}"#,
++                    "codex+k (123e4567-e89b-12d3-a456-426614174000): supervised exit ",
++                    r#"{"version":3,"outcome":"quota-exhausted","unavailable_until":1800000000,"handoff_path":"/tmp/handoff.json"}"#,
+                 )
+                 .to_string()]
+             );
+@@ -3890,9 +3898,11 @@ mod tests {
+             Some("123e4567-e89b-12d3-a456-426614174000"),
+             /*thread_name*/ None,
+         );
+-        exit_info.exit_reason = ExitReason::QuotaExceeded {
++        exit_info.exit_reason = ExitReason::Supervised {
              thread_id,
-             resume_args: vec!["--model".to_string(), "gpt-5.6".to_string()],
-+            handoff_path: None,
+-            resume_args: vec!["--model".to_string(), "gpt-5.6".to_string()],
++            outcome: codex_tui::SupervisedOutcome::QuotaExhausted,
++            unavailable_until: None,
++            handoff_path: PathBuf::from("/tmp/handoff.json"),
          };
- 
+
          assert_eq!(
-@@ -3901,6 +3916,31 @@ mod tests {
+@@ -3901,6 +3911,32 @@ mod tests {
          );
      }
- 
+
 +    #[test]
 +    fn format_exit_messages_for_quota_handoff_prints_only_the_sidecar_path() {
 +        let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
@@ -77,18 +122,19 @@ index 5c7429fe1b0bb55789e147f723628602b087afb1..1b00045ed884c35a573b76414d588891
 +            Some("123e4567-e89b-12d3-a456-426614174000"),
 +            /*thread_name*/ None,
 +        );
-+        exit_info.exit_reason = ExitReason::QuotaExceeded {
++        exit_info.exit_reason = ExitReason::Supervised {
 +            thread_id,
-+            resume_args: vec!["--model".to_string(), "gpt-5.6".to_string()],
-+            handoff_path: Some(PathBuf::from("/tmp/session.codex+k-handoff.json")),
++            outcome: codex_tui::SupervisedOutcome::CredentialInvalid,
++            unavailable_until: None,
++            handoff_path: PathBuf::from("/tmp/session.codex+k-handoff.json"),
 +        };
 +
 +        assert_eq!(
 +            exit_info.format_exit_messages(/*color_enabled*/ false),
 +            vec![
 +                concat!(
-+                    "codex+k (123e4567-e89b-12d3-a456-426614174000): quota exceeded ",
-+                    r#"{"version":2,"handoff_path":"/tmp/session.codex+k-handoff.json"}"#,
++                    "codex+k (123e4567-e89b-12d3-a456-426614174000): supervised exit ",
++                    r#"{"version":3,"outcome":"credential-invalid","unavailable_until":null,"handoff_path":"/tmp/session.codex+k-handoff.json"}"#,
 +                )
 +                .to_string()
 +            ]
@@ -98,10 +144,10 @@ index 5c7429fe1b0bb55789e147f723628602b087afb1..1b00045ed884c35a573b76414d588891
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -4110,6 +4150,38 @@ mod tests {
+@@ -4110,6 +4146,38 @@ mod tests {
          }
      }
- 
+
 +    #[test]
 +    fn resume_input_handoff_is_hidden_and_requires_immediate_resume() {
 +        let interactive = finalize_resume_from_args(
@@ -138,29 +184,48 @@ index 5c7429fe1b0bb55789e147f723628602b087afb1..1b00045ed884c35a573b76414d588891
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 54c87527942ad79702c7d9a70119a5134ae7283a..0728a1328806f6fb3b48a18340ee291ca8db53a7 100644
+index 54c8752794..f593f9d179 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -467,6 +467,7 @@ pub enum ExitReason {
-     QuotaExceeded {
+@@ -464,13 +464,22 @@ pub enum ExitReason {
+     TurnInterrupted,
+     /// The current thread was deleted, rather than disconnected.
+     ThreadRemoved,
+-    QuotaExceeded {
++    Supervised {
          thread_id: ThreadId,
-         resume_args: Vec<String>,
-+        handoff_path: Option<PathBuf>,
+-        resume_args: Vec<String>,
++        outcome: SupervisedOutcome,
++        unavailable_until: Option<i64>,
++        handoff_path: PathBuf,
      },
      Fatal(String),
  }
-@@ -605,6 +606,10 @@ pub(crate) struct App {
+
++#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
++#[serde(rename_all = "kebab-case")]
++pub enum SupervisedOutcome {
++    QuotaExhausted,
++    CredentialInvalid,
++}
++
+ fn session_summary(
+     token_usage: TokenUsage,
+     thread_id: Option<ThreadId>,
+@@ -605,6 +614,12 @@ pub(crate) struct App {
      exit_on_quota_exceeded: bool,
      /// The resumable primary thread recorded by the first quota error that requested shutdown.
      quota_exceeded_exit_thread_id: Option<ThreadId>,
++    supervised_outcome: SupervisedOutcome,
++    quota_unavailable_until: Option<i64>,
 +    /// Durable input handoff written before quota-triggered shutdown.
 +    quota_handoff_path: Option<PathBuf>,
 +    /// Stops automatic restart if local input existed but could not be persisted safely.
 +    quota_handoff_error: Option<String>,
- 
+
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
-@@ -839,6 +844,11 @@ impl App {
+@@ -839,6 +854,11 @@ impl App {
              return Ok(AppRunControl::Exit(ExitReason::UserRequested));
          }
          let screen_size = tui.screen_size_for_event(&event)?;
@@ -173,12 +238,20 @@ index 54c87527942ad79702c7d9a70119a5134ae7283a..0728a1328806f6fb3b48a18340ee291c
              &event,
              TuiEvent::Key(_) | TuiEvent::Paste(_) | TuiEvent::FocusLost
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 33f2440e146332e179df44f9d42e4f14636681b7..db87ef35b6d92f946991ad3740826ffdcc25d24b 100644
+index 33f2440e14..de1a5280f5 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
-@@ -30,10 +30,7 @@ use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
+@@ -1,6 +1,7 @@
+ //! App-server event stream handling for the TUI app.
+
+ use super::App;
++use super::SupervisedOutcome;
+ use super::ThreadBufferedEvent;
+ use super::app_server_event_targets::ServerNotificationThreadTarget;
+ use super::app_server_event_targets::server_notification_thread_target;
+@@ -30,10 +31,7 @@ use codex_protocol::config_types::SERVICE_TIER_DEFAULT_REQUEST_VALUE;
  use codex_protocol::protocol::SubAgentSource;
- 
+
  fn quota_recovery_config_override(key: &str, value: &str) -> String {
 -    format!(
 -        "{key}={}",
@@ -186,12 +259,12 @@ index 33f2440e146332e179df44f9d42e4f14636681b7..db87ef35b6d92f946991ad3740826ffd
 -    )
 +    format!("{key}={}", serde_json::Value::String(value.to_owned()))
  }
- 
+
  impl App {
-@@ -76,6 +73,27 @@ impl App {
+@@ -76,6 +74,27 @@ impl App {
          args
      }
- 
+
 +    fn prepare_quota_exceeded_exit(&mut self, notification_thread_id: ThreadId) {
 +        let resumable_thread_id = self
 +            .primary_thread_id
@@ -216,19 +289,72 @@ index 33f2440e146332e179df44f9d42e4f14636681b7..db87ef35b6d92f946991ad3740826ffd
      pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
          if self
              .current_displayed_thread_id()
-@@ -406,6 +424,11 @@ impl App {
+@@ -251,6 +270,16 @@ impl App {
+                 self.refresh_mcp_startup_expected_servers_from_config();
+             }
+             ServerNotification::AccountRateLimitsUpdated(notification) => {
++                if self.quota_exceeded_exit_thread_id.is_none() {
++                    self.quota_unavailable_until = notification
++                        .rate_limits
++                        .primary
++                        .iter()
++                        .chain(notification.rate_limits.secondary.iter())
++                        .filter(|window| window.used_percent >= 100)
++                        .filter_map(|window| window.resets_at)
++                        .max();
++                }
+                 let workspace_hard_stop = matches!(
+                     notification.rate_limits.rate_limit_reached_type,
+                     Some(
+@@ -340,16 +369,24 @@ impl App {
+             _ => {}
+         }
+
+-        let should_exit_on_quota_exceeded = self.exit_on_quota_exceeded
+-            && matches!(
+-                &notification,
+-                ServerNotification::Error(notification)
+-                    if !notification.will_retry
+-                        && matches!(
+-                            notification.error.codex_error_info.as_ref(),
+-                            Some(CodexErrorInfo::UsageLimitExceeded)
+-                        )
+-            );
++        let outcome = match &notification {
++            ServerNotification::Error(notification)
++                if self.exit_on_quota_exceeded && !notification.will_retry =>
++            {
++                match notification.error.codex_error_info.as_ref() {
++                    Some(CodexErrorInfo::UsageLimitExceeded) => {
++                        Some(SupervisedOutcome::QuotaExhausted)
++                    }
++                    Some(CodexErrorInfo::Unauthorized)
++                        if codex_login::managed_credential_is_invalid() =>
++                    {
++                        Some(SupervisedOutcome::CredentialInvalid)
++                    }
++                    _ => None,
++                }
++            }
++            _ => None,
++        };
+
+         match server_notification_thread_target(&notification) {
+             ServerNotificationThreadTarget::Thread(thread_id) => {
+@@ -406,6 +443,12 @@ impl App {
                  {
                      return;
                  }
 +                let request_quota_exit =
-+                    should_exit_on_quota_exceeded && self.quota_exceeded_exit_thread_id.is_none();
-+                if request_quota_exit {
++                    outcome.is_some() && self.quota_exceeded_exit_thread_id.is_none();
++                if let Some(outcome) = outcome.filter(|_| request_quota_exit) {
++                    self.supervised_outcome = outcome;
 +                    self.prepare_quota_exceeded_exit(thread_id);
 +                }
                  let result = if self.primary_thread_id == Some(thread_id)
                      || self.primary_thread_id.is_none()
                  {
-@@ -418,12 +441,7 @@ impl App {
+@@ -418,12 +461,7 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -243,39 +369,55 @@ index 33f2440e146332e179df44f9d42e4f14636681b7..db87ef35b6d92f946991ad3740826ffd
                          .send(AppEvent::Exit(ExitMode::ShutdownFirst));
                  }
 diff --git a/codex-rs/tui/src/app/exit_summary.rs b/codex-rs/tui/src/app/exit_summary.rs
-index cb30671b92e188a7f9606c68a9ae6cdfeeb469b5..e96a72698e47213d06bf21cb78345d49f666b14f 100644
+index cb30671b92..f1c88856d8 100644
 --- a/codex-rs/tui/src/app/exit_summary.rs
 +++ b/codex-rs/tui/src/app/exit_summary.rs
-@@ -84,12 +84,23 @@ impl AppExitInfo {
-         if let ExitReason::QuotaExceeded {
+@@ -25,7 +25,7 @@ impl App {
+     pub(super) fn exit_info(&self, exit_reason: ExitReason) -> AppExitInfo {
+         let thread_id = match exit_reason {
+             ExitReason::Archived(_) | ExitReason::ThreadRemoved => None,
+-            ExitReason::QuotaExceeded { thread_id, .. } => Some(thread_id),
++            ExitReason::Supervised { thread_id, .. } => Some(thread_id),
+             ExitReason::UserRequested | ExitReason::TurnInterrupted | ExitReason::Fatal(_) => {
+                 self.chat_widget.thread_id().or(self.primary_thread_id)
+             }
+@@ -81,16 +81,20 @@ impl App {
+ impl AppExitInfo {
+     /// Format the terminal summary for both the CLI and standalone TUI binaries.
+     pub fn format_exit_messages(self, color_enabled: bool) -> Vec<String> {
+-        if let ExitReason::QuotaExceeded {
++        if let ExitReason::Supervised {
              thread_id,
-             resume_args,
+-            resume_args,
++            outcome,
++            unavailable_until,
 +            handoff_path,
          } = &self.exit_reason
          {
--            let recovery = serde_json::json!({
+             let recovery = serde_json::json!({
 -                "version": 1,
 -                "resume_args": resume_args,
--            });
-+            let recovery = handoff_path.as_ref().map_or_else(
-+                || {
-+                    serde_json::json!({
-+                        "version": 1,
-+                        "resume_args": resume_args,
-+                    })
-+                },
-+                |handoff_path| {
-+                    serde_json::json!({
-+                        "version": 2,
-+                        "handoff_path": handoff_path,
-+                    })
-+                },
-+            );
-             return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
++                "version": 3,
++                "outcome": outcome,
++                "unavailable_until": unavailable_until,
++                "handoff_path": handoff_path,
+             });
+-            return vec![format!("codex+k ({thread_id}): quota exceeded {recovery}")];
++            return vec![format!("codex+k ({thread_id}): supervised exit {recovery}")];
          }
          let color_command = |command: String| {
+             if color_enabled {
+@@ -112,7 +116,7 @@ impl AppExitInfo {
+                 ExitReason::TurnInterrupted => {
+                     "Disconnected from this task. The current turn was stopped."
+                 }
+-                ExitReason::QuotaExceeded { .. } => {
++                ExitReason::Supervised { .. } => {
+                     "Disconnected from this task. Work may still be running."
+                 }
+             };
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 2ee88b9104a7dd5327876d671611af5328dc3dde..94a7aee96c770c2f0343ab4d4076e55b6e191cb7 100644
+index 2ee88b9104..78f82a9d0a 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -96,6 +96,7 @@ impl App {
@@ -286,16 +428,18 @@ index 2ee88b9104a7dd5327876d671611af5328dc3dde..94a7aee96c770c2f0343ab4d4076e55b
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -551,6 +552,8 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -551,6 +552,10 @@ See the Codex keymap documentation for supported actions and examples."
              pending_update_action: None,
              exit_on_quota_exceeded,
              quota_exceeded_exit_thread_id: None,
++            supervised_outcome: SupervisedOutcome::QuotaExhausted,
++            quota_unavailable_until: None,
 +            quota_handoff_path: None,
 +            quota_handoff_error: None,
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -608,6 +611,14 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -608,6 +613,14 @@ See the Codex keymap documentation for supported actions and examples."
                  Ok(result) => result?,
                  Err(err) => return shutdown_on_startup_error(app_server, err).await,
              }
@@ -310,7 +454,7 @@ index 2ee88b9104a7dd5327876d671611af5328dc3dde..94a7aee96c770c2f0343ab4d4076e55b
              if start_immediately {
                  let resumed = match startup_draft
                      .run_until(
-@@ -620,7 +631,11 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -620,7 +633,11 @@ See the Codex keymap documentation for supported actions and examples."
                      Err(err) => return shutdown_on_startup_error(app_server, err).await,
                  };
                  if resumed {
@@ -323,7 +467,7 @@ index 2ee88b9104a7dd5327876d671611af5328dc3dde..94a7aee96c770c2f0343ab4d4076e55b
                  }
              } else if should_prompt_for_paused_goal_after_startup_resume
                  && let Err(err) = startup_draft
-@@ -635,6 +650,15 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -635,6 +652,15 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, err).await;
              }
@@ -338,8 +482,8 @@ index 2ee88b9104a7dd5327876d671611af5328dc3dde..94a7aee96c770c2f0343ab4d4076e55b
 +            .await;
          }
          let initial_session_ms = initial_session_started_at.elapsed().as_millis();
- 
-@@ -993,12 +1017,19 @@ See the Codex keymap documentation for supported actions and examples."
+
+@@ -993,12 +1019,26 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -350,12 +494,20 @@ index 2ee88b9104a7dd5327876d671611af5328dc3dde..94a7aee96c770c2f0343ab4d4076e55b
 +            app.quota_handoff_error.take(),
 +        ) {
 +            (Some(_), Some(error)) => ExitReason::Fatal(format!(
-+                "quota was exceeded, but +k could not preserve pending input; automatic restart stopped: {error}"
++                "+k could not preserve pending input for automatic restart: {error}"
 +            )),
-+            (Some(thread_id), None) => ExitReason::QuotaExceeded {
++            (Some(thread_id), None) => ExitReason::Supervised {
                  thread_id,
-                 resume_args: app.quota_recovery_args(),
-+                handoff_path: app.quota_handoff_path.clone(),
+-                resume_args: app.quota_recovery_args(),
++                outcome: app.supervised_outcome,
++                unavailable_until: match app.supervised_outcome {
++                    SupervisedOutcome::QuotaExhausted => app.quota_unavailable_until,
++                    SupervisedOutcome::CredentialInvalid => None,
++                },
++                handoff_path: app
++                    .quota_handoff_path
++                    .clone()
++                    .ok_or_else(|| std::io::Error::other("missing supervised input handoff"))?,
              },
 -            None => exit_reason,
 +            (None, _) => exit_reason,
@@ -363,48 +515,93 @@ index 2ee88b9104a7dd5327876d671611af5328dc3dde..94a7aee96c770c2f0343ab4d4076e55b
          Ok(app.exit_info(exit_reason))
      }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 564f81d296a9a0cf1a9d6f6cf539d8c4b5920d14..cf9e4a7f9001289be2d449678a395f207d6db47f 100644
+index 564f81d296..f4f6a865a8 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -61,6 +61,8 @@ pub(super) async fn make_test_app() -> App {
+@@ -61,6 +61,10 @@ pub(super) async fn make_test_app() -> App {
          pending_update_action: None,
          exit_on_quota_exceeded: false,
          quota_exceeded_exit_thread_id: None,
++        supervised_outcome: SupervisedOutcome::QuotaExhausted,
++        quota_unavailable_until: None,
 +        quota_handoff_path: None,
 +        quota_handoff_error: None,
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 89446246b99d7b0865dea128306536e29ae46ec4..b423b80736d76cb4015d81b294425cc630b557b8 100644
+index 89446246b9..4bc8b984fc 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5505,6 +5505,8 @@ async fn make_test_app() -> App {
+@@ -5505,6 +5505,10 @@ async fn make_test_app() -> App {
          pending_update_action: None,
          exit_on_quota_exceeded: false,
          quota_exceeded_exit_thread_id: None,
++        supervised_outcome: SupervisedOutcome::QuotaExhausted,
++        quota_unavailable_until: None,
 +        quota_handoff_path: None,
 +        quota_handoff_error: None,
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -5591,6 +5593,8 @@ pub(super) async fn make_test_app_with_channels() -> (
+@@ -5591,6 +5595,10 @@ pub(super) async fn make_test_app_with_channels() -> (
              pending_update_action: None,
              exit_on_quota_exceeded: false,
              quota_exceeded_exit_thread_id: None,
++            supervised_outcome: SupervisedOutcome::QuotaExhausted,
++            quota_unavailable_until: None,
 +            quota_handoff_path: None,
 +            quota_handoff_error: None,
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
+diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
+index 12acdeed67..852623da0b 100644
+--- a/codex-rs/tui/src/app/tests/rate_limits.rs
++++ b/codex-rs/tui/src/app/tests/rate_limits.rs
+@@ -169,6 +169,15 @@ async fn terminal_quota_error_exits_once_for_main_or_subagent() -> Result<()> {
+         app.primary_session_configured = Some(primary_session);
+         app.exit_on_quota_exceeded = true;
+
++        let mut snapshot = rate_limit_snapshot(100, None, None);
++        snapshot.primary.as_mut().unwrap().resets_at = Some(1_800_000_000);
++        snapshot.secondary = Some(RateLimitWindow {
++            used_percent: 100,
++            window_duration_mins: Some(10_080),
++            resets_at: Some(1_800_100_000),
++        });
++        deliver_rolling_rate_limit_snapshot(&mut app, &app_server, snapshot).await;
++
+         for _ in 0..2 {
+             app.handle_app_server_event(
+                 &app_server,
+@@ -179,10 +188,18 @@ async fn terminal_quota_error_exits_once_for_main_or_subagent() -> Result<()> {
+                 ),
+             )
+             .await;
++            deliver_rolling_rate_limit_snapshot(
++                &mut app,
++                &app_server,
++                rate_limit_snapshot(0, None, None),
++            )
++            .await;
+         }
+
+         assert_eq!(count_shutdown_first_exits(&mut app_event_rx), 1);
+         assert_eq!(app.quota_exceeded_exit_thread_id, Some(primary_thread_id));
++        assert_eq!(app.supervised_outcome, SupervisedOutcome::QuotaExhausted);
++        assert_eq!(app.quota_unavailable_until, Some(1_800_100_000));
+         assert_eq!(
+             app.quota_recovery_args(),
+             vec![
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index 709db71caca0022f9224e732916de435201b0129..6000618fbe5afb102e535b4c7a99c83e08c14cfe 100644
+index 709db71cac..6000618fbe 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
 @@ -456,7 +456,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
          )
  }
- 
+
 -#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 +#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 +#[serde(rename_all = "snake_case")]
@@ -412,27 +609,27 @@ index 709db71caca0022f9224e732916de435201b0129..6000618fbe5afb102e535b4c7a99c83e
      Plain,
      /// Preserve model-input provenance when paste expansion reveals a leading shell sigil.
 diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
-index 21d13cf1eb551795fbc4b9952eca3e20f98d0269..832c35e0f4882e62f5ceea30394671f0b22daf43 100644
+index 21d13cf1eb..832c35e0f4 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
 @@ -91,13 +91,13 @@ pub(crate) use status_line_style::status_line_from_segments;
  mod bottom_pane_view;
  mod effort_ignition;
- 
+
 -#[derive(Clone, Debug, PartialEq, Eq)]
 +#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
  pub(crate) struct LocalImageAttachment {
      pub(crate) placeholder: String,
      pub(crate) path: PathBuf,
  }
- 
+
 -#[derive(Clone, Debug, PartialEq, Eq)]
 +#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
  pub(crate) struct MentionBinding {
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index f8e9d78cc1b75ab5356dcd6a50c714a6f168f426..66bd6406956cf47d3aa00d4e56a2d40b22712ee7 100644
+index f8e9d78cc1..66bd640695 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
 @@ -358,6 +358,7 @@ mod input_flow;
@@ -445,7 +642,7 @@ index f8e9d78cc1b75ab5356dcd6a50c714a6f168f426..66bd6406956cf47d3aa00d4e56a2d40b
  mod mcp_startup;
 diff --git a/codex-rs/tui/src/chatwidget/quota_handoff.rs b/codex-rs/tui/src/chatwidget/quota_handoff.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d32394d1f045
+index 0000000000..9ff21dee61
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/quota_handoff.rs
 @@ -0,0 +1,330 @@
@@ -780,7 +977,7 @@ index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d323
 +        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
 +}
 diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
-index 37827ac07c8636681a532b87ba03b4b00e5a3568..865d6235033dd0b3c5817ca3c035b3d9b6cf09c5 100644
+index 37827ac07c..865d623503 100644
 --- a/codex-rs/tui/src/chatwidget/tests.rs
 +++ b/codex-rs/tui/src/chatwidget/tests.rs
 @@ -261,6 +261,7 @@ mod plan_mode;
@@ -793,7 +990,7 @@ index 37827ac07c8636681a532b87ba03b4b00e5a3568..865d6235033dd0b3c5817ca3c035b3d9
  #[path = "tests/replay_render_tests.rs"]
 diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..418d1e45e48f8b4b30bb707d139a7cb8d25c4439
+index 0000000000..418d1e45e4
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 @@ -0,0 +1,159 @@
@@ -957,13 +1154,13 @@ index 0000000000000000000000000000000000000000..418d1e45e48f8b4b30bb707d139a7cb8
 +    );
 +}
 diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
-index 88e62358c0230bb22edd00150e69ea55721c5fbd..f26393ce5a6e7f8f2fc0e8cc05fc67e58f3fd738 100644
+index 88e62358c0..f26393ce5a 100644
 --- a/codex-rs/tui/src/chatwidget/user_messages.rs
 +++ b/codex-rs/tui/src/chatwidget/user_messages.rs
 @@ -26,7 +26,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
- 
+
  use super::ChatWidget;
- 
+
 -#[derive(Debug, Clone, PartialEq)]
 +#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
  pub(crate) struct UserMessage {
@@ -972,7 +1169,7 @@ index 88e62358c0230bb22edd00150e69ea55721c5fbd..f26393ce5a6e7f8f2fc0e8cc05fc67e5
 @@ -40,13 +40,14 @@ pub(crate) struct UserMessage {
      pub(crate) mention_bindings: Vec<MentionBinding>,
  }
- 
+
 -#[derive(Clone, Debug, PartialEq)]
 +#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 +#[serde(rename_all = "snake_case")]
@@ -980,7 +1177,7 @@ index 88e62358c0230bb22edd00150e69ea55721c5fbd..f26393ce5a6e7f8f2fc0e8cc05fc67e5
      UserMessageText,
      Override(UserMessageHistoryOverride),
  }
- 
+
 -#[derive(Clone, Debug, PartialEq)]
 +#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
  pub(super) struct UserMessageHistoryOverride {
@@ -989,7 +1186,7 @@ index 88e62358c0230bb22edd00150e69ea55721c5fbd..f26393ce5a6e7f8f2fc0e8cc05fc67e5
 @@ -58,7 +59,7 @@ pub(super) enum ShellEscapePolicy {
      Disallow,
  }
- 
+
 -#[derive(Debug, Clone, PartialEq)]
 +#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
  pub(super) struct QueuedUserMessage {
@@ -998,14 +1195,14 @@ index 88e62358c0230bb22edd00150e69ea55721c5fbd..f26393ce5a6e7f8f2fc0e8cc05fc67e5
 @@ -99,7 +100,7 @@ pub(super) enum QueueDrain {
      Stop,
  }
- 
+
 -#[derive(Debug, Clone, PartialEq, Default)]
 +#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize, serde::Serialize)]
  pub(super) struct ThreadComposerState {
      pub(super) text: String,
      pub(super) local_images: Vec<LocalImageAttachment>,
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
-index 50d877cce1ebaad6727e4fc011ab2fc4196c1e32..5ce1c3a0b77d1592b90ab5b87e5e93cd6fffd42c 100644
+index 50d877cce1..5ce1c3a0b7 100644
 --- a/codex-rs/tui/src/cli.rs
 +++ b/codex-rs/tui/src/cli.rs
 @@ -4,6 +4,7 @@ use clap::Parser;
@@ -1013,13 +1210,13 @@ index 50d877cce1ebaad6727e4fc011ab2fc4196c1e32..5ce1c3a0b77d1592b90ab5b87e5e93cd
  use codex_utils_cli::CliConfigOverrides;
  use codex_utils_cli::SharedCliOptions;
 +use std::path::PathBuf;
- 
+
  #[derive(Parser, Clone, Debug)]
  #[command(version)]
 @@ -45,6 +46,10 @@ pub struct Cli {
      #[clap(skip)]
      pub start_immediately: bool,
- 
+
 +    /// Internal: restore local input captured by a +k quota handoff.
 +    #[clap(skip)]
 +    pub restore_input_handoff: Option<PathBuf>,
@@ -1028,18 +1225,26 @@ index 50d877cce1ebaad6727e4fc011ab2fc4196c1e32..5ce1c3a0b77d1592b90ab5b87e5e93cd
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 3e048a2631b91729e80d9c97c875d2fb49a9276f..8348a10e6c95fea3bd16bd76a9e5985dd4fb29ea 100644
+index 3e048a2631..9d3a9a4e86 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1643,6 +1643,7 @@ async fn run_ratatui_app(
- 
+@@ -24,6 +24,7 @@ pub use app::AppExitInfo;
+ pub use app::DisconnectInfo;
+ pub use app::ExitReason;
+ pub use app::ResumableThread;
++pub use app::SupervisedOutcome;
+ /// Process status emitted with a quota recovery marker.
+ pub const QUOTA_EXCEEDED_EXIT_CODE: u8 = 75;
+ use app_server_session::AppServerSession;
+@@ -1643,6 +1644,7 @@ async fn run_ratatui_app(
+
      let Cli {
          start_immediately,
 +        restore_input_handoff,
          prompt,
          shared,
          no_alt_screen,
-@@ -1781,6 +1782,7 @@ async fn run_ratatui_app(
+@@ -1781,6 +1783,7 @@ async fn run_ratatui_app(
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,
          start_immediately,
@@ -1047,3 +1252,16 @@ index 3e048a2631b91729e80d9c97c875d2fb49a9276f..8348a10e6c95fea3bd16bd76a9e5985d
          state_db,
          environment_manager,
          startup_elapsed_before_app,
+diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
+index 3f62329103..99e3f563ed 100644
+--- a/codex-rs/tui/src/main.rs
++++ b/codex-rs/tui/src/main.rs
+@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<ExitCode> {
+             | ExitReason::Archived(_)
+             | ExitReason::TurnInterrupted
+             | ExitReason::ThreadRemoved => ExitCode::SUCCESS,
+-            ExitReason::QuotaExceeded { .. } => ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE),
++            ExitReason::Supervised { .. } => ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE),
+         };
+
+         let color_enabled = supports_color::on(Stream::Stdout).is_some();

@@ -1,21 +1,153 @@
+diff --git a/codex-rs/login/src/auth/credential_lock.rs b/codex-rs/login/src/auth/credential_lock.rs
+index 98dae4a3a5..e1ccfe2306 100644
+--- a/codex-rs/login/src/auth/credential_lock.rs
++++ b/codex-rs/login/src/auth/credential_lock.rs
+@@ -27,7 +27,12 @@ use std::path::PathBuf;
+ use std::sync::OnceLock;
+ use std::sync::atomic::AtomicBool;
+ use std::sync::atomic::Ordering;
++use std::time::Duration;
++
++use tokio::time::sleep;
++
+ const STARTUP_NONCE_HEX_LEN: usize = 64;
++const RETRY_DELAY: Duration = Duration::from_millis(50);
+
+ struct ProcessCredentialLocks {
+     mutation_path: PathBuf,
+@@ -229,6 +234,28 @@ pub(super) fn mark_invalid() {
+     }
+ }
+
++pub(super) async fn acquire_for_refresh() -> io::Result<Guard> {
++    let locks = PROCESS_CREDENTIAL_LOCKS.get().ok_or_else(|| {
++        io::Error::new(
++            io::ErrorKind::NotFound,
++            "credential mutation lock is not configured",
++        )
++    })?;
++    let path = &locks.mutation_path;
++    let file = open_lock_file(path)?;
++
++    loop {
++        match file.try_lock() {
++            Ok(()) => {
++                validate_broker_managed_file(path, &file.metadata()?)?;
++                return Ok(Guard { _file: file });
++            }
++            Err(std::fs::TryLockError::WouldBlock) => sleep(RETRY_DELAY).await,
++            Err(std::fs::TryLockError::Error(error)) => return Err(error),
++        }
++    }
++}
++
+ fn acquire_blocking(path: &Path, mode: LockMode) -> io::Result<Guard> {
+     let file = open_lock_file(path)?;
+     match mode {
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index 2949b7039a9b190fad53e2c9598767b321a74b97..7d8ec7ae9e0efbb29822236e5a75958f00c3e410 100644
+index c91f0ca301..766dbe3081 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
-@@ -37,6 +37,7 @@ use super::agent_identity::register_managed_chatgpt_agent_identity;
- use super::agent_identity::require_agent_identity_authapi_base_url;
- use super::agent_identity::verified_record_from_jwt;
- use super::external_bearer::BearerTokenRefresher;
-+use super::refresh_lock;
- use super::revoke::revoke_auth_tokens;
- use super::workload_identity::WorkloadIdentityExternalAuth;
- use super::workload_identity::WorkloadIdentitySessionError;
-@@ -2667,6 +2668,12 @@ impl AuthManager {
+@@ -53,7 +53,6 @@ pub use crate::auth::storage::AuthDotJson;
+ pub use crate::auth::storage::AuthKeyringBackendKind;
+ use crate::auth::storage::AuthStorageBackend;
+ use crate::auth::storage::create_auth_storage;
+-use crate::auth::util::try_parse_error_message;
+ use crate::default_client::create_client;
+ use crate::default_client::create_default_auth_client;
+ use crate::outbound_proxy::AuthRouteConfig;
+@@ -1613,7 +1612,6 @@ async fn request_chatgpt_token_refresh(
+         Ok(refresh_response)
+     } else {
+         let body = response.text().await.unwrap_or_default();
+-        tracing::error!("Failed to refresh token: {status}: {body}");
+         let code = extract_refresh_token_error_code(&body);
+         // RFC 6749 reports an unusable refresh token as invalid_grant without preserving
+         // the legacy expired/reused/revoked subtype. Keep it terminal with the generic reason.
+@@ -1621,27 +1619,31 @@ async fn request_chatgpt_token_refresh(
+             && code
+                 .as_deref()
+                 .is_some_and(|code| code.eq_ignore_ascii_case("invalid_grant"));
+-        let failed =
+-            classify_refresh_token_failure(code.as_deref(), &body, is_invalid_grant_bad_request);
++        let failed = classify_refresh_token_failure(code.as_deref());
++        let failure_class =
++            refresh_token_failure_class(failed.reason, status, is_invalid_grant_bad_request);
++        tracing::warn!(
++            http_status = %status,
++            failure_class,
++            "OAuth token refresh failed"
++        );
+         if status == StatusCode::UNAUTHORIZED
+             || failed.reason != RefreshTokenFailedReason::Other
+             || is_invalid_grant_bad_request
+         {
++            if failed.reason != RefreshTokenFailedReason::Other || is_invalid_grant_bad_request {
++                super::credential_lock::mark_invalid();
++            }
+             Err(RefreshTokenError::Permanent(failed))
+         } else {
+-            let message = try_parse_error_message(&body);
+             Err(RefreshTokenError::Transient(std::io::Error::other(
+-                format!("Failed to refresh token: {status}: {message}"),
++                format!("OAuth token refresh failed: status {status}, class {failure_class}"),
+             )))
+         }
+     }
+ }
+
+-fn classify_refresh_token_failure(
+-    code: Option<&str>,
+-    body: &str,
+-    is_invalid_grant_bad_request: bool,
+-) -> RefreshTokenFailedError {
++fn classify_refresh_token_failure(code: Option<&str>) -> RefreshTokenFailedError {
+     let normalized_code = code.map(str::to_ascii_lowercase);
+     let reason = match normalized_code.as_deref() {
+         Some("refresh_token_expired") => RefreshTokenFailedReason::Expired,
+@@ -1650,14 +1652,6 @@ fn classify_refresh_token_failure(
+         _ => RefreshTokenFailedReason::Other,
+     };
+
+-    if reason == RefreshTokenFailedReason::Other && !is_invalid_grant_bad_request {
+-        tracing::warn!(
+-            backend_code = normalized_code.as_deref(),
+-            backend_body = body,
+-            "Encountered unknown response while refreshing token"
+-        );
+-    }
+-
+     let message = match reason {
+         RefreshTokenFailedReason::Expired => REFRESH_TOKEN_EXPIRED_MESSAGE.to_string(),
+         RefreshTokenFailedReason::Exhausted => REFRESH_TOKEN_REUSED_MESSAGE.to_string(),
+@@ -1668,6 +1662,21 @@ fn classify_refresh_token_failure(
+     RefreshTokenFailedError::new(reason, message)
+ }
+
++fn refresh_token_failure_class(
++    reason: RefreshTokenFailedReason,
++    status: StatusCode,
++    is_invalid_grant_bad_request: bool,
++) -> &'static str {
++    match reason {
++        RefreshTokenFailedReason::Expired => "expired",
++        RefreshTokenFailedReason::Exhausted => "exhausted",
++        RefreshTokenFailedReason::Revoked => "revoked",
++        RefreshTokenFailedReason::Other if is_invalid_grant_bad_request => "invalid_grant",
++        RefreshTokenFailedReason::Other if status == StatusCode::UNAUTHORIZED => "unauthorized",
++        RefreshTokenFailedReason::Other => "transient_http",
++    }
++}
++
+ fn extract_refresh_token_error_code(body: &str) -> Option<String> {
+     if body.trim().is_empty() {
+         return None;
+@@ -2671,6 +2680,12 @@ impl AuthManager {
          self.external_auth_provider().is_some()
      }
- 
-+    fn uses_file_refresh_lock(&self, auth: Option<&CodexAuth>) -> bool {
-+        self.auth_credentials_store_mode == AuthCredentialsStoreMode::File
+
++    fn uses_cross_process_refresh_lock(&self, auth: Option<&CodexAuth>) -> bool {
++        credential_lock::is_configured()
 +            && !self.has_external_auth()
 +            && matches!(auth, Some(CodexAuth::Chatgpt(_)))
 +    }
@@ -23,38 +155,40 @@ index 2949b7039a9b190fad53e2c9598767b321a74b97..7d8ec7ae9e0efbb29822236e5a75958f
      pub fn is_workload_identity_selected(&self) -> bool {
          self.workload_identity_selected
      }
-@@ -2779,6 +2786,15 @@ impl AuthManager {
+@@ -2783,6 +2798,16 @@ impl AuthManager {
          {
              return Ok(());
          }
-+        let _file_refresh_guard = if self.uses_file_refresh_lock(auth_before_reload.as_ref()) {
-+            Some(
-+                refresh_lock::acquire(&self.codex_home)
-+                    .await
-+                    .map_err(RefreshTokenError::Transient)?,
-+            )
-+        } else {
-+            None
-+        };
++        let _cross_process_refresh_guard =
++            if self.uses_cross_process_refresh_lock(auth_before_reload.as_ref()) {
++                Some(
++                    credential_lock::acquire_for_refresh()
++                        .await
++                        .map_err(RefreshTokenError::Transient)?,
++                )
++            } else {
++                None
++            };
          let expected_account_id = auth_before_reload
              .as_ref()
              .and_then(CodexAuth::get_account_id);
-@@ -2811,6 +2827,40 @@ impl AuthManager {
+@@ -2815,6 +2840,41 @@ impl AuthManager {
                  REFRESH_TOKEN_UNKNOWN_MESSAGE.to_string(),
              ))
          })?;
 +        let auth_before_reload = self.auth_cached();
-+        let uses_file_refresh_lock = self.uses_file_refresh_lock(auth_before_reload.as_ref());
-+        let _file_refresh_guard = if uses_file_refresh_lock {
++        let uses_cross_process_refresh_lock =
++            self.uses_cross_process_refresh_lock(auth_before_reload.as_ref());
++        let _cross_process_refresh_guard = if uses_cross_process_refresh_lock {
 +            Some(
-+                refresh_lock::acquire(&self.codex_home)
++                credential_lock::acquire_for_refresh()
 +                    .await
 +                    .map_err(RefreshTokenError::Transient)?,
 +            )
 +        } else {
 +            None
 +        };
-+        if uses_file_refresh_lock {
++        if uses_cross_process_refresh_lock {
 +            let expected_account_id = auth_before_reload
 +                .as_ref()
 +                .and_then(CodexAuth::get_account_id);
@@ -79,125 +213,18 @@ index 2949b7039a9b190fad53e2c9598767b321a74b97..7d8ec7ae9e0efbb29822236e5a75958f
 +        }
          self.refresh_token_from_authority_impl().await
      }
- 
-diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index 9ee798df72d48fe5f64bb8a2f283fac1984b84ae..3f371ae5b32e0eaf977c736c0a9aad45463bd73f 100644
---- a/codex-rs/login/src/auth/mod.rs
-+++ b/codex-rs/login/src/auth/mod.rs
-@@ -12,6 +12,7 @@ mod workload_identity;
- 
- mod external_bearer;
- mod manager;
-+mod refresh_lock;
- mod revoke;
- 
- /// Select the file used for file-backed CLI credentials in this process.
-diff --git a/codex-rs/login/src/auth/refresh_lock.rs b/codex-rs/login/src/auth/refresh_lock.rs
-new file mode 100644
-index 0000000000000000000000000000000000000000..dd1f0410d0b66809d9687d4372b9b59f3a207cca
---- /dev/null
-+++ b/codex-rs/login/src/auth/refresh_lock.rs
-@@ -0,0 +1,89 @@
-+//! Cross-process serialization for file-backed ChatGPT credential refreshes.
-+//!
-+//! The guard is acquired before the authoritative disk reload and held until the
-+//! provider response has been persisted. The lock is keyed by the resolved canonical
-+//! auth file, so an active auth.json link and an explicit `--auth-file` path rendezvous
-+//! with the same account.
-+
-+use std::fs::File;
-+use std::fs::OpenOptions;
-+use std::fs::{self};
-+#[cfg(unix)]
-+use std::os::unix::fs::OpenOptionsExt;
-+use std::path::Path;
-+use std::path::PathBuf;
-+use std::time::Duration;
-+
-+use tokio::time::sleep;
-+
-+const RETRY_DELAY: Duration = Duration::from_millis(50);
-+
-+pub(super) struct Guard {
-+    _file: File,
-+}
-+
-+pub(super) async fn acquire(codex_home: &Path) -> std::io::Result<Guard> {
-+    let auth_file = super::storage::get_auth_file(codex_home);
-+    let path = lock_path(&auth_file);
-+    let parent = path.parent().ok_or_else(|| {
-+        std::io::Error::other("credential refresh lock path has no parent directory")
-+    })?;
-+    fs::create_dir_all(parent)?;
-+    let mut options = OpenOptions::new();
-+    options.read(true).write(true).create(true).truncate(false);
-+    #[cfg(unix)]
-+    options.mode(0o600);
-+    let file = options.open(&path)?;
-+
-+    loop {
-+        match file.try_lock() {
-+            Ok(()) => return Ok(Guard { _file: file }),
-+            Err(std::fs::TryLockError::WouldBlock) => sleep(RETRY_DELAY).await,
-+            Err(std::fs::TryLockError::Error(error)) => return Err(error),
-+        }
-+    }
-+}
-+
-+pub(super) fn lock_path(auth_file: &Path) -> PathBuf {
-+    let canonical = canonical_auth_path(auth_file);
-+    let name = canonical
-+        .file_name()
-+        .and_then(|name| name.to_str())
-+        .unwrap_or("auth.json");
-+    canonical.with_file_name(format!("{name}.refresh.lock"))
-+}
-+
-+fn canonical_auth_path(path: &Path) -> PathBuf {
-+    if let Ok(canonical) = path.canonicalize() {
-+        return canonical;
-+    }
-+    let Some(parent) = path.parent() else {
-+        return path.to_owned();
-+    };
-+    parent
-+        .canonicalize()
-+        .map(|parent| parent.join(path.file_name().unwrap_or_default()))
-+        .unwrap_or_else(|_| path.to_owned())
-+}
-+
-+#[cfg(test)]
-+mod tests {
-+    use std::fs;
-+
-+    use tempfile::tempdir;
-+
-+    use super::*;
-+
-+    #[tokio::test]
-+    async fn lock_path_follows_an_active_auth_link() {
-+        let directory = tempdir().unwrap();
-+        let profile = directory.path().join("profile.json");
-+        fs::write(&profile, b"{}").unwrap();
-+        let active = directory.path().join("auth.json");
-+        #[cfg(unix)]
-+        std::os::unix::fs::symlink(&profile, &active).unwrap();
-+        #[cfg(windows)]
-+        std::os::windows::fs::symlink_file(&profile, &active).unwrap();
-+        assert_eq!(lock_path(&active), lock_path(&profile));
-+    }
-+}
+
 diff --git a/codex-rs/login/tests/suite/auth_refresh.rs b/codex-rs/login/tests/suite/auth_refresh.rs
-index 3a8579282dfdc6037e1bdc85a50031d13e1c1354..98eefc46a938b5b9ddd45f97b3f63d8f871c8586 100644
+index 3a8579282d..18e4fc850f 100644
 --- a/codex-rs/login/tests/suite/auth_refresh.rs
 +++ b/codex-rs/login/tests/suite/auth_refresh.rs
-@@ -258,6 +258,109 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
+@@ -258,6 +258,116 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
      Ok(())
  }
- 
+
 +#[serial_test::serial(auth_env)]
 +#[tokio::test]
-+async fn concurrent_managers_share_one_canonical_refresh_transaction() -> Result<()> {
++async fn ordinary_file_backed_managers_do_not_create_a_refresh_lock() -> Result<()> {
 +    skip_if_no_network!(Ok(()));
 +
 +    let server = MockServer::start().await;
@@ -207,7 +234,7 @@ index 3a8579282dfdc6037e1bdc85a50031d13e1c1354..98eefc46a938b5b9ddd45f97b3f63d8f
 +            "access_token": "canonical-access-token",
 +            "refresh_token": "canonical-refresh-token"
 +        })))
-+        .expect(1)
++        .expect(3)
 +        .mount(&server)
 +        .await;
 +
@@ -280,6 +307,13 @@ index 3a8579282dfdc6037e1bdc85a50031d13e1c1354..98eefc46a938b5b9ddd45f97b3f63d8f
 +    second_result?;
 +    stale.refresh_token_from_authority().await?;
 +
++    assert!(
++        !canonical_auth
++            .with_file_name("account.json.refresh.lock")
++            .exists(),
++        "ordinary file-backed auth must not create downstream lock state"
++    );
++
 +    let stored = load_auth_dot_json(
 +        first_home.path(),
 +        AuthCredentialsStoreMode::File,
@@ -301,3 +335,40 @@ index 3a8579282dfdc6037e1bdc85a50031d13e1c1354..98eefc46a938b5b9ddd45f97b3f63d8f
  #[serial_test::serial(auth_env)]
  #[tokio::test]
  async fn refresh_token_refreshes_when_auth_is_unchanged() -> Result<()> {
+@@ -1077,11 +1187,13 @@ async fn refresh_token_does_not_retry_after_standard_invalid_grant_failure() ->
+ async fn refresh_token_does_not_cache_other_bad_request_failure() -> Result<()> {
+     skip_if_no_network!(Ok(()));
+
++    const RESPONSE_SECRET_SENTINEL: &str = "refresh-response-secret-must-not-escape";
+     let server = MockServer::start().await;
+     Mock::given(method("POST"))
+         .and(path("/oauth/token"))
+         .respond_with(ResponseTemplate::new(400).set_body_json(json!({
+-            "error": "invalid_request"
++            "error": "invalid_request",
++            "error_description": RESPONSE_SECRET_SENTINEL
+         })))
+         .expect(2)
+         .mount(&server)
+@@ -1109,7 +1221,10 @@ async fn refresh_token_does_not_cache_other_bad_request_failure() -> Result<()>
+         .err()
+         .context("first refresh should fail")?;
+     assert_eq!(first_err.failed_reason(), None);
+-    assert!(matches!(first_err, RefreshTokenError::Transient(_)));
++    assert!(matches!(&first_err, RefreshTokenError::Transient(_)));
++    let first_message = first_err.to_string();
++    assert!(first_message.contains("class transient_http"));
++    assert!(!first_message.contains(RESPONSE_SECRET_SENTINEL));
+
+     let second_err = ctx
+         .auth_manager
+@@ -1118,7 +1233,8 @@ async fn refresh_token_does_not_cache_other_bad_request_failure() -> Result<()>
+         .err()
+         .context("second refresh should retry and fail")?;
+     assert_eq!(second_err.failed_reason(), None);
+-    assert!(matches!(second_err, RefreshTokenError::Transient(_)));
++    assert!(matches!(&second_err, RefreshTokenError::Transient(_)));
++    assert!(!second_err.to_string().contains(RESPONSE_SECRET_SENTINEL));
+
+     let stored = ctx.load_auth()?;
+     assert_eq!(stored, initial_auth);
