@@ -6,8 +6,8 @@ from upstream `main`. The custom version is `0.154.0-k.ac192cd7`. It carries a
 small, ordered patch series:
 
 1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
-   contains only the original UI, release version, and capacity-retry code
-   changes.
+   contains the original UI, release version, capacity-retry code, and compiler
+   recursion limits needed by release builds of the embedded app-server callers.
 2. [`patches/codex-customizations-tests.patch`](patches/codex-customizations-tests.patch)
    contains their corresponding test assertions and snapshots, including the
    custom version snapshots.

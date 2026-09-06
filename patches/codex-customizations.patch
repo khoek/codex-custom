@@ -230,6 +230,17 @@ index 26ff799a444fc8315ab89ed483c67e9c7a7efdf9..75fd55ff984fd33c37f50f7474e9053e
          if !err.is_retryable() {
              return Err(err);
          }
+diff --git a/codex-rs/exec/src/lib.rs b/codex-rs/exec/src/lib.rs
+--- a/codex-rs/exec/src/lib.rs
++++ b/codex-rs/exec/src/lib.rs
+@@ -3,6 +3,7 @@
+ // - In --json mode, stdout must be valid JSONL, one event per line.
+ // For both modes, any other output must be written to stderr.
+ #![deny(clippy::print_stdout)]
++#![recursion_limit = "256"]
+ 
+ mod cli;
+ mod event_processor;
 diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
 index cd88e565aa0925259ed63fce21b389ae4ef1fe25..3f4f6b3e24aa56748afcfc89eaa6f9ccb13b91ef 100644
 --- a/codex-rs/tui/src/chatwidget/rate_limits.rs
@@ -262,3 +273,14 @@ index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6
      }
  
      pub(crate) fn confirm_safety_buffered_retry(
+diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
+--- a/codex-rs/tui/src/lib.rs
++++ b/codex-rs/tui/src/lib.rs
+@@ -3,6 +3,7 @@
+ // alternate‑screen mode starts; that file opts‑out locally via `allow`.
+ #![deny(clippy::print_stdout, clippy::print_stderr)]
+ #![deny(clippy::disallowed_methods)]
++#![recursion_limit = "256"]
+ use crate::legacy_core::config::Config;
+ use crate::legacy_core::config::ConfigBuilder;
+ use crate::legacy_core::config::ConfigOverrides;
