@@ -2,7 +2,8 @@
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
 repository as a submodule at commit `ac192cd7937b0d73edc6dffe009940ae53782dd4`
-from upstream `main`. It carries a small, ordered patch series:
+from upstream `main`. The custom version is `0.154.0-k.ac192cd7`. It carries a
+small, ordered patch series:
 
 1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
    contains only the original UI, release version, and capacity-retry code
@@ -56,7 +57,7 @@ usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
-expected auto-dismissed UI and custom version snapshot output.
+expected auto-dismissed UI and `0.154.0-k.ac192cd7` snapshot output.
 
 The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
 flag present, a terminal typed `UsageLimitExceeded` error from either the main

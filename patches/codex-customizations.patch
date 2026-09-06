@@ -1,3 +1,16 @@
+diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
+index 3c9156f088ebebf5aa26eeac052a166b2b71a1e5..1edec13ff2ca9eb5e2061d5ced8256232126b535 100644
+--- a/codex-rs/Cargo.toml
++++ b/codex-rs/Cargo.toml
+@@ -149,7 +149,7 @@ members = [
+ resolver = "2"
+ 
+ [workspace.package]
+-version = "0.0.0"
++version = "0.154.0-k.ac192cd7"
+ # Track the edition for all workspace crates in one place. Individual
+ # crates can still override this value, but keeping it here means new
+ # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
 index b6b418c7d0fdf8a54aff28d01767da326276978a..86e98006ffcce18f353e196e8f3d94e4eadf4cde 100644
 --- a/codex-rs/core/src/compact_remote_request.rs
