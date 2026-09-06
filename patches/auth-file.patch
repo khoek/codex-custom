@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index 782f8d2535..751c18c749 100644
+index ff0e3212cd0adfb0c8788e28dea2a669de3dac6e..ed03e91a2668f6b69a5e02feebf6c878359b8c94 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -3631,6 +3631,7 @@ dependencies = [
+@@ -3775,6 +3775,7 @@ dependencies = [
   "http 1.4.0",
   "jsonwebtoken",
   "keyring",
@@ -11,7 +11,7 @@ index 782f8d2535..751c18c749 100644
   "os_info",
   "pretty_assertions",
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
-index be6a02dbdc..9c8e56bedb 100644
+index e42fa9be0171c082ad088475f41fea6e63f5fae0..a231ff420a3636a9b64e91827966091b171e9c0a 100644
 --- a/codex-rs/cli/src/doctor.rs
 +++ b/codex-rs/cli/src/doctor.rs
 @@ -53,6 +53,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
@@ -22,8 +22,8 @@ index be6a02dbdc..9c8e56bedb 100644
  use codex_login::default_client::create_client_without_request_logging;
  use codex_login::default_client::default_headers;
  use codex_login::load_auth_dot_json;
-@@ -1149,7 +1150,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
-
+@@ -1160,7 +1161,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
+ 
  fn auth_check(config: &Config) -> DoctorCheck {
      let mut details = Vec::new();
 -    let auth_path = config.codex_home.join("auth.json");
@@ -32,13 +32,13 @@ index be6a02dbdc..9c8e56bedb 100644
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index e6ec1fb69e..c45744406d 100644
+index 2d58292762f7e9ef04718a9c5498f7b007f23405..11f4cedb8afe4876d504dfa794d5294a3af9deb2 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -122,6 +122,91 @@ struct MultitoolCli {
+@@ -132,6 +132,91 @@ struct MultitoolCli {
      #[clap(flatten)]
      pub config_overrides: CliConfigOverrides,
-
+ 
 +    /// Select an alternate file-backed CLI credential file for this process.
 +    #[arg(
 +        long = "auth-file",
@@ -126,8 +126,8 @@ index e6ec1fb69e..c45744406d 100644
 +
      #[clap(flatten)]
      pub feature_toggles: FeatureToggles,
-
-@@ -1072,11 +1157,63 @@ async fn cli_main(
+ 
+@@ -1147,12 +1232,64 @@ async fn cli_main(
  ) -> anyhow::Result<ExitCode> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
@@ -143,6 +143,7 @@ index e6ec1fb69e..c45744406d 100644
          mut interactive,
          subcommand,
      } = MultitoolCli::parse();
+     reject_unsupported_worktree_for_subcommand(interactive.shared.worktree, &subcommand)?;
 +    let managed_credential = match (
 +        auth_file,
 +        credential_protocol_version,
@@ -191,7 +192,7 @@ index e6ec1fb69e..c45744406d 100644
      // Fold --enable/--disable into config overrides so they flow to all subcommands.
      let toggle_overrides = feature_toggles.to_overrides()?;
      root_config_overrides.raw_overrides.extend(toggle_overrides);
-@@ -3058,6 +3195,13 @@ mod tests {
+@@ -3170,6 +3307,13 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -205,7 +206,7 @@ index e6ec1fb69e..c45744406d 100644
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3100,6 +3244,13 @@ mod tests {
+@@ -3212,6 +3356,13 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -219,7 +220,7 @@ index e6ec1fb69e..c45744406d 100644
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3144,6 +3295,13 @@ mod tests {
+@@ -3256,6 +3407,13 @@ mod tests {
          let MultitoolCli {
              interactive,
              config_overrides: root_overrides,
@@ -233,10 +234,10 @@ index e6ec1fb69e..c45744406d 100644
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3336,6 +3494,149 @@ mod tests {
+@@ -3517,6 +3675,149 @@ mod tests {
          }
      }
-
+ 
 +    #[test]
 +    fn credential_slot_flags_are_hidden_and_parse_as_a_complete_protocol() {
 +        let cli = MultitoolCli::try_parse_from([
@@ -384,7 +385,7 @@ index e6ec1fb69e..c45744406d 100644
      fn approve_for_me_defaults_propagate_from_root_to_exec() {
          let exec = finalize_exec_from_args(&["codex", "--approve-for-me", "exec", "summarize"]);
 diff --git a/codex-rs/login/Cargo.toml b/codex-rs/login/Cargo.toml
-index 2971dec6c1..ac8621bf6c 100644
+index 2971dec6c1a81cb80379477333371bba6e8fbece..ac8621bf6cbc79078704de52919adc29cc66dd90 100644
 --- a/codex-rs/login/Cargo.toml
 +++ b/codex-rs/login/Cargo.toml
 @@ -22,12 +22,14 @@ codex-terminal-detection = { workspace = true }
@@ -409,10 +410,10 @@ index 2971dec6c1..ac8621bf6c 100644
 -tempfile = { workspace = true }
  tracing-subscriber = { workspace = true }
  wiremock = { workspace = true }
-
+ 
 diff --git a/codex-rs/login/src/auth/credential_lock.rs b/codex-rs/login/src/auth/credential_lock.rs
 new file mode 100644
-index 0000000000..98dae4a3a5
+index 0000000000000000000000000000000000000000..98dae4a3a5baf2e18a7d638da1a81f223fd93f9f
 --- /dev/null
 +++ b/codex-rs/login/src/auth/credential_lock.rs
 @@ -0,0 +1,343 @@
@@ -761,7 +762,7 @@ index 0000000000..98dae4a3a5
 +mod tests;
 diff --git a/codex-rs/login/src/auth/credential_lock_tests.rs b/codex-rs/login/src/auth/credential_lock_tests.rs
 new file mode 100644
-index 0000000000..6e01c393e8
+index 0000000000000000000000000000000000000000..6e01c393e876d0da7928511bb8bcc0a40fbf87b1
 --- /dev/null
 +++ b/codex-rs/login/src/auth/credential_lock_tests.rs
 @@ -0,0 +1,369 @@
@@ -1135,7 +1136,7 @@ index 0000000000..6e01c393e8
 +    assert!(status.success(), "lock helper failed with {status}");
 +}
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index 2949b7039a..c91f0ca301 100644
+index 2949b7039a9b190fad53e2c9598767b321a74b97..c91f0ca3016ac8e4546e70688d5d65aa103177a6 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
 @@ -36,6 +36,7 @@ use super::agent_identity::record_needs_task_registration;
@@ -1171,20 +1172,20 @@ index 2949b7039a..c91f0ca301 100644
          codex_home.to_path_buf(),
          auth_credentials_store_mode,
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index e4898f0976..c2fca37c83 100644
+index e4898f097636e7eb5890878e91024338dfbf95b9..c2fca37c83715881ab14e8aebfa120d9117c3e38 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
 @@ -10,10 +10,48 @@ mod storage;
  mod util;
  mod workload_identity;
-
+ 
 +mod credential_lock;
 +pub use credential_lock::CredentialUseLockMode;
 +pub use credential_lock::managed_credential_is_invalid;
  mod external_bearer;
  mod manager;
  mod revoke;
-
+ 
 +/// Select the file used for file-backed CLI credentials in this process.
 +///
 +/// This downstream `+k` seam is intentionally process-local: unlike an
@@ -1224,7 +1225,7 @@ index e4898f0976..c2fca37c83 100644
  pub use bedrock_access_keys::BedrockAccessKeysAuth;
  pub use bedrock_access_keys::login_with_bedrock_access_keys;
 diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
-index 8a9d75f448..751aeee127 100644
+index 8a9d75f4487631b39faf057b39e23bbeb98aec04..751aeee1271d79413bf047c7d320231d23a98341 100644
 --- a/codex-rs/login/src/auth/storage.rs
 +++ b/codex-rs/login/src/auth/storage.rs
 @@ -16,6 +16,7 @@ use std::path::Path;
@@ -1233,12 +1234,12 @@ index 8a9d75f448..751aeee127 100644
  use std::sync::Mutex;
 +use std::sync::OnceLock;
  use tracing::warn;
-
+ 
  use super::BedrockAccessKeysAuth;
 @@ -151,8 +152,27 @@ impl From<AgentIdentityJwtClaims> for AgentIdentityAuthRecord {
      }
  }
-
+ 
 +static AUTH_FILE_OVERRIDE: OnceLock<PathBuf> = OnceLock::new();
 +
 +pub(super) fn set_auth_file_override(path: PathBuf) -> std::io::Result<()> {
@@ -1262,7 +1263,7 @@ index 8a9d75f448..751aeee127 100644
 +        None => codex_home.join("auth.json"),
 +    }
  }
-
+ 
  pub(super) fn delete_file_if_exists(codex_home: &Path) -> std::io::Result<bool> {
 @@ -210,6 +230,23 @@ impl AuthStorageBackend for FileAuthStorage {
              std::fs::create_dir_all(parent)?;
@@ -1299,13 +1300,13 @@ index 8a9d75f448..751aeee127 100644
          AuthCredentialsStoreMode::File => Arc::new(FileAuthStorage::new(codex_home)),
          AuthCredentialsStoreMode::Keyring => {
 diff --git a/codex-rs/login/src/auth/storage_tests.rs b/codex-rs/login/src/auth/storage_tests.rs
-index 0c69343808..6a8dd29924 100644
+index 0c693438081508e58820bd3c426c2f9661ad2463..6a8dd29924d27c1b103300b3474412c5334ac98e 100644
 --- a/codex-rs/login/src/auth/storage_tests.rs
 +++ b/codex-rs/login/src/auth/storage_tests.rs
 @@ -65,6 +65,25 @@ async fn file_storage_save_persists_auth_dot_json() -> anyhow::Result<()> {
      Ok(())
  }
-
+ 
 +#[test]
 +fn resolves_process_local_auth_file_override() {
 +    let codex_home = tempdir().unwrap();
@@ -1329,7 +1330,7 @@ index 0c69343808..6a8dd29924 100644
  async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
      let codex_home = tempdir()?;
 diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
-index 33659722fd..f58741555c 100644
+index 33659722fdd28e3a71727cbaac459126c1ca2831..f58741555cea01ff1fb669e5331ea650c1da608d 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
 @@ -39,6 +39,7 @@ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
@@ -1362,3 +1363,49 @@ index 33659722fd..f58741555c 100644
  pub use auth_env_telemetry::AuthEnvTelemetry;
  pub use auth_env_telemetry::collect_auth_env_telemetry;
  pub use outbound_proxy::AuthRouteConfig;
+diff --git a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
+index e2bd9f12784dc9f40930b1da0bcebecc7aa4efd1..c55762b4fd2e768b54db7abc000e6711a0bad724 100644
+--- a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
++++ b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
+@@ -21,9 +21,6 @@ Options:
+           'sandbox_permissions=["disk-full-read-access"]'` - `-c
+           shell_environment_policy.inherit=all`
+ 
+-      --enable <FEATURE>
+-          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
+-
+       --strict-config
+           Error out when config.toml contains fields that are not recognized by
+           this version of Codex
+@@ -33,10 +30,6 @@ Options:
+ 
+           [default: 1]
+ 
+-      --disable <FEATURE>
+-          Disable a feature (repeatable). Equivalent to `-c
+-          features.<name>=false`
+-
+       --listen <URL>
+           Transport endpoint URL. Supported values: `ws://IP:PORT` (default),
+           `stdio`, `stdio://`
+@@ -57,6 +50,9 @@ Options:
+       --name <NAME>
+           Human-readable environment name
+ 
++      --enable <FEATURE>
++          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
++
+       --use-agent-identity-auth
+           Use Agent Identity auth from CODEX_ACCESS_TOKEN for remote
+           registration
+@@ -65,6 +61,10 @@ Options:
+           Sign Direct registration and WebSocket handshake requests with AWS
+           SigV4
+ 
++      --disable <FEATURE>
++          Disable a feature (repeatable). Equivalent to `-c
++          features.<name>=false`
++
+       --aws-profile <PROFILE>
+           AWS profile used for SigV4 authentication
+ 

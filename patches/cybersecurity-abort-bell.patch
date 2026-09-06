@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 7b3aa66873ccc1005706b090c0b65474c2aa516d..0ebf1c71ca01406426ac1b5702be5706d36dfc14 100644
+index 88b2316662adf51790625dd230f55f62ab0e62bd..bcfe9ed3becfe165e79a960053a98558717f0680 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -224,6 +224,9 @@ impl App {
+@@ -231,6 +231,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -13,10 +13,10 @@ index 7b3aa66873ccc1005706b090c0b65474c2aa516d..0ebf1c71ca01406426ac1b5702be5706
                  self.clear_terminal_ui(tui, /*redraw_header*/ false)?;
                  self.reset_app_ui_state_after_clear();
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index 07ecf999234746425c6da82e138c75b70c8c68f1..0025610aafcc28973f97c345282df0d9e604ff33 100644
+index 0a7fb54d8518e5a9b6afd462c6a0f8190df014cf..2f9968aa94dd5771e5f88c82b2c60517eab2c27b 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -426,6 +426,9 @@ pub(crate) enum AppEvent {
+@@ -441,6 +441,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -27,10 +27,10 @@ index 07ecf999234746425c6da82e138c75b70c8c68f1..0025610aafcc28973f97c345282df0d9
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 8232b65d313b67f475e0afd9cc57b27035430e75..c66320cdd08da01045f492562bc73392bcfd34c2 100644
+index cf39fe58b0d3687d66917998b82010486d7b709a..0d3df115df6e515a4fd83fdf54ee0cd4e1d916ad 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-@@ -99,7 +99,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
+@@ -102,7 +102,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
          Some(CodexErrorInfo::CyberPolicy),
      );
  
@@ -48,9 +48,9 @@ index 8232b65d313b67f475e0afd9cc57b27035430e75..c66320cdd08da01045f492562bc73392
 +    assert!(rang_terminal_bell);
      assert_eq!(cells.len(), 1);
      let rendered = lines_to_single_string(&cells[0]);
-     assert!(rendered.contains("This content can't be shown"));
+     assert!(rendered.contains("This content can’t be shown"));
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index 7e2b091358e6b6d4473eae59a38d9b677b0ab4f8..3bd6a43ce511497c94aebca11deb72524a4291fd 100644
+index 7b47adbbc52ba964320d109230317a2a9a8b040b..bff52bea55a7311ddae077252ee410d83b371c89 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
 @@ -395,6 +395,7 @@ impl ChatWidget {
@@ -60,7 +60,7 @@ index 7e2b091358e6b6d4473eae59a38d9b677b0ab4f8..3bd6a43ce511497c94aebca11deb7252
 +        self.app_event_tx.send(AppEvent::RingTerminalBell);
          self.input_queue.submit_pending_steers_after_interrupt = false;
          self.finalize_turn();
-         let plan_type = if self.has_chatgpt_account {
+         let notice = if self.config.model_provider_id == "openai" {
 diff --git a/codex-rs/tui/src/notifications/mod.rs b/codex-rs/tui/src/notifications/mod.rs
 index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83626fad0c 100644
 --- a/codex-rs/tui/src/notifications/mod.rs
@@ -77,7 +77,7 @@ index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 814e01d8449788d873c0cd5bd089bb1b3dce78fa..149dde33bc65334522ae31da45d9c24d5e9a47ed 100644
+index 96b3fbcbb96809a193583d39d0af2fe9dc52b29e..969ca796aa67197224c2c08ddf664c62347b85bd 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
 @@ -808,6 +808,13 @@ impl Tui {

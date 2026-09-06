@@ -1,16 +1,3 @@
-diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 928e08b21756639ff1a7e3b07b9af2b2e6468620..d371e8f5c21dc5c64571ad54454268c740b8c09e 100644
---- a/codex-rs/cli/src/main.rs
-+++ b/codex-rs/cli/src/main.rs
-@@ -107,7 +107,7 @@ use codex_terminal_detection::TerminalName;
- #[derive(Debug, Parser)]
- #[clap(
-     author,
--    version,
-+    version = concat!(env!("CARGO_PKG_VERSION"), "+k"),
-     // If a sub‑command is given, ignore requirements of the default args.
-     subcommand_negates_reqs = true,
-     // The executable is sometimes invoked via a platform‑specific name like
 diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
 index b6b418c7d0fdf8a54aff28d01767da326276978a..86e98006ffcce18f353e196e8f3d94e4eadf4cde 100644
 --- a/codex-rs/core/src/compact_remote_request.rs
@@ -169,10 +156,10 @@ index fb0505411e19db75d29d6ea16300825001cdd1c2..ad235f03b949c9b4cd09dc45d57104da
      request: ResponsesStreamRequest,
      turn_context: &TurnContext,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index d08feebaefedfce896d866aa42494cb1f4d74cb1..404de0855b8b8d8e345da00bb8fad4e1c20dac09 100644
+index 24fd9cf6293c0bd147e1ceb8b46f1386c3de21bf..6e285a62d388ebc8513bb5b2f5ce1836bdb68d42 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4559,14 +4559,19 @@ impl Session {
+@@ -4590,14 +4590,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -197,7 +184,7 @@ index d08feebaefedfce896d866aa42494cb1f4d74cb1..404de0855b8b8d8e345da00bb8fad4e1
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
-index c49579cb225389958683912ac182494b01dce937..3daf56d7ec0446dcf16c8e953d76b9b0d803a06d 100644
+index 26ff799a444fc8315ab89ed483c67e9c7a7efdf9..75fd55ff984fd33c37f50f7474e9053e212124a8 100644
 --- a/codex-rs/core/src/session/turn.rs
 +++ b/codex-rs/core/src/session/turn.rs
 @@ -33,6 +33,7 @@ use crate::responses_metadata::CodexResponsesRequestKind;
@@ -208,7 +195,7 @@ index c49579cb225389958683912ac182494b01dce937..3daf56d7ec0446dcf16c8e953d76b9b0
  use crate::session::PreviousTurnSettings;
  use crate::session::TurnInput;
  use crate::session::session::Session;
-@@ -1440,6 +1441,7 @@ async fn run_sampling_request(
+@@ -1437,6 +1438,7 @@ async fn run_sampling_request(
      );
      let max_retries = turn_context.provider.info().stream_max_retries();
      let mut retry_state = ResponsesStreamRetryState::default();
@@ -216,7 +203,7 @@ index c49579cb225389958683912ac182494b01dce937..3daf56d7ec0446dcf16c8e953d76b9b0
      let mut initial_input = Some(input);
      let mut original_input = None;
      let mut executed_tool_calls_by_output = HashMap::new();
-@@ -1499,6 +1501,13 @@ async fn run_sampling_request(
+@@ -1500,6 +1502,13 @@ async fn run_sampling_request(
              original_input = Some(prompt.input);
          }
  
@@ -249,10 +236,10 @@ index cd88e565aa0925259ed63fce21b389ae4ef1fe25..3f4f6b3e24aa56748afcfc89eaa6f9cc
  
      pub(super) fn open_workspace_owner_nudge_prompt(
 diff --git a/codex-rs/tui/src/chatwidget/safety_buffering.rs b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-index be65e5ee581b97a1f41d3146545534e45faa4430..491758ec263c35dceb7a31a45851cd0cd1ccf426 100644
+index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6ff6a577e 100644
 --- a/codex-rs/tui/src/chatwidget/safety_buffering.rs
 +++ b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-@@ -215,5 +215,8 @@ impl ChatWidget {
+@@ -234,6 +234,9 @@ impl ChatWidget {
              items,
              ..Default::default()
          });
@@ -260,12 +247,5 @@ index be65e5ee581b97a1f41d3146545534e45faa4430..491758ec263c35dceb7a31a45851cd0c
 +        self.bottom_pane
 +            .dismiss_view_by_id(SAFETY_BUFFERING_PROMPT_VIEW_ID);
      }
- }
-diff --git a/codex-rs/tui/src/version.rs b/codex-rs/tui/src/version.rs
-index 8c8d108dc61314c01eeb31a987f48cf508f6fa9d..ada5b67880c5b34a6b57e6237c8b61f4354ec047 100644
---- a/codex-rs/tui/src/version.rs
-+++ b/codex-rs/tui/src/version.rs
-@@ -1,2 +1,2 @@
- /// The current Codex CLI version as embedded at compile time.
--pub const CODEX_CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
-+pub const CODEX_CLI_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "+k");
+ 
+     pub(crate) fn confirm_safety_buffered_retry(

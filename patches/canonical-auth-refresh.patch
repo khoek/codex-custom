@@ -1,5 +1,5 @@
 diff --git a/codex-rs/login/src/auth/credential_lock.rs b/codex-rs/login/src/auth/credential_lock.rs
-index 98dae4a3a5..e1ccfe2306 100644
+index 98dae4a3a5baf2e18a7d638da1a81f223fd93f9f..e1ccfe230655fe522153b6de6936dbb5139d6211 100644
 --- a/codex-rs/login/src/auth/credential_lock.rs
 +++ b/codex-rs/login/src/auth/credential_lock.rs
 @@ -27,7 +27,12 @@ use std::path::PathBuf;
@@ -12,13 +12,13 @@ index 98dae4a3a5..e1ccfe2306 100644
 +
  const STARTUP_NONCE_HEX_LEN: usize = 64;
 +const RETRY_DELAY: Duration = Duration::from_millis(50);
-
+ 
  struct ProcessCredentialLocks {
      mutation_path: PathBuf,
 @@ -229,6 +234,28 @@ pub(super) fn mark_invalid() {
      }
  }
-
+ 
 +pub(super) async fn acquire_for_refresh() -> io::Result<Guard> {
 +    let locks = PROCESS_CREDENTIAL_LOCKS.get().ok_or_else(|| {
 +        io::Error::new(
@@ -45,7 +45,7 @@ index 98dae4a3a5..e1ccfe2306 100644
      let file = open_lock_file(path)?;
      match mode {
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index c91f0ca301..766dbe3081 100644
+index c91f0ca3016ac8e4546e70688d5d65aa103177a6..766dbe3081df37a204452e0ccdc0c59a4ae1e165 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
 @@ -53,7 +53,6 @@ pub use crate::auth::storage::AuthDotJson;
@@ -95,7 +95,7 @@ index c91f0ca301..766dbe3081 100644
          }
      }
  }
-
+ 
 -fn classify_refresh_token_failure(
 -    code: Option<&str>,
 -    body: &str,
@@ -108,7 +108,7 @@ index c91f0ca301..766dbe3081 100644
 @@ -1650,14 +1652,6 @@ fn classify_refresh_token_failure(
          _ => RefreshTokenFailedReason::Other,
      };
-
+ 
 -    if reason == RefreshTokenFailedReason::Other && !is_invalid_grant_bad_request {
 -        tracing::warn!(
 -            backend_code = normalized_code.as_deref(),
@@ -123,7 +123,7 @@ index c91f0ca301..766dbe3081 100644
 @@ -1668,6 +1662,21 @@ fn classify_refresh_token_failure(
      RefreshTokenFailedError::new(reason, message)
  }
-
+ 
 +fn refresh_token_failure_class(
 +    reason: RefreshTokenFailedReason,
 +    status: StatusCode,
@@ -145,7 +145,7 @@ index c91f0ca301..766dbe3081 100644
 @@ -2671,6 +2680,12 @@ impl AuthManager {
          self.external_auth_provider().is_some()
      }
-
+ 
 +    fn uses_cross_process_refresh_lock(&self, auth: Option<&CodexAuth>) -> bool {
 +        credential_lock::is_configured()
 +            && !self.has_external_auth()
@@ -213,15 +213,15 @@ index c91f0ca301..766dbe3081 100644
 +        }
          self.refresh_token_from_authority_impl().await
      }
-
+ 
 diff --git a/codex-rs/login/tests/suite/auth_refresh.rs b/codex-rs/login/tests/suite/auth_refresh.rs
-index 3a8579282d..18e4fc850f 100644
+index 3a8579282dfdc6037e1bdc85a50031d13e1c1354..18e4fc850f0dcce8a971f2ff1b77d0af4f7018dd 100644
 --- a/codex-rs/login/tests/suite/auth_refresh.rs
 +++ b/codex-rs/login/tests/suite/auth_refresh.rs
 @@ -258,6 +258,116 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {
      Ok(())
  }
-
+ 
 +#[serial_test::serial(auth_env)]
 +#[tokio::test]
 +async fn ordinary_file_backed_managers_do_not_create_a_refresh_lock() -> Result<()> {
@@ -338,7 +338,7 @@ index 3a8579282d..18e4fc850f 100644
 @@ -1077,11 +1187,13 @@ async fn refresh_token_does_not_retry_after_standard_invalid_grant_failure() ->
  async fn refresh_token_does_not_cache_other_bad_request_failure() -> Result<()> {
      skip_if_no_network!(Ok(()));
-
+ 
 +    const RESPONSE_SECRET_SENTINEL: &str = "refresh-response-secret-must-not-escape";
      let server = MockServer::start().await;
      Mock::given(method("POST"))
@@ -359,7 +359,7 @@ index 3a8579282d..18e4fc850f 100644
 +    let first_message = first_err.to_string();
 +    assert!(first_message.contains("class transient_http"));
 +    assert!(!first_message.contains(RESPONSE_SECRET_SENTINEL));
-
+ 
      let second_err = ctx
          .auth_manager
 @@ -1118,7 +1233,8 @@ async fn refresh_token_does_not_cache_other_bad_request_failure() -> Result<()>
@@ -369,6 +369,6 @@ index 3a8579282d..18e4fc850f 100644
 -    assert!(matches!(second_err, RefreshTokenError::Transient(_)));
 +    assert!(matches!(&second_err, RefreshTokenError::Transient(_)));
 +    assert!(!second_err.to_string().contains(RESPONSE_SECRET_SENTINEL));
-
+ 
      let stored = ctx.load_auth()?;
      assert_eq!(stored, initial_auth);
