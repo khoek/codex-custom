@@ -867,7 +867,7 @@ index a9dd9cac784bd0993eb09bc518071a1e253f0ae2..9adcdb3fa22781e52cb02812d4cda95a
 -│ https://github.com/openai/codex/releases/latest │
 -╰─────────────────────────────────────────────────╯
 +╭──────────────────────────────────────────────────╮
-+│ ✨ Update available! 0.154.0-k.ac192cd7 -> 9.9.9 │
++│ ✨ Update available! 0.154.0-k.121f91fd -> 9.9.9 │
 +│ Run pnpm add -g @openai/codex to update.         │
 +│                                                  │
 +│ See full release notes:                          │
@@ -890,7 +890,7 @@ index ad0fc4be1c1b08518ad844b50b6cceb428b7f530..a9852d51bd62462e1dcf5aa6a36754aa
 -│ directory: /tmp/project             │
 -╰─────────────────────────────────────╯
 +╭───────────────────────────────────────╮
-+│ >_ OpenAI Codex (v0.154.0-k.ac192cd7) │
++│ >_ OpenAI Codex (v0.154.0-k.121f91fd) │
 +│                                       │
 +│ model:     gpt-5   /model to change   │
 +│ directory: /tmp/project               │
@@ -906,7 +906,7 @@ index c8f352dbb49ceafe78df86e841e95824c4e6f469..554a443b810cf1bedfde470cbc1b8387
  ---
  ╭─────────────────────────────────────────────────────────────────────────────────────────────────────╮
 -│ ✨ Update available! 0.0.0 -> 9.9.9                                                                 │
-+│ ✨ Update available! 0.154.0-k.ac192cd7 -> 9.9.9                                                    │
++│ ✨ Update available! 0.154.0-k.121f91fd -> 9.9.9                                                    │
  │ Run sh -c 'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh' to update. │
  │                                                                                                     │
  │ See full release notes:                                                                             │
@@ -919,7 +919,7 @@ index fb15a05775d4063e2780ba29d0ae15e9ad5297c8..ab54cedfb6b8144147f68e3bd4d681dd
  ---
  ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 -│ ✨ Update available! 0.0.0 -> 9.9.9                                                                        │
-+│ ✨ Update available! 0.154.0-k.ac192cd7 -> 9.9.9                                                           │
++│ ✨ Update available! 0.154.0-k.121f91fd -> 9.9.9                                                           │
  │ Run powershell -ExecutionPolicy Bypass -c '$env:CODEX_NON_INTERACTIVE=1; irm                               │
  │ https://chatgpt.com/codex/install.ps1 | iex' to update.                                                    │
  │                                                                                                            │
@@ -939,7 +939,7 @@ index 1a2df82a9dd866436660629a9fede7e1e8894899..ce3c30d38d07c261852e7f0bdcc4020c
 -│ https://github.com/openai/codex/releases/latest │
 -╰─────────────────────────────────────────────────╯
 +╭──────────────────────────────────────────────────╮
-+│ ✨ Update available! 0.154.0-k.ac192cd7 -> 9.9.9 │
++│ ✨ Update available! 0.154.0-k.121f91fd -> 9.9.9 │
 +│ Run vp install -g @openai/codex to update.       │
 +│                                                  │
 +│ See full release notes:                          │
@@ -1065,7 +1065,7 @@ index c7d89b17aa95c7e3ce85936b60b422de0e4cf58d..76cf28baadc674453a1bce8b5e568795
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1078,7 +1078,7 @@ index c1636b6c15ee014cc3e4d374ef7831fa41d06f90..02bd8a856bd65816e5b5a7f63c912f60
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1091,7 +1091,7 @@ index 765ad8d3a7da03dc5debe01ea19018aa1826b78f..a1500616cec0cc10ee5e7d9e20dd1c84
  
  ╭───────────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                         │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                            │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                            │
  │                                                                                   │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date                     │
  │ information on rate limits and credits                                            │
@@ -1104,7 +1104,7 @@ index 152575179eef77bbe9f5d7e9e4b93d81c7d9e048..acfb6fa526c7f4bd60c9fa8731b3bc5c
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1117,7 +1117,7 @@ index 7a4f58a8233bb51aa4769b1411e86a507034c0fb..bcda8c583bec0ffee741d8c9deb6650c
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1130,7 +1130,7 @@ index 96b2ed1648d5c55e83ca475543ba327fa111655d..5adaa894e492a18fd9abbbc64b3877c3
  
  ╭───────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                 │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                    │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                    │
  │                                                                           │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date             │
  │ information on rate limits and credits                                    │
@@ -1143,7 +1143,7 @@ index 4604b26f7e3f01fa4aeef5c174ac91532f0e4eec..5ae5936d6b71d5032289e6f7a63c9ba7
  
  ╭───────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                             │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                │
  │                                                                       │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date         │
  │ information on rate limits and credits                                │
@@ -1156,7 +1156,7 @@ index c739d550753e531847e4e2966cf6cc32834d2320..0f7664a418e7df9302a90fa765a6f941
  
  ╭───────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                             │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                │
  │                                                                       │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date         │
  │ information on rate limits and credits                                │
@@ -1169,7 +1169,7 @@ index 0aba51f99a305a298ac8879212fffc7e4b5e3e43..0d75b79e7cea09e8242c17eadb10fd57
  
  ╭──────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                   │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                   │
  │                                                                          │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date            │
  │ information on rate limits and credits                                   │
@@ -1182,7 +1182,7 @@ index 533be2797666029b414bc3e1861b28f8ef5aee24..42582448939650dacce9af5c3db6096f
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1195,7 +1195,7 @@ index 631982bcf969d7a660614e1127598ac9537a92ef..7a36033c5b5bf77aca98c37419fe5e43
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1208,7 +1208,7 @@ index 8facd56275e18f782acfe20a7b30fc159e06dc72..561f21aa06db8f5884a7ed1ac4c61adc
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1221,7 +1221,7 @@ index d46a483e4b5ff5ae265ce87e6725eee28ca4b200..b9132ccc9a5eaec4668814d81a176dd0
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1234,7 +1234,7 @@ index d46a483e4b5ff5ae265ce87e6725eee28ca4b200..b9132ccc9a5eaec4668814d81a176dd0
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1247,7 +1247,7 @@ index 17442d7076a634c1200476eabee081e333eb117e..371147a57ba40d12980cf9420f5bee49
  
  ╭────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)              │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7) │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd) │
  │                                        │
  │ Visit                                  │
  │ https://chatgpt.com/codex/settings/usa │
@@ -1260,7 +1260,7 @@ index 6b28b53b62837c57c0bd502fc855bde5ec4aadba..e6da267a7c31cea5320e907a63636d1c
  
  ╭────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                          │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                             │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                             │
  │                                                                    │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date      │
  │ information on rate limits and credits                             │
@@ -1273,7 +1273,7 @@ index 9683beed97b2578613014f483e0bfb6c54355fc7..101b04854112d3ddec708245942a6fa3
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1286,7 +1286,7 @@ index 6b6fad683b812297d66e313ceab1c0fae7150987..bde82dc0198b61aca2036a64d36d93d0
  
  ╭──────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                    │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                       │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                       │
  │                                                                              │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date                │
  │ information on rate limits and credits                                       │
@@ -1299,7 +1299,7 @@ index 9dce4bfbba8b3b71e4794897ce86059d875600f8..6bc6ca63583df1e21049cdef9481268d
  
  ╭──────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                   │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                   │
  │                                                                          │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date            │
  │ information on rate limits and credits                                   │
@@ -1308,7 +1308,7 @@ index 9dce4bfbba8b3b71e4794897ce86059d875600f8..6bc6ca63583df1e21049cdef9481268d
  
  ╭───────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                 │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                    │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                    │
  │                                                                           │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date             │
  │ information on rate limits and credits                                    │
@@ -1321,7 +1321,7 @@ index bd805b72ef799a6e9205a7f738fa669108ace8cd..65ebae26345b1ef3b150b872a7c7a772
  
  ╭────────────────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                              │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                                 │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                                 │
  │                                                                                        │
  │  Model:            gpt-5.6-sol (reasoning none, summaries auto)                        │
  │  Model provider:   Amazon Bedrock - https://bedrock-mantle.eu-west-1.api.aws/openai/v1 │
@@ -1334,7 +1334,7 @@ index d5560f032fad1c43ac8300567b28887301bce05d..71ed3756c9a6977f1e40fcfa1e7c7ec4
  
  ╭─────────────────────────────────────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                                                   │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)                                      │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)                                      │
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
@@ -1347,7 +1347,7 @@ index cf6fa2c2ec73b4adb8225ac71dbde5fe4e7d4990..9f27ad03996f439cddbb5376a5e7e024
  
  ╭────────────────────────────────────────────╮
 -│  >_ OpenAI Codex (v0.0.0)                  │
-+│  >_ OpenAI Codex (v0.154.0-k.ac192cd7)     │
++│  >_ OpenAI Codex (v0.154.0-k.121f91fd)     │
  │                                            │
  │ Visit                                      │
  │ https://chatgpt.com/codex/settings/usage   │

@@ -93,7 +93,7 @@ index d105968b663bf1062b8d316706887c1eb546d88c..b22e5fe4ae07696e0c7069af4c5dd780
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 66c541c7037d050ad33b123c7df18d9b61eaa3fa..2ffdedd7f53bfc73aa003a1299e592048c8074cd 100644
+index 74d83b83c132f7450724fbc9cb7badbba013492c..895d6a8bdb1e65d04104cc0c78bbd20652e80c70 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -156,6 +156,7 @@ impl App {
@@ -104,12 +104,12 @@ index 66c541c7037d050ad33b123c7df18d9b61eaa3fa..2ffdedd7f53bfc73aa003a1299e59204
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -704,7 +705,21 @@ See the Codex keymap documentation for supported actions and examples."
-                 Ok(result) => result?,
-                 Err(err) => return shutdown_on_startup_error(app_server, err).await,
+@@ -782,7 +783,21 @@ See the Codex keymap documentation for supported actions and examples."
+                 app.ensure_thread_channel(thread_id).mark_external_writer();
+                 app.chat_widget.show_external_writer_thread();
              }
--            if should_prompt_for_paused_goal_after_startup_resume
-+            if start_immediately {
+-            if !read_only_thread
++            if !read_only_thread && start_immediately {
 +                let resumed = match startup_draft
 +                    .run_until(
 +                        tui,
@@ -123,15 +123,15 @@ index 66c541c7037d050ad33b123c7df18d9b61eaa3fa..2ffdedd7f53bfc73aa003a1299e59204
 +                if resumed {
 +                    app.chat_widget.submit_start_immediately_prompt();
 +                }
-+            } else if should_prompt_for_paused_goal_after_startup_resume
++            } else if !read_only_thread
+                 && should_prompt_for_paused_goal_after_startup_resume
                  && let Err(err) = startup_draft
                      .run_until(
-                         tui,
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 1401141be6aa29fb8de0f3d1d7af23fb43fc3310..8059e5a65bbc7b788671211da657aad03086be96 100644
+index ddefc4fffdb698da4740b0a291392fb952ad3eb6..6a37506713d60c24cd7dc9f5f1461f4b460af667 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5840,6 +5840,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
+@@ -6173,6 +6173,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
      Ok(())
  }
  
@@ -523,10 +523,10 @@ index c53c6e3e9cbbba809353c05f92f65bb5de377969..50d877cce1ebaad6727e4fc011ab2fc4
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index fde717119dc87a6df66decfe1766ef42b49cf5fb..636aa3c3b8b197960ef69f4c9e90234505b6cf0e 100644
+index df8dad0b980066608a5a41d66629346b68f9cd88..3fef01606885d0721443e9e21504a6cde5b2cab4 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -1655,6 +1655,7 @@ async fn run_ratatui_app(
+@@ -1685,6 +1685,7 @@ async fn run_ratatui_app(
      let should_prompt_windows_sandbox_nux_at_startup = false;
  
      let Cli {
@@ -534,7 +534,7 @@ index fde717119dc87a6df66decfe1766ef42b49cf5fb..636aa3c3b8b197960ef69f4c9e902345
          prompt,
          shared,
          no_alt_screen,
-@@ -1792,6 +1793,7 @@ async fn run_ratatui_app(
+@@ -1822,6 +1823,7 @@ async fn run_ratatui_app(
          should_show_trust_screen, // Proxy to: is it a first run in this directory?
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,
