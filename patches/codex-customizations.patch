@@ -1,5 +1,5 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index 3c9156f088ebebf5aa26eeac052a166b2b71a1e5..1edec13ff2ca9eb5e2061d5ced8256232126b535 100644
+index 6ec3e49fb1c9e28cfacfa1c512ab6bc1f82bc459..647f71e67332ecb3f9c82873fd3755a222405507 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
 @@ -149,7 +149,7 @@ members = [
@@ -12,14 +12,15 @@ index 3c9156f088ebebf5aa26eeac052a166b2b71a1e5..1edec13ff2ca9eb5e2061d5ced825623
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
-index b6b418c7d0fdf8a54aff28d01767da326276978a..86e98006ffcce18f353e196e8f3d94e4eadf4cde 100644
+index faabcfb00dafebb89c43c28aad32ea740486eba2..03790f3cf7238ce6242b62e3f8469d56d9287458 100644
 --- a/codex-rs/core/src/compact_remote_request.rs
 +++ b/codex-rs/core/src/compact_remote_request.rs
-@@ -7,9 +7,11 @@ use crate::client::CompactConversationRequestSettings;
+@@ -7,10 +7,12 @@ use crate::client::CompactConversationRequestSettings;
  use crate::compact::CompactionAnalyticsDetails;
  use crate::responses_metadata::CodexResponsesRequestKind;
  use crate::responses_metadata::CompactionTurnMetadata;
 +use crate::responses_retry::handle_server_overload_retry;
+ use crate::session::RequestEffortUsage;
  use crate::session::session::Session;
  use crate::session::step_context::StepContext;
  use codex_protocol::auth::AuthMode;
@@ -27,7 +28,7 @@ index b6b418c7d0fdf8a54aff28d01767da326276978a..86e98006ffcce18f353e196e8f3d94e4
  use codex_protocol::error::Result as CodexResult;
  use codex_protocol::models::ResponseItem;
  use codex_rollout_trace::CompactionTraceContext;
-@@ -75,27 +77,40 @@ pub(super) async fn run_remote_compact_attempt(
+@@ -76,32 +78,45 @@ pub(super) async fn run_remote_compact_attempt(
              CodexResponsesRequestKind::Compaction(compaction_metadata),
          )
          .await;
@@ -39,7 +40,12 @@ index b6b418c7d0fdf8a54aff28d01767da326276978a..86e98006ffcce18f353e196e8f3d94e4
 -            turn_context.model_info(),
 -            turn_state,
 -            CompactConversationRequestSettings {
--                effort: turn_context.reasoning_effort().cloned(),
+-                effort: sess
+-                    .reasoning_effort_for_request(
+-                        &turn_context.initial_settings,
+-                        RequestEffortUsage::Compaction,
+-                    )
+-                    .await,
 -                summary: turn_context.reasoning_summary(),
 -                service_tier: if sess.services.auth_manager.auth_mode() == Some(AuthMode::ApiKey) {
 -                    None
@@ -55,7 +61,12 @@ index b6b418c7d0fdf8a54aff28d01767da326276978a..86e98006ffcce18f353e196e8f3d94e4
 +                turn_context.model_info(),
 +                turn_state.clone(),
 +                CompactConversationRequestSettings {
-+                    effort: turn_context.reasoning_effort().cloned(),
++                    effort: sess
++                        .reasoning_effort_for_request(
++                            &turn_context.initial_settings,
++                            RequestEffortUsage::Compaction,
++                        )
++                        .await,
 +                    summary: turn_context.reasoning_summary(),
 +                    service_tier: if sess.services.auth_manager.auth_mode()
 +                        == Some(AuthMode::ApiKey)
@@ -89,7 +100,7 @@ index b6b418c7d0fdf8a54aff28d01767da326276978a..86e98006ffcce18f353e196e8f3d94e4
          new_history,
          trace_input_history,
 diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
-index f02e2db678e6266204660a0e72a444047a0db626..e4e615891eaedc580b3d255c5e606cdc8cbaaa79 100644
+index f68b8d47ccb9e2b8f1e3fb0128916c4a010dfc91..434d3b2897f83552283c9f653cd779a7a2a64614 100644
 --- a/codex-rs/core/src/compact_remote_v2.rs
 +++ b/codex-rs/core/src/compact_remote_v2.rs
 @@ -26,6 +26,7 @@ use crate::responses_metadata::CompactionTurnMetadata;
@@ -97,10 +108,10 @@ index f02e2db678e6266204660a0e72a444047a0db626..e4e615891eaedc580b3d255c5e606cdc
  use crate::responses_retry::ResponsesStreamRetryState;
  use crate::responses_retry::handle_retryable_response_stream_error;
 +use crate::responses_retry::handle_server_overload_retry;
+ use crate::session::RequestEffortUsage;
  use crate::session::session::Session;
  use crate::session::step_context::StepContext;
- use crate::session::turn_context::TurnContext;
-@@ -382,6 +383,7 @@ async fn run_remote_compaction_request_v2(
+@@ -383,6 +384,7 @@ async fn run_remote_compaction_request_v2(
          .stream_max_retries()
          .min(MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES);
      let mut retry_state = ResponsesStreamRetryState::default();
@@ -108,7 +119,7 @@ index f02e2db678e6266204660a0e72a444047a0db626..e4e615891eaedc580b3d255c5e606cdc
      loop {
          let result = match client_session
              .stream(
-@@ -402,6 +404,10 @@ async fn run_remote_compaction_request_v2(
+@@ -407,6 +409,10 @@ async fn run_remote_compaction_request_v2(
  
          match result {
              Ok(compaction_output) => return Ok(compaction_output),
@@ -169,7 +180,7 @@ index fb0505411e19db75d29d6ea16300825001cdd1c2..ad235f03b949c9b4cd09dc45d57104da
      request: ResponsesStreamRequest,
      turn_context: &TurnContext,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 24fd9cf6293c0bd147e1ceb8b46f1386c3de21bf..6e285a62d388ebc8513bb5b2f5ce1836bdb68d42 100644
+index 816f84ae0b40038fec84c0d0347cb7b622fa9824..e26c8e0454371ca0cac56e676bbc49ff89598714 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
 @@ -4590,14 +4590,19 @@ impl Session {
@@ -197,7 +208,7 @@ index 24fd9cf6293c0bd147e1ceb8b46f1386c3de21bf..6e285a62d388ebc8513bb5b2f5ce1836
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
-index 26ff799a444fc8315ab89ed483c67e9c7a7efdf9..75fd55ff984fd33c37f50f7474e9053e212124a8 100644
+index f9bac7c153cdea550a06e1d48c1ce93ef30a6ef1..48eeb5a5c64da9872515f2a52c6a12511e265d64 100644
 --- a/codex-rs/core/src/session/turn.rs
 +++ b/codex-rs/core/src/session/turn.rs
 @@ -33,6 +33,7 @@ use crate::responses_metadata::CodexResponsesRequestKind;
@@ -230,17 +241,6 @@ index 26ff799a444fc8315ab89ed483c67e9c7a7efdf9..75fd55ff984fd33c37f50f7474e9053e
          if !err.is_retryable() {
              return Err(err);
          }
-diff --git a/codex-rs/exec/src/lib.rs b/codex-rs/exec/src/lib.rs
---- a/codex-rs/exec/src/lib.rs
-+++ b/codex-rs/exec/src/lib.rs
-@@ -3,6 +3,7 @@
- // - In --json mode, stdout must be valid JSONL, one event per line.
- // For both modes, any other output must be written to stderr.
- #![deny(clippy::print_stdout)]
-+#![recursion_limit = "256"]
- 
- mod cli;
- mod event_processor;
 diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
 index cd88e565aa0925259ed63fce21b389ae4ef1fe25..3f4f6b3e24aa56748afcfc89eaa6f9ccb13b91ef 100644
 --- a/codex-rs/tui/src/chatwidget/rate_limits.rs
@@ -273,14 +273,3 @@ index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6
      }
  
      pub(crate) fn confirm_safety_buffered_retry(
-diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
---- a/codex-rs/tui/src/lib.rs
-+++ b/codex-rs/tui/src/lib.rs
-@@ -3,6 +3,7 @@
- // alternate‑screen mode starts; that file opts‑out locally via `allow`.
- #![deny(clippy::print_stdout, clippy::print_stderr)]
- #![deny(clippy::disallowed_methods)]
-+#![recursion_limit = "256"]
- use crate::legacy_core::config::Config;
- use crate::legacy_core::config::ConfigBuilder;
- use crate::legacy_core::config::ConfigOverrides;

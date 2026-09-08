@@ -1,5 +1,5 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 88b2316662adf51790625dd230f55f62ab0e62bd..bcfe9ed3becfe165e79a960053a98558717f0680 100644
+index dda2e76e1e26e0a2977f81cdbca6cba794ed8a06..b4430b2e79b0973615f6e7805a7e37947e82c3a5 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
 @@ -231,6 +231,9 @@ impl App {
@@ -13,7 +13,7 @@ index 88b2316662adf51790625dd230f55f62ab0e62bd..bcfe9ed3becfe165e79a960053a98558
                  self.clear_terminal_ui(tui, /*redraw_header*/ false)?;
                  self.reset_app_ui_state_after_clear();
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index 0a7fb54d8518e5a9b6afd462c6a0f8190df014cf..2f9968aa94dd5771e5f88c82b2c60517eab2c27b 100644
+index b24a3dc43952418637b1735381644de64bcaa648..552daec360ed957baf0d202b3fb61f526fcff2d4 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
 @@ -441,6 +441,9 @@ pub(crate) enum AppEvent {
@@ -27,7 +27,7 @@ index 0a7fb54d8518e5a9b6afd462c6a0f8190df014cf..2f9968aa94dd5771e5f88c82b2c60517
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index cf39fe58b0d3687d66917998b82010486d7b709a..0d3df115df6e515a4fd83fdf54ee0cd4e1d916ad 100644
+index 5288eb7e81a2310e11d1d0434ba45790fba0f1a1..7d0165ce83afb695e76c6f99d126a06609a2626c 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 @@ -102,7 +102,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
@@ -50,7 +50,7 @@ index cf39fe58b0d3687d66917998b82010486d7b709a..0d3df115df6e515a4fd83fdf54ee0cd4
      let rendered = lines_to_single_string(&cells[0]);
      assert!(rendered.contains("This content can’t be shown"));
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index 7b47adbbc52ba964320d109230317a2a9a8b040b..bff52bea55a7311ddae077252ee410d83b371c89 100644
+index 8d37b881ce6ca93640cd3e99bf37fd0fc37b5135..d86d6ef4268d5b5c65c22cbae75d3849b8b703a2 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
 @@ -395,6 +395,7 @@ impl ChatWidget {
@@ -77,7 +77,7 @@ index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 96b3fbcbb96809a193583d39d0af2fe9dc52b29e..969ca796aa67197224c2c08ddf664c62347b85bd 100644
+index 26e1a971335c9f340de6e850d151c4a0fba3dc46..d76d2448da92713189ac3590232ec2bc640bda3e 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
 @@ -808,6 +808,13 @@ impl Tui {

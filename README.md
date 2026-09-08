@@ -1,13 +1,12 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `121f91fd5d9dc66017866ce9bdc49f1e182721df`
+repository as a submodule at commit `5371951292bbff1cc27a68c839ba95bfec444375`
 from upstream `main`. The custom version is `0.154.0-k.121f91fd`. It carries a
 small, ordered patch series:
 
 1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
-   contains the original UI, release version, capacity-retry code, and compiler
-   recursion limits needed by release builds of the embedded app-server callers.
+   contains the original UI, release version, and capacity-retry code.
 2. [`patches/codex-customizations-tests.patch`](patches/codex-customizations-tests.patch)
    contains their corresponding test assertions and snapshots, including the
    custom version snapshots.

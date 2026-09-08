@@ -45,7 +45,7 @@ index 98dae4a3a5baf2e18a7d638da1a81f223fd93f9f..e1ccfe230655fe522153b6de6936dbb5
      let file = open_lock_file(path)?;
      match mode {
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index c91f0ca3016ac8e4546e70688d5d65aa103177a6..766dbe3081df37a204452e0ccdc0c59a4ae1e165 100644
+index 62f57d8ac1dbe8ef18b0e818399955d6ce0275a1..51151506337fc5082817a9ed8b14d50621d0cab6 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
 @@ -53,7 +53,6 @@ pub use crate::auth::storage::AuthDotJson;

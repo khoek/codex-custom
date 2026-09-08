@@ -1,5 +1,5 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index d105968b663bf1062b8d316706887c1eb546d88c..b22e5fe4ae07696e0c7069af4c5dd7802ae86c2f 100644
+index d69dd9c2072832cbbcedb06c434dc6a1013c2fe7..46622921769ddba311bdf5b25f177882cf41e3f2 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -365,6 +365,15 @@ struct ResumeCommand {
@@ -93,7 +93,7 @@ index d105968b663bf1062b8d316706887c1eb546d88c..b22e5fe4ae07696e0c7069af4c5dd780
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 74d83b83c132f7450724fbc9cb7badbba013492c..895d6a8bdb1e65d04104cc0c78bbd20652e80c70 100644
+index 40f1c9a5cb7a2180925d3477b0e952ca484362e3..190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -156,6 +156,7 @@ impl App {
@@ -128,7 +128,7 @@ index 74d83b83c132f7450724fbc9cb7badbba013492c..895d6a8bdb1e65d04104cc0c78bbd206
                  && let Err(err) = startup_draft
                      .run_until(
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index ddefc4fffdb698da4740b0a291392fb952ad3eb6..6a37506713d60c24cd7dc9f5f1461f4b460af667 100644
+index 80a6cd196a648ccc1cd45c28ebc1257d4c358c20..31fc6e8328482921c4511000644731fd006e822f 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
 @@ -6173,6 +6173,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
@@ -177,7 +177,7 @@ index ddefc4fffdb698da4740b0a291392fb952ad3eb6..6a37506713d60c24cd7dc9f5f1461f4b
  async fn replace_goal_confirmation_snapshot() {
      let mut app = make_test_app().await;
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index cda84c5c7d2a29c3076941a00471fae3aa65d77c..8257e9eb2e2f2060fc0e82a3819e671af3deefa3 100644
+index 850784149ad01734ad3512a90bc8a4e9a6a39336..8ee279112da687688144f5fa2e9c9e801febfbdd 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 @@ -28,6 +28,7 @@ async fn run_fresh_startup_for_test(
@@ -353,7 +353,7 @@ index e3a35cf66344ec290dbff7ae5a1ee5aaab2c8647..54aa60841b22218a88c8712c2ae59cec
              preserve_in_flight_turn && input_state.as_ref().is_some_and(|state| state.task_running);
          if let Some(input_state) = input_state {
 diff --git a/codex-rs/tui/src/chatwidget/input_submission.rs b/codex-rs/tui/src/chatwidget/input_submission.rs
-index 6e408aab3c682fcbe10e6809df3e08e96d4e8f52..092023db70c5bbac567a2d8476ab76116a24718c 100644
+index b0ba5c7d1e2e9722bd5015be837a7eed19a476d4..dbe01f7f0787a87a7b944f435aa366e82ff37efb 100644
 --- a/codex-rs/tui/src/chatwidget/input_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/input_submission.rs
 @@ -2,6 +2,8 @@
@@ -488,7 +488,7 @@ index af912ae51fb7164c360037dd0046f90dd799cb09..654a4f768426b6c1f5783cc295f0757c
  async fn parent_owned_thread_preserves_queued_input_before_draining() {
      let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ Some("gpt-5")).await;
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index 0d5303686e69eda619a29bd60e6a9a4883a5e14d..7b47adbbc52ba964320d109230317a2a9a8b040b 100644
+index e52dc9118b733c154d87a75d1762658ab9af0c7b..8d37b881ce6ca93640cd3e99bf37fd0fc37b5135 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
 @@ -117,6 +117,7 @@ impl ChatWidget {
@@ -523,7 +523,7 @@ index c53c6e3e9cbbba809353c05f92f65bb5de377969..50d877cce1ebaad6727e4fc011ab2fc4
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index df8dad0b980066608a5a41d66629346b68f9cd88..3fef01606885d0721443e9e21504a6cde5b2cab4 100644
+index 297abb04ed9609de46eeffa5b3eee608ddd3a218..d3076467b307bfc889577212248b29d76f170c79 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
 @@ -1685,6 +1685,7 @@ async fn run_ratatui_app(

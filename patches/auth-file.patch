@@ -1,5 +1,5 @@
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index ff0e3212cd0adfb0c8788e28dea2a669de3dac6e..ed03e91a2668f6b69a5e02feebf6c878359b8c94 100644
+index f642b4591ba02ad747d0d05d6d982aa155dc18a6..4e8f55829f8aaac4a8c84cec44630760e64c0c83 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
 @@ -3775,6 +3775,7 @@ dependencies = [
@@ -32,7 +32,7 @@ index e42fa9be0171c082ad088475f41fea6e63f5fae0..a231ff420a3636a9b64e91827966091b
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 2d58292762f7e9ef04718a9c5498f7b007f23405..11f4cedb8afe4876d504dfa794d5294a3af9deb2 100644
+index dd806d7e3012d12aa9a085d467287af408aff2d7..5fe4ec92b5811c42c7acffecf95f54dfb6fe071d 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -132,6 +132,91 @@ struct MultitoolCli {
@@ -1136,18 +1136,18 @@ index 0000000000000000000000000000000000000000..6e01c393e876d0da7928511bb8bcc0a4
 +    assert!(status.success(), "lock helper failed with {status}");
 +}
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index 2949b7039a9b190fad53e2c9598767b321a74b97..c91f0ca3016ac8e4546e70688d5d65aa103177a6 100644
+index de1f26ca0c447edcffe7d6fabb6f8de28201d830..62f57d8ac1dbe8ef18b0e818399955d6ce0275a1 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
-@@ -36,6 +36,7 @@ use super::agent_identity::record_needs_task_registration;
- use super::agent_identity::register_managed_chatgpt_agent_identity;
- use super::agent_identity::require_agent_identity_authapi_base_url;
+@@ -38,6 +38,7 @@ use super::agent_identity::require_agent_identity_authapi_base_url;
  use super::agent_identity::verified_record_from_jwt;
+ use super::change_state::AuthChangeState;
+ use super::change_state::same_owner;
 +use super::credential_lock;
  use super::external_bearer::BearerTokenRefresher;
  use super::revoke::revoke_auth_tokens;
  use super::workload_identity::WorkloadIdentityExternalAuth;
-@@ -894,6 +895,7 @@ fn persist_agent_identity_record(
+@@ -910,6 +911,7 @@ fn persist_agent_identity_record(
      storage: &Arc<dyn AuthStorageBackend>,
      record: AgentIdentityAuthRecord,
  ) -> std::io::Result<()> {
@@ -1155,7 +1155,7 @@ index 2949b7039a9b190fad53e2c9598767b321a74b97..c91f0ca3016ac8e4546e70688d5d65aa
      let mut guard = auth_dot_json
          .lock()
          .map_err(|_| std::io::Error::other("failed to lock auth state"))?;
-@@ -940,6 +942,7 @@ pub fn logout(
+@@ -956,6 +958,7 @@ pub fn logout(
      auth_credentials_store_mode: AuthCredentialsStoreMode,
      keyring_backend_kind: AuthKeyringBackendKind,
  ) -> std::io::Result<bool> {
@@ -1163,7 +1163,7 @@ index 2949b7039a9b190fad53e2c9598767b321a74b97..c91f0ca3016ac8e4546e70688d5d65aa
      let storage = create_auth_storage(
          codex_home.to_path_buf(),
          auth_credentials_store_mode,
-@@ -1109,6 +1112,7 @@ pub fn save_auth(
+@@ -1125,6 +1128,7 @@ pub fn save_auth(
      auth_credentials_store_mode: AuthCredentialsStoreMode,
      keyring_backend_kind: AuthKeyringBackendKind,
  ) -> std::io::Result<()> {
@@ -1172,7 +1172,7 @@ index 2949b7039a9b190fad53e2c9598767b321a74b97..c91f0ca3016ac8e4546e70688d5d65aa
          codex_home.to_path_buf(),
          auth_credentials_store_mode,
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index e4898f097636e7eb5890878e91024338dfbf95b9..c2fca37c83715881ab14e8aebfa120d9117c3e38 100644
+index 226255f39e25763c88110cb7481a116dcdd09a0c..0b69a11000446253b7065523847880823d573bb7 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
 @@ -10,10 +10,48 @@ mod storage;
@@ -1330,7 +1330,7 @@ index 0c693438081508e58820bd3c426c2f9661ad2463..6a8dd29924d27c1b103300b3474412c5
  async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
      let codex_home = tempdir()?;
 diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
-index 33659722fdd28e3a71727cbaac459126c1ca2831..f58741555cea01ff1fb669e5331ea650c1da608d 100644
+index e33e5871213c234df90f84a8fba0694b336638df..70cd354b72a2c9e4b27d81864cc1aea6c06a1b6d 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
 @@ -39,6 +39,7 @@ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;

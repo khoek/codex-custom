@@ -77,7 +77,7 @@ index 4673f84e4280c2cf4a8f1998a939eb13105c4f11..cb52dd47fff37a193ddc1a7969f6e736
  
      #[test]
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 50aa97352b0795d71e2989683c4231c7d1e2e1f8..d105968b663bf1062b8d316706887c1eb546d88c 100644
+index d234575b7991632eda7a6b571bd6f275741f2102..d69dd9c2072832cbbcedb06c434dc6a1013c2fe7 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -34,6 +34,7 @@ use codex_state::StateRuntime;
@@ -293,7 +293,7 @@ index 50aa97352b0795d71e2989683c4231c7d1e2e1f8..d105968b663bf1062b8d316706887c1e
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 6a6dda6bc09f9a44527dc257ce1dad2443be0a9f..db8f90df8f1fc0a19073e3138fb829d892925e5a 100644
+index 37a74f3bcee047f5313f687bbef97e891345d241..05c439058fce1f79b7a747fadad9a29c7c5d2f14 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
 @@ -468,6 +468,10 @@ pub enum ExitReason {
@@ -320,7 +320,7 @@ index 6a6dda6bc09f9a44527dc257ce1dad2443be0a9f..db8f90df8f1fc0a19073e3138fb829d8
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 9957812d9a4fc5f18619cc15fc08c2aa0acde96d..974966538d5f361d750e9435238af9684cb892c1 100644
+index a8317b31453c94110f9cbb392906181cdfc44aca..0cf47b861d6349665daf0a764613902021c0c609 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -7,6 +7,7 @@ use super::app_server_event_targets::server_notification_thread_target;
@@ -471,10 +471,10 @@ index 39b023805bf434fc921394744da63bbc93ba589b..cb30671b92e188a7f9606c68a9ae6cdf
              lines.push(message.to_string());
              let mut resume_command = disconnect.command.clone();
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index c014dc2b029441539542df39fca98df69e74ac05..66c541c7037d050ad33b123c7df18d9b61eaa3fa 100644
+index 1e73cdba1d89060bae4b2304f1e4d3b548348019..40f1c9a5cb7a2180925d3477b0e952ca484362e3 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -150,6 +150,7 @@ impl App {
+@@ -140,6 +140,7 @@ impl App {
          cloud_config_bundle: CloudConfigBundleLoader,
          initial_prompt: Option<String>,
          initial_images: Vec<PathBuf>,
@@ -482,16 +482,16 @@ index c014dc2b029441539542df39fca98df69e74ac05..66c541c7037d050ad33b123c7df18d9b
          session_selection: SessionSelection,
          feedback: codex_feedback::CodexFeedback,
          is_first_run: bool,
-@@ -643,6 +644,8 @@ See the Codex keymap documentation for supported actions and examples."
-             app_server_target,
-             reconnect: Default::default(),
+@@ -723,6 +724,8 @@ See the Codex keymap documentation for supported actions and examples."
+                 ..Default::default()
+             },
              pending_update_action: None,
 +            exit_on_quota_exceeded,
 +            quota_exceeded_exit_thread_id: None,
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -1078,6 +1081,13 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1235,6 +1238,13 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -506,7 +506,7 @@ index c014dc2b029441539542df39fca98df69e74ac05..66c541c7037d050ad33b123c7df18d9b
      }
  }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 4b338b9faabe606147b82ed188bb1e09891639f3..9ea99f09cd77f9ec5237975d24fa8f7db48db261 100644
+index f3a912b94b6446ecdd9f98a3c5a31184b71021ba..117702e1c146b0fbc225e9748f757717195f7af0 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
 @@ -60,6 +60,8 @@ pub(super) async fn make_test_app() -> App {
@@ -519,7 +519,7 @@ index 4b338b9faabe606147b82ed188bb1e09891639f3..9ea99f09cd77f9ec5237975d24fa8f7d
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index d43ba70af6cf545a38d537c202a503b18b41686b..1401141be6aa29fb8de0f3d1d7af23fb43fc3310 100644
+index 5a5b59fdb8021031154c000e21e47eff47fd7ca5..80a6cd196a648ccc1cd45c28ebc1257d4c358c20 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
 @@ -5513,6 +5513,8 @@ async fn make_test_app() -> App {
@@ -681,15 +681,15 @@ index e84e8a4334f8313ff0d3868cf6428c16a0cf5ca6..12acdeed6721f5e043a1888aeb99d046
  async fn backend_banner_state_survives_widget_replacement() -> Result<()> {
      for dismiss in [false, true] {
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index d99e9da59c5164e5e460d7ebe13c6a719aad1be0..cda84c5c7d2a29c3076941a00471fae3aa65d77c 100644
+index 984058d03fdb0decba3f8ecfebf26038be12152c..850784149ad01734ad3512a90bc8a4e9a6a39336 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-@@ -22,6 +22,7 @@ async fn run_fresh_startup_for_test(
+@@ -23,6 +23,7 @@ async fn run_startup_for_test(
          CloudConfigBundleLoader::default(),
          /*initial_prompt*/ None,
          Vec::new(),
 +        /*exit_on_quota_exceeded*/ false,
-         SessionSelection::StartFresh,
+         selection,
          codex_feedback::CodexFeedback::new(),
          /*is_first_run*/ false,
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
@@ -708,7 +708,7 @@ index 641dd621e45ace897cdcc9c9a70af7d1ebe59762..c53c6e3e9cbbba809353c05f92f65bb5
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 09164fed9f9db5854e540e738385919f39e239e6..fde717119dc87a6df66decfe1766ef42b49cf5fb 100644
+index f001f035defdac602d157057f3cd0758b8d06bc9..297abb04ed9609de46eeffa5b3eee608ddd3a218 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
 @@ -24,6 +24,8 @@ pub use app::AppExitInfo;

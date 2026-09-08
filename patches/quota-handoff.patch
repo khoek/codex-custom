@@ -1,5 +1,5 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index b22e5fe4ae07696e0c7069af4c5dd7802ae86c2f..2d58292762f7e9ef04718a9c5498f7b007f23405 100644
+index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af408aff2d7 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -374,6 +374,15 @@ struct ResumeCommand {
@@ -184,7 +184,7 @@ index b22e5fe4ae07696e0c7069af4c5dd7802ae86c2f..2d58292762f7e9ef04718a9c5498f7b0
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index d213228adf2a0a726f828ec69c079a5b0d2a0e12..b7742ed963373b8036849d15475960f71d6b8d42 100644
+index 05c439058fce1f79b7a747fadad9a29c7c5d2f14..3db1666bd9732af1eca85d9f2f40f3bbaa58b8ac 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
 @@ -470,13 +470,23 @@ pub enum ExitReason {
@@ -421,10 +421,10 @@ index cb30671b92e188a7f9606c68a9ae6cdfeeb469b5..f1c88856d8910b9e4e2f3d8dc1ab6fb8
                  }
              };
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 895d6a8bdb1e65d04104cc0c78bbd20652e80c70..8fa700df7eab8ed22fef5af39a3aecc1f1d7f0d0 100644
+index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e696961379a60d64e 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -157,6 +157,7 @@ impl App {
+@@ -147,6 +147,7 @@ impl App {
          should_prompt_windows_sandbox_nux_at_startup: bool,
          app_server_target: AppServerTarget,
          start_immediately: bool,
@@ -432,7 +432,7 @@ index 895d6a8bdb1e65d04104cc0c78bbd20652e80c70..8fa700df7eab8ed22fef5af39a3aecc1
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -713,6 +714,10 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -727,6 +728,10 @@ See the Codex keymap documentation for supported actions and examples."
              pending_update_action: None,
              exit_on_quota_exceeded,
              quota_exceeded_exit_thread_id: None,
@@ -443,7 +443,7 @@ index 895d6a8bdb1e65d04104cc0c78bbd20652e80c70..8fa700df7eab8ed22fef5af39a3aecc1
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -783,6 +788,23 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -817,6 +822,23 @@ See the Codex keymap documentation for supported actions and examples."
                  app.ensure_thread_channel(thread_id).mark_external_writer();
                  app.chat_widget.show_external_writer_thread();
              }
@@ -467,7 +467,7 @@ index 895d6a8bdb1e65d04104cc0c78bbd20652e80c70..8fa700df7eab8ed22fef5af39a3aecc1
              if !read_only_thread && start_immediately {
                  let resumed = match startup_draft
                      .run_until(
-@@ -795,7 +817,11 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -829,7 +851,11 @@ See the Codex keymap documentation for supported actions and examples."
                      Err(err) => return shutdown_on_startup_error(app_server, err).await,
                  };
                  if resumed {
@@ -480,7 +480,7 @@ index 895d6a8bdb1e65d04104cc0c78bbd20652e80c70..8fa700df7eab8ed22fef5af39a3aecc1
                  }
              } else if !read_only_thread
                  && should_prompt_for_paused_goal_after_startup_resume
-@@ -811,6 +837,15 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -845,6 +871,15 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, err).await;
              }
@@ -494,9 +494,9 @@ index 895d6a8bdb1e65d04104cc0c78bbd20652e80c70..8fa700df7eab8ed22fef5af39a3aecc1
 +            )
 +            .await;
          }
-         let initial_session_ms = initial_session_started_at.elapsed().as_millis();
- 
-@@ -1197,12 +1232,26 @@ See the Codex keymap documentation for supported actions and examples."
+         if !start_in_agents_overview
+             && !pending_startup_thread_start
+@@ -1253,12 +1288,26 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -528,7 +528,7 @@ index 895d6a8bdb1e65d04104cc0c78bbd20652e80c70..8fa700df7eab8ed22fef5af39a3aecc1
          Ok(app.exit_info(exit_reason))
      }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 14cac03605c6a2c3d5977ce91e8bbebcbba2409e..0002e17fefc9c671c20079378158b68e4f7087a6 100644
+index 117702e1c146b0fbc225e9748f757717195f7af0..c261cab7731352dd925931a8716cc04d5394d2b6 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
 @@ -63,6 +63,10 @@ pub(super) async fn make_test_app() -> App {
@@ -543,7 +543,7 @@ index 14cac03605c6a2c3d5977ce91e8bbebcbba2409e..0002e17fefc9c671c20079378158b68e
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 6a37506713d60c24cd7dc9f5f1461f4b460af667..9007e6d0a3f5f769af4695791b5af35e4b5cf48b 100644
+index 31fc6e8328482921c4511000644731fd006e822f..911a2ba5cc4c56eefa00686c979736c993e7fe1c 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
 @@ -5836,6 +5836,10 @@ async fn make_test_app() -> App {
@@ -667,7 +667,7 @@ index 12acdeed6721f5e043a1888aeb99d0465cbe12c7..3b34873dc5d913041f7cfa6ad3a9838c
          (true, false, CodexErrorInfo::Other),
      ] {
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index 8257e9eb2e2f2060fc0e82a3819e671af3deefa3..5329c7d6a64fb384c1565729eb3d13fe2412fe48 100644
+index 8ee279112da687688144f5fa2e9c9e801febfbdd..d40f5ac6e05e6750c4872f5af8480f3f0b1a13a3 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 @@ -29,6 +29,7 @@ async fn run_fresh_startup_for_test(
@@ -679,7 +679,7 @@ index 8257e9eb2e2f2060fc0e82a3819e671af3deefa3..5329c7d6a64fb384c1565729eb3d13fe
          Arc::new(EnvironmentManager::default_for_tests()),
          Duration::ZERO,
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index 967c712fe9a5f0d95999be28ae847647db8a27c0..fed112f3307b9b0d8bea975a75c100b78c1c9d31 100644
+index acc1425c1ee954ad7d1ec2ff2ac9b1d4d435c54a..3ad6b39f4a5bb36e63d09eaa2382e4d0fc0f207d 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
 @@ -452,7 +452,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
@@ -693,7 +693,7 @@ index 967c712fe9a5f0d95999be28ae847647db8a27c0..fed112f3307b9b0d8bea975a75c100b7
      Plain,
      /// Preserve model-input provenance when paste expansion reveals a leading shell sigil.
 diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
-index f249fad8b2eb8c02a6d4cd04008e39d173cb3c15..a9ed832a7c20bb5e7f4419bb88a27b2f7d990c78 100644
+index 8c75f87b39647c92a45b71a5f44c08e86645c576..5eab5d1608d557741280e3f7564a2b0500870fcb 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
 @@ -102,13 +102,13 @@ pub(crate) use status_line_style::status_line_from_segments;
@@ -713,7 +713,7 @@ index f249fad8b2eb8c02a6d4cd04008e39d173cb3c15..a9ed832a7c20bb5e7f4419bb88a27b2f
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index 13aaa4adf87467011920f1cda8a58744038823b7..2915924378ea9c302b9eea65da822555be21912d 100644
+index 0ccb35e6e663ab62a5da9c16805fe5b4776f257f..99f277851686f934c30061d20a179461bad1ad3a 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
 @@ -351,6 +351,7 @@ mod input_restore;
@@ -1061,7 +1061,7 @@ index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d323
 +        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
 +}
 diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
-index 6fe9ad42d025198369e611974e8a3fb7d45790f6..93ec9c75e4b3680edc931a1f266de218d9fc9274 100644
+index a1d17beca00d134f3c672adbe6dd76627b273e7e..ce686d7f2ab48eb94450e1d5a03bff3bc18c9415 100644
 --- a/codex-rs/tui/src/chatwidget/tests.rs
 +++ b/codex-rs/tui/src/chatwidget/tests.rs
 @@ -261,6 +261,7 @@ mod plan_mode;
@@ -1310,7 +1310,7 @@ index 50d877cce1ebaad6727e4fc011ab2fc4196c1e32..5ce1c3a0b77d1592b90ab5b87e5e93cd
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 3fef01606885d0721443e9e21504a6cde5b2cab4..20f36d9b3645b049d448fbf14dcf0dc701743a84 100644
+index d3076467b307bfc889577212248b29d76f170c79..61b6c16ce83794a6ee0b878d23c7e82e0d9f46fe 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
 @@ -25,6 +25,7 @@ pub use app::AppExitInfo;
