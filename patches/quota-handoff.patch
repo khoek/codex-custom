@@ -239,7 +239,7 @@ index 05c439058fce1f79b7a747fadad9a29c7c5d2f14..3db1666bd9732af1eca85d9f2f40f3bb
              &event,
              TuiEvent::Key(_) | TuiEvent::Paste(_) | TuiEvent::FocusLost
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 0cf47b861d6349665daf0a764613902021c0c609..de28ad1fd3bfa5e463061b02f605d640db73dc32 100644
+index 0cf47b861d6349665daf0a764613902021c0c609..6cb2e0a57a7ce65e7cb64b3a865a233653040f8b 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -1,6 +1,7 @@
@@ -307,7 +307,7 @@ index 0cf47b861d6349665daf0a764613902021c0c609..de28ad1fd3bfa5e463061b02f605d640
                  let workspace_hard_stop = matches!(
                      notification.rate_limits.rate_limit_reached_type,
                      Some(
-@@ -348,16 +377,27 @@ impl App {
+@@ -348,16 +377,26 @@ impl App {
              _ => {}
          }
  
@@ -324,8 +324,7 @@ index 0cf47b861d6349665daf0a764613902021c0c609..de28ad1fd3bfa5e463061b02f605d640
 +        let outcome = match &notification {
 +            ServerNotification::Error(notification) if self.exit_on_quota_exceeded => {
 +                match notification.error.codex_error_info.as_ref() {
-+                    // Capacity retries are unbounded; rotate on the first retry notification.
-+                    Some(CodexErrorInfo::ServerOverloaded) => {
++                    Some(CodexErrorInfo::ServerOverloaded) if !notification.will_retry => {
 +                        Some(SupervisedOutcome::ModelCapacity)
 +                    }
 +                    Some(CodexErrorInfo::UsageLimitExceeded) if !notification.will_retry => {
@@ -345,7 +344,7 @@ index 0cf47b861d6349665daf0a764613902021c0c609..de28ad1fd3bfa5e463061b02f605d640
  
          match server_notification_thread_target(&notification) {
              ServerNotificationThreadTarget::Thread(thread_id) => {
-@@ -414,6 +454,12 @@ impl App {
+@@ -414,6 +453,12 @@ impl App {
                  {
                      return;
                  }
@@ -358,7 +357,7 @@ index 0cf47b861d6349665daf0a764613902021c0c609..de28ad1fd3bfa5e463061b02f605d640
                  let result = if self.primary_thread_id == Some(thread_id)
                      || self.primary_thread_id.is_none()
                  {
-@@ -426,12 +472,7 @@ impl App {
+@@ -426,12 +471,7 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -569,7 +568,7 @@ index 31fc6e8328482921c4511000644731fd006e822f..911a2ba5cc4c56eefa00686c979736c9
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index 12acdeed6721f5e043a1888aeb99d0465cbe12c7..3b34873dc5d913041f7cfa6ad3a9838c4affaaee 100644
+index 12acdeed6721f5e043a1888aeb99d0465cbe12c7..aaccba96a132f8c73d379d526658fe386c88fe6f 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
 @@ -169,6 +169,15 @@ async fn terminal_quota_error_exits_once_for_main_or_subagent() -> Result<()> {
@@ -607,13 +606,13 @@ index 12acdeed6721f5e043a1888aeb99d0465cbe12c7..3b34873dc5d913041f7cfa6ad3a9838c
          assert_eq!(
              app.quota_recovery_args(),
              vec![
-@@ -206,6 +223,50 @@ async fn terminal_quota_error_exits_once_for_main_or_subagent() -> Result<()> {
+@@ -206,6 +223,64 @@ async fn terminal_quota_error_exits_once_for_main_or_subagent() -> Result<()> {
      Ok(())
  }
  
 +#[tokio::test]
-+async fn capacity_error_exits_once_during_retry_for_main_or_subagent() -> Result<()> {
-+    for (error_from_subagent, will_retry) in [(false, true), (true, true), (false, false)] {
++async fn capacity_error_retries_before_exit_for_main_or_subagent() -> Result<()> {
++    for error_from_subagent in [false, true] {
 +        let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
 +        let app_server = crate::start_embedded_app_server_for_picker(app.chat_widget.config_ref())
 +            .await
@@ -635,7 +634,21 @@ index 12acdeed6721f5e043a1888aeb99d0465cbe12c7..3b34873dc5d913041f7cfa6ad3a9838c
 +                &app_server,
 +                turn_error_event(
 +                    error_thread_id,
-+                    will_retry,
++                    /*will_retry*/ true,
++                    CodexErrorInfo::ServerOverloaded,
++                ),
++            )
++            .await;
++        }
++        assert_eq!(count_shutdown_first_exits(&mut app_event_rx), 0);
++        assert_eq!(app.quota_exceeded_exit_thread_id, None);
++        assert!(app.quota_handoff_path.is_none());
++        for _ in 0..2 {
++            app.handle_app_server_event(
++                &app_server,
++                turn_error_event(
++                    error_thread_id,
++                    /*will_retry*/ false,
 +                    CodexErrorInfo::ServerOverloaded,
 +                ),
 +            )
@@ -658,11 +671,13 @@ index 12acdeed6721f5e043a1888aeb99d0465cbe12c7..3b34873dc5d913041f7cfa6ad3a9838c
  #[tokio::test]
  async fn quota_exit_ignores_disabled_retryable_and_non_quota_errors() -> Result<()> {
      let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
-@@ -217,6 +278,7 @@ async fn quota_exit_ignores_disabled_retryable_and_non_quota_errors() -> Result<
+@@ -217,6 +292,9 @@ async fn quota_exit_ignores_disabled_retryable_and_non_quota_errors() -> Result<
  
      for (enabled, will_retry, error_info) in [
          (false, false, CodexErrorInfo::UsageLimitExceeded),
 +        (false, true, CodexErrorInfo::ServerOverloaded),
++        (false, false, CodexErrorInfo::ServerOverloaded),
++        (true, true, CodexErrorInfo::ServerOverloaded),
          (true, true, CodexErrorInfo::UsageLimitExceeded),
          (true, false, CodexErrorInfo::Other),
      ] {

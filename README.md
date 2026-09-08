@@ -49,11 +49,16 @@ the view is dismissed, and `notice.hide_rate_limit_model_nudge = true` is
 persisted to `config.toml`. This does not change rate-limit accounting,
 informational threshold warnings, or hard-stop behavior.
 
-For typed `ServerOverloaded` model-capacity errors, it keeps retrying sampling
-and remote-compaction requests with exponential delays from 2 seconds up to 60
-seconds. The retry remains interruptible and is separate from quota and
-usage-limit errors. With `--exit-on-quota-exceeded`, the first typed capacity
-error instead requests a supervised restart, including while the core is retrying.
+Typed `ServerOverloaded` model-capacity errors use the same bounded stream
+retry budget, exponential backoff, and transport fallback as `RateLimitExceeded`
+for sampling and streaming remote compaction. The retry budget is shared with
+other retryable stream errors, not reset by switching error types. Legacy unary
+remote compaction uses the configured stream retry budget and the same backoff
+for capacity errors. Retries remain interruptible. With
+`--exit-on-quota-exceeded`, only a terminal capacity error after retries are
+exhausted requests a supervised restart; retry notifications from either the
+main thread or a subagent do not stop the instance. The final error retains its
+model-capacity classification, separate from quota and usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
