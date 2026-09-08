@@ -53,7 +53,8 @@ informational threshold warnings, or hard-stop behavior.
 For typed `ServerOverloaded` model-capacity errors, it keeps retrying sampling
 and remote-compaction requests with exponential delays from 2 seconds up to 60
 seconds. The retry remains interruptible and is separate from quota and
-usage-limit errors.
+usage-limit errors. With `--exit-on-quota-exceeded`, the first typed capacity
+error instead requests a supervised restart, including while the core is retrying.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
@@ -78,6 +79,11 @@ Managed credential refresh failures also use this marker, with
 expired, reused, revoked, or invalid-grant responses qualify. Quota reset times
 come from the authority's exhausted usage windows; unavailable times are null.
 
+Typed model-capacity errors use `"outcome":"model-capacity"` and
+`"unavailable_until":null`. The supervisor passes this reason to its credential
+provider so the credential can be returned and account selection can prefer
+accounts that have not recently refused capacity.
+
 An external supervisor should interpret the marker only after status `75` and
 search backward through its captured PTY tail so terminal cleanup output after
 the marker cannot hide the recovery request. A missing or malformed marker at
@@ -95,8 +101,8 @@ passes the path to the hidden
 restores each saved message into the normal queue independently, starts the first
 one, and puts the unfinished draft back in the composer. The sidecar is retained
 after restore for at-least-once delivery if the restarted process exits again
-before all queued input is delivered. Retryable errors, model-capacity errors,
-and runs without the flag retain their existing behavior. The flag can be
+before all queued input is delivered. Other retryable errors and runs without
+the flag retain their existing behavior. The flag can be
 supplied to a fresh interactive run or to `codex resume` and `codex fork`.
 
 The start-immediately patch reactivates a paused, blocked, or usage-limited goal,
