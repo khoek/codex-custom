@@ -1076,17 +1076,17 @@ index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d323
 +        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
 +}
 diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
-index a1d17beca00d134f3c672adbe6dd76627b273e7e..ce686d7f2ab48eb94450e1d5a03bff3bc18c9415 100644
+index c7aaa1a7a5ce39573881bc0f9d7b14f8b0402c49..716b13e4a4ba15c788db63a6aecf415e5fdb2468 100644
 --- a/codex-rs/tui/src/chatwidget/tests.rs
 +++ b/codex-rs/tui/src/chatwidget/tests.rs
-@@ -261,6 +261,7 @@ mod plan_mode;
+@@ -265,6 +265,7 @@ mod plan_mode;
  #[path = "tests/plugin_catalog_tests.rs"]
  mod plugin_catalog;
  mod popups_and_settings;
 +mod quota_handoff;
  #[path = "tests/rate_limit_recovery_tests.rs"]
  mod rate_limit_recovery_tests;
- #[path = "tests/replay_render_tests.rs"]
+ #[path = "tests/reasoning_status_tests.rs"]
 diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 new file mode 100644
 index 0000000000000000000000000000000000000000..25bb94a8d9e76b72fd958e7a507ed26a54bdc18c

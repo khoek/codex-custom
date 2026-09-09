@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `5371951292bbff1cc27a68c839ba95bfec444375`
+repository as a submodule at commit `96c2b4377f5f0b1363ba4d4057fbbb7c6dccd9d8`
 from upstream `main`. The custom version is `0.154.0-k.53719512`. It carries a
 small, ordered patch series:
 
@@ -118,7 +118,7 @@ new turn.
 Versions use `<major>.<next-stable-minor>.0-k.<commit-first8>`. Take the latest
 stable upstream release, increment its minor version, and reset the patch version
 to zero. Append `-k.` and the first eight characters of the pinned upstream commit.
-For example, stable `0.153.4` and commit `5371951292bb…` produce
+For example, stable `0.153.4` and commit `96c2b4377f5f…` produce
 `0.154.0-k.53719512`. Builds use that exact commit; installation never fetches
 a moving upstream branch.
 

@@ -1954,3 +1954,29 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      assert_eq!(
          telemetry.events.try_recv(),
          Err(mpsc::error::TryRecvError::Empty)
+diff --git a/codex-rs/protocol/src/error_tests.rs b/codex-rs/protocol/src/error_tests.rs
+index 5357867ef098ef67ff1606705cf9a6916f4b1820..fe83f00db4437ea0d0690d87c32a095eba50edf1 100644
+--- a/codex-rs/protocol/src/error_tests.rs
++++ b/codex-rs/protocol/src/error_tests.rs
+@@ -35,7 +35,7 @@ fn codex_err_debug_preserves_legacy_shape() {
+ #[test]
+ fn retryability_preserves_error_details_distinctions() {
+     let errors = [
+-        (CodexErr::ServerOverloaded, false),
++        (CodexErr::ServerOverloaded, true),
+         (
+             CodexErr::new(CodexErrorDetails::RateLimitExceeded("retry later".into())),
+             true,
+diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
+index 4b9aa6a689ae55e7a793848d296de321ecfd8c57..4073e7e365d04444b04072cb7034dfaf34b50fcc 100644
+--- a/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
++++ b/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
+@@ -4,7 +4,7 @@ assertion_line: 6350
+ expression: rendered
+ ---
+ ╭────────────────────────────────────────╮
+-│ >_ OpenAI Codex (v0.0.0)               │
++│ >_ OpenAI Codex (v0.154.0-k.53719512)  │
+ │                                        │
+ │ model:     gpt-test   /model to change │
+ │ directory: <thread cwd>                │

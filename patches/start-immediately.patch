@@ -488,20 +488,20 @@ index af912ae51fb7164c360037dd0046f90dd799cb09..654a4f768426b6c1f5783cc295f0757c
  async fn parent_owned_thread_preserves_queued_input_before_draining() {
      let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ Some("gpt-5")).await;
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index e52dc9118b733c154d87a75d1762658ab9af0c7b..8d37b881ce6ca93640cd3e99bf37fd0fc37b5135 100644
+index 388af9dffc8951797b7d6672fc3ee8f31a519d29..efdd9971e0a3436057a2243c6859db3ce1ffa4fb 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-@@ -117,6 +117,7 @@ impl ChatWidget {
-         from_replay: bool,
-     ) {
+@@ -122,6 +122,7 @@ impl ChatWidget {
+             self.on_agent_reasoning_final();
+         }
          self.input_queue.submit_pending_steers_after_interrupt = false;
 +        self.input_queue.submit_queued_after_interrupt = false;
          let sanitized_last_agent_message = last_agent_message.as_deref().map(|message| {
              parse_assistant_markdown(message, self.config.cwd.as_path()).visible_markdown
          });
-@@ -323,6 +324,7 @@ impl ChatWidget {
-     /// and should continue to drive the bottom-pane running indicator while it is in progress.
-     pub(super) fn finalize_turn(&mut self) {
+@@ -329,6 +330,7 @@ impl ChatWidget {
+         self.status_state.reasoning_resume_turn_id = None;
+         self.reasoning_header = None;
          self.clear_context_compaction();
 +        self.input_queue.submit_queued_after_interrupt = false;
          self.clear_safety_buffering();
