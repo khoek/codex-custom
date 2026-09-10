@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index 77cc3c3fc5730eac53e0ab3502270ff464418810..50a179c1bca973f36e3719c3d544828314629fa1 100644
+index e07725207cebe3d53d3273da679d2befc77dac6f..9d19604b71b6e11966e25ad47fc205b14e86ab31 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -150,7 +150,7 @@ members = [
+@@ -151,7 +151,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
@@ -11,120 +11,11 @@ index 77cc3c3fc5730eac53e0ab3502270ff464418810..50a179c1bca973f36e3719c3d5448283
  # Track the edition for all workspace crates in one place. Individual
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
-diff --git a/codex-rs/core/src/compact_remote_request.rs b/codex-rs/core/src/compact_remote_request.rs
-index faabcfb00dafebb89c43c28aad32ea740486eba2..8da4692c1f995f7429a26013ed421aa98006929e 100644
---- a/codex-rs/core/src/compact_remote_request.rs
-+++ b/codex-rs/core/src/compact_remote_request.rs
-@@ -10,11 +10,14 @@ use crate::responses_metadata::CompactionTurnMetadata;
- use crate::session::RequestEffortUsage;
- use crate::session::session::Session;
- use crate::session::step_context::StepContext;
-+use crate::util::backoff;
- use codex_protocol::auth::AuthMode;
-+use codex_protocol::error::CodexErrorDetails;
- use codex_protocol::error::Result as CodexResult;
- use codex_protocol::models::ResponseItem;
- use codex_rollout_trace::CompactionTraceContext;
- use tracing::info;
-+use tracing::warn;
- 
- pub(super) struct RemoteCompactAttempt {
-     pub(super) new_history: Vec<ResponseItem>,
-@@ -76,32 +79,64 @@ pub(super) async fn run_remote_compact_attempt(
-             CodexResponsesRequestKind::Compaction(compaction_metadata),
-         )
-         .await;
--    let new_history = sess
--        .services
--        .model_client
--        .compact_conversation_history(
--            &prompt,
--            turn_context.model_info(),
--            turn_state,
--            CompactConversationRequestSettings {
--                effort: sess
--                    .reasoning_effort_for_request(
--                        &turn_context.initial_settings,
--                        RequestEffortUsage::Compaction,
--                    )
--                    .await,
--                summary: turn_context.reasoning_summary(),
--                service_tier: if sess.services.auth_manager.auth_mode() == Some(AuthMode::ApiKey) {
--                    None
--                } else {
--                    step_context.settings.service_tier.clone()
-+    let max_retries = turn_context.provider.info().stream_max_retries();
-+    let mut server_overload_retries = 0;
-+    let new_history = loop {
-+        let result = sess
-+            .services
-+            .model_client
-+            .compact_conversation_history(
-+                &prompt,
-+                turn_context.model_info(),
-+                turn_state.clone(),
-+                CompactConversationRequestSettings {
-+                    effort: sess
-+                        .reasoning_effort_for_request(
-+                            &turn_context.initial_settings,
-+                            RequestEffortUsage::Compaction,
-+                        )
-+                        .await,
-+                    summary: turn_context.reasoning_summary(),
-+                    service_tier: if sess.services.auth_manager.auth_mode()
-+                        == Some(AuthMode::ApiKey)
-+                    {
-+                        None
-+                    } else {
-+                        step_context.settings.service_tier.clone()
-+                    },
-                 },
--            },
--            &turn_context.session_telemetry,
--            compaction_trace,
--            &responses_metadata,
--        )
--        .await?;
-+                &turn_context.session_telemetry,
-+                compaction_trace,
-+                &responses_metadata,
-+            )
-+            .await;
-+        match result {
-+            Ok(new_history) => break new_history,
-+            Err(err)
-+                if matches!(err.details(), CodexErrorDetails::ServerOverloaded)
-+                    && server_overload_retries < max_retries =>
-+            {
-+                server_overload_retries += 1;
-+                let retry_count = server_overload_retries;
-+                let delay = err.retry_delay().unwrap_or_else(|| backoff(retry_count));
-+                warn!(
-+                    turn_id = %turn_context.sub_id,
-+                    retry_count,
-+                    max_retries,
-+                    ?delay,
-+                    "model at capacity; retrying remote compaction"
-+                );
-+                sess.notify_stream_error(
-+                    turn_context,
-+                    format!("Reconnecting... {retry_count}/{max_retries}"),
-+                    err,
-+                )
-+                .await;
-+                tokio::time::sleep(delay).await;
-+            }
-+            Err(err) => return Err(err),
-+        }
-+    };
-     Ok(RemoteCompactAttempt {
-         new_history,
-         trace_input_history,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 816f84ae0b40038fec84c0d0347cb7b622fa9824..e26c8e0454371ca0cac56e676bbc49ff89598714 100644
+index d96ad4eca170c3aaaec2af0e0adf29e0a2d7f377..17a104677aac40fad85f83ad5a632db44088f2e3 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4590,14 +4590,19 @@ impl Session {
+@@ -4717,14 +4717,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -181,10 +72,10 @@ index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6
  
      pub(crate) fn confirm_safety_buffered_retry(
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index be0192f61aa580ea6660084d0464504900da24ef..d0cde4854751e045b9b0082473f6547086ade9f0 100644
+index fad51f2b96cbc917f6293d5db18b95b407d9eed9..ad63f65916452e166af64232d9ff06f044961f04 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -391,11 +391,11 @@ impl CodexErr {
+@@ -392,11 +392,11 @@ impl CodexErr {
              | CodexErrorDetails::Spawn
              | CodexErrorDetails::SessionConfiguredNotFirstEvent
              | CodexErrorDetails::UsageLimitReached(_)

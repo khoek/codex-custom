@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `634ebc1865c6ac840ed3ba118f040d527bf4b55d`
+repository as a submodule at commit `ddea03ad049142943bdbf13e937b1d67e8c1ba0c`
 from upstream `main`. The custom version is `0.154.0-k.634ebc18`. It carries a
 small, ordered patch series:
 
@@ -52,9 +52,8 @@ informational threshold warnings, or hard-stop behavior.
 Typed `ServerOverloaded` model-capacity errors use the same bounded stream
 retry budget, exponential backoff, and transport fallback as `RateLimitExceeded`
 for sampling and streaming remote compaction. The retry budget is shared with
-other retryable stream errors, not reset by switching error types. Legacy unary
-remote compaction uses the configured stream retry budget and the same backoff
-for capacity errors. Retries remain interruptible. With
+other retryable stream errors, not reset by switching error types. Retries remain
+interruptible. With
 `--exit-on-quota-exceeded`, only a terminal capacity error after retries are
 exhausted requests a supervised restart; retry notifications from either the
 main thread or a subagent do not stop the instance. The final error retains its

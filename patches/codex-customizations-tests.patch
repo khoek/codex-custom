@@ -1,5 +1,5 @@
 diff --git a/codex-rs/core/tests/suite/client.rs b/codex-rs/core/tests/suite/client.rs
-index dfe4d6a74291ef473e46ed0b20e8205e0052f7d2..c6b1ff6e45c4df13e5a8f3c394f50e1218973502 100644
+index 082da177f7e1e85b216e80580148e337772b9ef5..c6fa8ccd8f0c0b859ae9163d15343a9f704dff67 100644
 --- a/codex-rs/core/tests/suite/client.rs
 +++ b/codex-rs/core/tests/suite/client.rs
 @@ -50,6 +50,7 @@ use codex_protocol::models::ResponseItem;
@@ -32,7 +32,7 @@ index dfe4d6a74291ef473e46ed0b20e8205e0052f7d2..c6b1ff6e45c4df13e5a8f3c394f50e12
  use tempfile::TempDir;
  use uuid::Uuid;
  use wiremock::Mock;
-@@ -3438,6 +3442,170 @@ async fn usage_limit_error_emits_rate_limit_event() -> anyhow::Result<()> {
+@@ -3435,6 +3439,170 @@ async fn usage_limit_error_emits_rate_limit_event() -> anyhow::Result<()> {
      Ok(())
  }
  
@@ -204,18 +204,18 @@ index dfe4d6a74291ef473e46ed0b20e8205e0052f7d2..c6b1ff6e45c4df13e5a8f3c394f50e12
  async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Result<()> {
      skip_if_no_network!(Ok(()));
 diff --git a/codex-rs/core/tests/suite/compact_remote.rs b/codex-rs/core/tests/suite/compact_remote.rs
-index 7de3e92541b1ee8453dd00b03008a7cee1b74ee7..cc823aa7c41aa72c11ed07b217c53aa4da78c226 100644
+index ac674f6b9fa8ffb91ecb519377ecee3c9577e7dc..b68688fd3962c2f6661052a71fbccfc71645c10c 100644
 --- a/codex-rs/core/tests/suite/compact_remote.rs
 +++ b/codex-rs/core/tests/suite/compact_remote.rs
-@@ -41,6 +41,7 @@ use codex_protocol::models::PermissionProfile;
+@@ -18,6 +18,7 @@ use codex_model_provider_info::ModelProviderInfo;
+ use codex_protocol::AgentPath;
+ use codex_protocol::models::ContentItem;
  use codex_protocol::models::ResponseItem;
- use codex_protocol::openai_models::InputModality;
- use codex_protocol::protocol::AskForApproval;
 +use codex_protocol::protocol::CodexErrorInfo;
  use codex_protocol::protocol::ConversationStartParams;
  use codex_protocol::protocol::EventMsg;
  use codex_protocol::protocol::InterAgentCommunication;
-@@ -370,6 +371,42 @@ async fn wait_for_turn_complete(codex: &codex_core::CodexThread) {
+@@ -179,6 +180,42 @@ async fn wait_for_turn_complete(codex: &codex_core::CodexThread) {
      .await;
  }
  
@@ -258,7 +258,7 @@ index 7de3e92541b1ee8453dd00b03008a7cee1b74ee7..cc823aa7c41aa72c11ed07b217c53aa4
  fn amazon_bedrock_test_codex() -> TestCodexBuilder {
      let auth = CodexAuth::BedrockApiKey(BedrockApiKeyAuth {
          api_key: "bedrock-test-api-key".to_string(),
-@@ -1894,6 +1931,67 @@ async fn remote_compact_v2_reuses_compaction_trigger_for_followups() -> Result<(
+@@ -1056,6 +1093,137 @@ async fn remote_compact_v2_reuses_compaction_trigger_for_followups() -> Result<(
      Ok(())
  }
  
@@ -268,9 +268,9 @@ index 7de3e92541b1ee8453dd00b03008a7cee1b74ee7..cc823aa7c41aa72c11ed07b217c53aa4
 +
 +    let harness = TestCodexHarness::with_builder(
 +        test_codex()
++            .with_history_mode(ThreadHistoryMode::Paginated)
 +            .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
 +            .with_config(|config| {
-+                let _ = config.features.enable(Feature::RemoteCompactionV2);
 +                config.model_provider.request_max_retries = Some(0);
 +                config.model_provider.stream_max_retries = Some(2);
 +            }),
@@ -323,29 +323,20 @@ index 7de3e92541b1ee8453dd00b03008a7cee1b74ee7..cc823aa7c41aa72c11ed07b217c53aa4
 +    Ok(())
 +}
 +
- #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
- async fn remote_compact_v2_retries_failures_with_stream_retry_budget() -> Result<()> {
-     skip_if_no_network!(Ok(()));
-@@ -3281,6 +3379,145 @@ async fn remote_manual_compact_failure_emits_task_error_event() -> Result<()> {
-     Ok(())
- }
- 
 +#[tokio::test]
-+async fn remote_manual_compact_retries_server_overload() -> Result<()> {
++async fn remote_compact_server_overload_exhausts_retry_budget() -> Result<()> {
 +    skip_if_no_network!(Ok(()));
-+
 +    let harness = TestCodexHarness::with_builder(
 +        test_codex()
++            .with_history_mode(ThreadHistoryMode::Paginated)
 +            .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
-+            .with_config(|config| {
-+                let _ = config.features.disable(Feature::RemoteCompactionV2);
++            .with_config(move |config| {
 +                config.model_provider.request_max_retries = Some(0);
 +                config.model_provider.stream_max_retries = Some(2);
 +            }),
 +    )
 +    .await?;
 +    let codex = harness.test().codex.clone();
-+
 +    mount_sse_once(
 +        harness.server(),
 +        sse(vec![
@@ -354,124 +345,57 @@ index 7de3e92541b1ee8453dd00b03008a7cee1b74ee7..cc823aa7c41aa72c11ed07b217c53aa4
 +        ]),
 +    )
 +    .await;
-+    let overloaded = || {
-+        ResponseTemplate::new(503).set_body_json(json!({
-+            "error": {
-+                "code": "server_is_overloaded",
-+                "message": "selected model is at capacity",
-+            }
-+        }))
-+    };
-+    let compact_mock = responses::mount_compact_response_sequence(
-+        harness.server(),
-+        vec![
-+            overloaded(),
-+            overloaded(),
-+            ResponseTemplate::new(200)
-+                .insert_header("content-type", "application/json")
-+                .set_body_json(json!({ "output": [] })),
-+        ],
-+    )
-+    .await;
-+
 +    codex
 +        .start_or_steer_turn(TurnInputRequest::user_input(vec![UserInput::Text {
-+            text: "manual remote compact".into(),
++            text: "prepare compaction".into(),
 +            text_elements: Vec::new(),
 +        }]))
 +        .await?;
 +    wait_for_turn_complete(&codex).await;
 +
-+    codex.submit(Op::Compact).await?;
-+    assert_capacity_retries_then_turn_complete(&codex).await;
-+    assert_eq!(compact_mock.requests().len(), 3);
-+
-+    Ok(())
-+}
-+
-+#[tokio::test]
-+async fn remote_compact_server_overload_exhausts_retry_budget() -> Result<()> {
-+    skip_if_no_network!(Ok(()));
-+    for use_v2 in [false, true] {
-+        let harness = TestCodexHarness::with_builder(
-+            test_codex()
-+                .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
-+                .with_config(move |config| {
-+                    if use_v2 {
-+                        let _ = config.features.enable(Feature::RemoteCompactionV2);
-+                    } else {
-+                        let _ = config.features.disable(Feature::RemoteCompactionV2);
-+                    }
-+                    config.model_provider.request_max_retries = Some(0);
-+                    config.model_provider.stream_max_retries = Some(2);
-+                }),
-+        )
-+        .await?;
-+        let codex = harness.test().codex.clone();
-+        mount_sse_once(
-+            harness.server(),
-+            sse(vec![
-+                responses::ev_assistant_message("m1", "REMOTE_REPLY"),
-+                responses::ev_completed("resp-1"),
-+            ]),
-+        )
-+        .await;
-+        codex
-+            .start_or_steer_turn(TurnInputRequest::user_input(vec![UserInput::Text {
-+                text: "prepare compaction".into(),
-+                text_elements: Vec::new(),
-+            }]))
-+            .await?;
-+        wait_for_turn_complete(&codex).await;
-+
-+        let overloaded = ResponseTemplate::new(503).set_body_json(json!({
-+            "error": {
-+                "code": "server_is_overloaded",
-+                "message": "selected model is at capacity",
-+            }
-+        }));
-+        let failures = vec![overloaded.clone(), overloaded.clone(), overloaded];
-+        let compact_mock = if use_v2 {
-+            responses::mount_response_sequence(harness.server(), failures).await
-+        } else {
-+            responses::mount_compact_response_sequence(harness.server(), failures).await
-+        };
-+        codex.submit(Op::Compact).await?;
-+
-+        let mut retries = Vec::new();
-+        let mut errors = Vec::new();
-+        loop {
-+            match codex.next_event().await?.msg {
-+                EventMsg::StreamError(event) => {
-+                    retries.push((event.message, event.codex_error_info));
-+                }
-+                EventMsg::Error(event) => errors.push(event.codex_error_info),
-+                EventMsg::TurnComplete(_) => break,
-+                _ => {}
-+            }
++    let overloaded = ResponseTemplate::new(503).set_body_json(json!({
++        "error": {
++            "code": "server_is_overloaded",
++            "message": "selected model is at capacity",
 +        }
-+        assert_eq!(
-+            retries,
-+            vec![
-+                (
-+                    "Reconnecting... 1/2".to_string(),
-+                    Some(CodexErrorInfo::ServerOverloaded)
-+                ),
-+                (
-+                    "Reconnecting... 2/2".to_string(),
-+                    Some(CodexErrorInfo::ServerOverloaded)
-+                ),
-+            ]
-+        );
-+        assert_eq!(errors, vec![Some(CodexErrorInfo::ServerOverloaded)]);
-+        assert_eq!(compact_mock.requests().len(), 3);
++    }));
++    let failures = vec![overloaded.clone(), overloaded.clone(), overloaded];
++    let compact_mock = responses::mount_response_sequence(harness.server(), failures).await;
++    codex.submit(Op::Compact).await?;
++
++    let mut retries = Vec::new();
++    let mut errors = Vec::new();
++    loop {
++        match codex.next_event().await?.msg {
++            EventMsg::StreamError(event) => {
++                retries.push((event.message, event.codex_error_info));
++            }
++            EventMsg::Error(event) => errors.push(event.codex_error_info),
++            EventMsg::TurnComplete(_) => break,
++            _ => {}
++        }
 +    }
++    assert_eq!(
++        retries,
++        vec![
++            (
++                "Reconnecting... 1/2".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded)
++            ),
++            (
++                "Reconnecting... 2/2".to_string(),
++                Some(CodexErrorInfo::ServerOverloaded)
++            ),
++        ]
++    );
++    assert_eq!(errors, vec![Some(CodexErrorInfo::ServerOverloaded)]);
++    assert_eq!(compact_mock.requests().len(), 3);
 +    Ok(())
 +}
 +
  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
- // TODO(ccunningham): Re-enable after the follow-up compaction behavior PR lands.
- // Current main behavior for rollout replacement-history persistence is known-incorrect.
+ async fn remote_compact_v2_retries_failures_with_stream_retry_budget() -> Result<()> {
+     skip_if_no_network!(Ok(()));
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
 index 344c703aea35445ed9d7ecf8c6335ffb04baf075..e84e8a4334f8313ff0d3868cf6428c16a0cf5ca6 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
@@ -504,10 +428,10 @@ index 344c703aea35445ed9d7ecf8c6335ffb04baf075..e84e8a4334f8313ff0d3868cf6428c16
      app_server.shutdown().await?;
      Ok(())
 diff --git a/codex-rs/tui/src/app/tests/safety_buffering.rs b/codex-rs/tui/src/app/tests/safety_buffering.rs
-index d22d12f87a8b504d67dfce6c2b4c21cf8b87aa34..d0b6ee72acd7ee22da76d42b866b381bc3771559 100644
+index 3911527f8e3bbfd2d49582434ff3b1a9e3cb194e..7484dd8859a276b4a8d8a6c5562dec58f6c95bd8 100644
 --- a/codex-rs/tui/src/app/tests/safety_buffering.rs
 +++ b/codex-rs/tui/src/app/tests/safety_buffering.rs
-@@ -760,7 +760,7 @@ goals = true
+@@ -777,7 +777,7 @@ goals = true
              thread_id: source_thread_id,
              turn_id: active_turn_id.clone(),
              model: FASTER_MODEL.to_string(),
@@ -516,7 +440,7 @@ index d22d12f87a8b504d67dfce6c2b4c21cf8b87aa34..d0b6ee72acd7ee22da76d42b866b381b
              prompt: UserMessage::from(RETRY_PROMPT),
          },
      ))
-@@ -835,35 +835,12 @@ goals = true
+@@ -852,35 +852,12 @@ goals = true
              app.chat_widget
                  .can_retry_safety_buffered_turn(&first_retry_turn_id)
          );
@@ -562,7 +486,7 @@ diff --git a/codex-rs/tui/src/chatwidget/rendering_tests.rs b/codex-rs/tui/src/c
 index 2d7abb97ae0fd015783a96e1a66ba0f2fcf690ab..c835545ab3c725126ecee12d6344647ff8f1828f 100644
 --- a/codex-rs/tui/src/chatwidget/rendering_tests.rs
 +++ b/codex-rs/tui/src/chatwidget/rendering_tests.rs
-@@ -169,7 +169,7 @@ async fn initial_session_header_starts_at_the_top_of_the_viewport() {
+@@ -223,7 +223,7 @@ async fn initial_session_header_starts_at_the_top_of_the_viewport() {
  
      insta::assert_snapshot!(header.replace(&cwd, &normalized_cwd), @r"
      ╭───────────────────────────────────────╮
@@ -656,10 +580,10 @@ index 54263e27525143b83987439ed8697eb315f58b40..ff5f835f8d7da5f4de0b221ee66b491f
 +
 +  gpt-5.6-sol default · /tmp/project
 diff --git a/codex-rs/tui/src/chatwidget/tests/app_server.rs b/codex-rs/tui/src/chatwidget/tests/app_server.rs
-index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314f3f39876 100644
+index f6d9e6d96a9f88a48bd2a6686112f275a732708b..cc52dae6694827609ba64cc1fb1d1314f3f39876 100644
 --- a/codex-rs/tui/src/chatwidget/tests/app_server.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/app_server.rs
-@@ -112,41 +112,21 @@ fn safety_buffering_notification(
+@@ -156,41 +156,21 @@ fn safety_buffering_notification(
      }
  }
  
@@ -702,7 +626,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
  #[tokio::test]
 -async fn safety_buffering_offers_one_retry_with_app_wording() {
 -    let (mut chat, mut rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
--    let mut preset = get_available_model(&chat, "gpt-5.4");
+-    let mut preset = get_available_model(&chat, "gpt-5.5");
 -    preset.model = "faster-model".to_string();
 -    preset.display_name = "Faster Model".to_string();
 -    chat.model_catalog = Arc::new(ModelCatalog::new(vec![preset]));
@@ -711,7 +635,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
      let (thread_id, turn_id, _) = start_safety_buffering_test_turn(&mut chat, &mut op_rx);
  
      let notification = safety_buffering_notification(thread_id, turn_id, Some("faster-model"));
-@@ -161,67 +141,17 @@ async fn safety_buffering_offers_one_retry_with_app_wording() {
+@@ -205,67 +185,17 @@ async fn safety_buffering_offers_one_retry_with_app_wording() {
  
      let popup = render_bottom_popup(&chat, /*width*/ 80);
      assert_chatwidget_snapshot!("safety_buffering_retry_prompt", popup);
@@ -784,7 +708,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
          chat.handle_server_notification(
              ServerNotification::ModelSafetyBufferingUpdated(safety_buffering_notification(
                  thread_id,
-@@ -230,7 +160,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
+@@ -274,7 +204,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
              )),
              /*replay_kind*/ None,
          );
@@ -793,7 +717,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
  
          chat.handle_key_event(KeyEvent::new(key, KeyModifiers::NONE));
  
-@@ -245,7 +175,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
+@@ -289,7 +219,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
  
  #[tokio::test]
  async fn safety_buffering_retry_confirmation_closes_when_turn_completes() {
@@ -802,7 +726,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
      let (thread_id, turn_id, turn) = start_safety_buffering_test_turn(&mut chat, &mut op_rx);
      chat.handle_server_notification(
          ServerNotification::ModelSafetyBufferingUpdated(safety_buffering_notification(
-@@ -255,7 +185,7 @@ async fn safety_buffering_retry_confirmation_closes_when_turn_completes() {
+@@ -299,7 +229,7 @@ async fn safety_buffering_retry_confirmation_closes_when_turn_completes() {
          )),
          /*replay_kind*/ None,
      );
@@ -811,7 +735,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
  
      handle_turn_completed(&mut chat, turn_id, /*duration_ms*/ None);
      // A queued request to open the confirmation must not reopen it after completion.
-@@ -292,8 +222,8 @@ async fn safety_buffering_does_not_offer_retry_in_side_conversation() {
+@@ -336,8 +266,8 @@ async fn safety_buffering_does_not_offer_retry_in_side_conversation() {
  
  #[tokio::test]
  async fn safety_buffering_retry_confirmation_closes_when_response_starts() {
@@ -822,7 +746,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
      chat.handle_server_notification(
          ServerNotification::ModelSafetyBufferingUpdated(safety_buffering_notification(
              thread_id,
-@@ -303,7 +233,7 @@ async fn safety_buffering_retry_confirmation_closes_when_response_starts() {
+@@ -347,7 +277,7 @@ async fn safety_buffering_retry_confirmation_closes_when_response_starts() {
          /*replay_kind*/ None,
      );
      assert!(chat.can_retry_safety_buffered_turn(turn_id));
@@ -831,7 +755,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
  
      chat.on_agent_message_delta("Visible response".to_string());
  
-@@ -375,8 +305,8 @@ async fn safety_buffering_without_retry_shows_short_app_message() {
+@@ -419,8 +349,8 @@ async fn safety_buffering_without_retry_shows_short_app_message() {
  
  #[tokio::test]
  async fn safety_buffering_ignores_hidden_stale_and_historical_updates() {
@@ -842,7 +766,7 @@ index 566d84b54627ad1b1d9f352cafd6c27dc3d27a8d..cc52dae6694827609ba64cc1fb1d1314
  
      let mut hidden = safety_buffering_notification(thread_id, turn_id, Some("faster-model"));
      hidden.show_buffering_ui = false;
-@@ -408,7 +338,7 @@ async fn safety_buffering_ignores_hidden_stale_and_historical_updates() {
+@@ -452,7 +382,7 @@ async fn safety_buffering_ignores_hidden_stale_and_historical_updates() {
          /*replay_kind*/ None,
      );
      assert!(render_bottom_popup(&chat, /*width*/ 80).contains(SAFETY_BUFFERING_HEADER_TEXT));
@@ -901,7 +825,7 @@ index 5244de15a4270930724429af0d7409b873a02502..660d2ee99b84e38d6e52e4afdc9ad33d
  
  #[tokio::test]
 diff --git a/codex-rs/tui/src/chatwidget/tests/plan_mode.rs b/codex-rs/tui/src/chatwidget/tests/plan_mode.rs
-index bcec1cf9a6fcaefb447027100d6ada90f05ea083..9eef75ad4bfbce5ef94103961e96558c34f43af3 100644
+index 4d4c31b71967aabe100c84499f756427478e9470..dbaa4912910e01fb0987e9892fde1b95dee6f81c 100644
 --- a/codex-rs/tui/src/chatwidget/tests/plan_mode.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/plan_mode.rs
 @@ -1086,7 +1086,7 @@ async fn plan_implementation_popup_shows_after_new_plan_follows_steer() {
@@ -925,10 +849,10 @@ index bcec1cf9a6fcaefb447027100d6ada90f05ea083..9eef75ad4bfbce5ef94103961e96558c
      assert!(
          !popup.contains(PLAN_IMPLEMENTATION_TITLE),
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 8de9141a6fd6c5a82e6def583c5debd9539528b2..5288eb7e81a2310e11d1d0434ba45790fba0f1a1 100644
+index 0569ae223b2e8deecf4c5deb707b3895f06aeccf..ed61f32745cb048521ca454c78276e6d60881ab6 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-@@ -1279,7 +1279,7 @@ async fn rate_limit_switch_prompt_clears_pending_when_workspace_credits_become_u
+@@ -1303,7 +1303,7 @@ async fn rate_limit_switch_prompt_clears_pending_when_workspace_credits_become_u
  }
  
  #[tokio::test]
@@ -937,7 +861,7 @@ index 8de9141a6fd6c5a82e6def583c5debd9539528b2..5288eb7e81a2310e11d1d0434ba45790
      let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
      chat.has_chatgpt_account = true;
  
-@@ -1289,7 +1289,7 @@ async fn rate_limit_switch_prompt_dismisses_shown_when_workspace_credits_become_
+@@ -1313,7 +1313,7 @@ async fn rate_limit_switch_prompt_dismisses_shown_when_workspace_credits_become_
          chat.rate_limit_switch_prompt,
          RateLimitSwitchPromptState::Shown
      ));
@@ -946,7 +870,7 @@ index 8de9141a6fd6c5a82e6def583c5debd9539528b2..5288eb7e81a2310e11d1d0434ba45790
  
      let mut funded_snapshot = snapshot(/*percent*/ 95.0);
      funded_snapshot.credits = Some(CreditsSnapshot {
-@@ -1670,7 +1670,7 @@ async fn rate_limit_switch_prompt_shows_once_per_session() {
+@@ -1694,7 +1694,7 @@ async fn rate_limit_switch_prompt_shows_once_per_session() {
  }
  
  #[tokio::test]
@@ -955,7 +879,7 @@ index 8de9141a6fd6c5a82e6def583c5debd9539528b2..5288eb7e81a2310e11d1d0434ba45790
      let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
      set_chatgpt_auth(&mut chat);
      let mut limits = snapshot(/*percent*/ 95.0);
-@@ -1686,7 +1686,7 @@ async fn account_update_clears_derived_usage_limit_state_and_prompt() {
+@@ -1710,7 +1710,7 @@ async fn account_update_clears_derived_usage_limit_state_and_prompt() {
          chat.rate_limit_switch_prompt,
          RateLimitSwitchPromptState::Shown
      ));
@@ -964,7 +888,7 @@ index 8de9141a6fd6c5a82e6def583c5debd9539528b2..5288eb7e81a2310e11d1d0434ba45790
  
      chat.update_account_state(
          /*status_account_display*/ None, /*plan_type*/ None,
-@@ -1740,8 +1740,8 @@ async fn rate_limit_switch_prompt_defers_until_task_complete() {
+@@ -1764,8 +1764,8 @@ async fn rate_limit_switch_prompt_defers_until_task_complete() {
  }
  
  #[tokio::test]
@@ -975,7 +899,7 @@ index 8de9141a6fd6c5a82e6def583c5debd9539528b2..5288eb7e81a2310e11d1d0434ba45790
      chat.has_chatgpt_account = true;
  
      chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 92.0)));
-@@ -1749,6 +1749,19 @@ async fn rate_limit_switch_prompt_popup_snapshot() {
+@@ -1773,6 +1773,19 @@ async fn rate_limit_switch_prompt_popup_snapshot() {
  
      let popup = render_bottom_popup(&chat, /*width*/ 80);
      assert_chatwidget_snapshot!("rate_limit_switch_prompt_popup", popup);
@@ -1548,10 +1472,10 @@ index 76e81da3ea2ed5cd822c7db42b70acf37f80ca30..130eede2acbb0dbc43649f3f2bde97d4
  │ model:     gpt-test   /model to change │
  │ directory: /tmp/project                │
 diff --git a/codex-rs/core/tests/suite/retry_after.rs b/codex-rs/core/tests/suite/retry_after.rs
-index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac37970c71 100644
+index 991afbe92d6957f973740edd802fd0e03dde93c7..b9de2c9b0fea9ff26af91b70ff8bd86d84aac684 100644
 --- a/codex-rs/core/tests/suite/retry_after.rs
 +++ b/codex-rs/core/tests/suite/retry_after.rs
-@@ -345,7 +345,7 @@ async fn http_retry_backoff_exhausts_attempts() {
+@@ -346,7 +346,7 @@ async fn http_retry_backoff_exhausts_attempts() {
      );
  }
  
@@ -1560,7 +1484,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
  #[tokio::test(flavor = "current_thread")]
  async fn responses_http_overload_without_retry_after_exhausts_request_retries() -> Result<()> {
      skip_if_no_network!(Ok(()));
-@@ -400,7 +400,7 @@ async fn responses_http_overload_without_retry_after_exhausts_request_retries()
+@@ -401,7 +401,7 @@ async fn responses_http_overload_without_retry_after_exhausts_request_retries()
      .expect("overload retries should finish the turn within 10 seconds");
  
      assert_eq!(error_events, 1);
@@ -1569,7 +1493,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      let request_count = server
          .received_requests()
          .await
-@@ -409,8 +409,8 @@ async fn responses_http_overload_without_retry_after_exhausts_request_retries()
+@@ -410,8 +410,8 @@ async fn responses_http_overload_without_retry_after_exhausts_request_retries()
          .filter(|request| request.url.path() == "/v1/responses")
          .count();
      assert_eq!(
@@ -1580,7 +1504,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      );
  
      Ok(())
-@@ -807,7 +807,7 @@ async fn compact_v2_rate_limit_message_without_retry_after_uses_server_advised_d
+@@ -808,7 +808,7 @@ async fn compact_v2_rate_limit_message_without_retry_after_uses_server_advised_d
      Ok(())
  }
  
@@ -1589,7 +1513,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
  #[tokio::test(flavor = "current_thread")]
  async fn compact_v2_overload_without_retry_after_exhausts_request_retries() -> Result<()> {
      skip_if_no_network!(Ok(()));
-@@ -834,7 +834,7 @@ async fn compact_v2_overload_without_retry_after_exhausts_request_retries() -> R
+@@ -835,7 +835,7 @@ async fn compact_v2_overload_without_retry_after_exhausts_request_retries() -> R
          .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
          .with_config(|config| {
              config.model_provider.request_max_retries = Some(2);
@@ -1598,7 +1522,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
          })
          .build_with_auto_env(&server)
          .await?;
-@@ -1176,21 +1176,24 @@ async fn sse_rate_limit_message_with_retry_after_uses_server_advised_retry_delay
+@@ -1177,21 +1177,24 @@ async fn sse_rate_limit_message_with_retry_after_uses_server_advised_retry_delay
  }
  
  // TODO(anp) respect Retry-After
@@ -1632,7 +1556,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      )
      .await;
      let test = test_codex()
-@@ -1201,7 +1204,7 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
+@@ -1202,7 +1205,7 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
          .build_with_auto_env(&server)
          .await?;
  
@@ -1641,7 +1565,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
  
      let mut error_events = 0;
      let mut stream_error_events = 0;
-@@ -1231,8 +1234,8 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
+@@ -1232,8 +1235,8 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
      }
  
      assert_eq!(error_events, 1);
@@ -1652,7 +1576,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      let request_count = server
          .received_requests()
          .await
-@@ -1240,7 +1243,26 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
+@@ -1241,7 +1244,26 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
          .into_iter()
          .filter(|request| request.url.path() == "/v1/responses")
          .count();
@@ -1680,7 +1604,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      assert_eq!(
          telemetry.events.try_recv(),
          Err(mpsc::error::TryRecvError::Empty)
-@@ -1249,20 +1271,23 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
+@@ -1250,20 +1272,23 @@ async fn sse_overload_with_retry_after_is_terminal() -> Result<()> {
      Ok(())
  }
  
@@ -1712,7 +1636,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      )
      .await;
      let test = test_codex()
-@@ -1273,7 +1298,7 @@ async fn sse_overload_without_retry_after_is_terminal() -> Result<()> {
+@@ -1274,7 +1299,7 @@ async fn sse_overload_without_retry_after_is_terminal() -> Result<()> {
          .build_with_auto_env(&server)
          .await?;
  
@@ -1721,7 +1645,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
  
      let mut error_events = 0;
      let mut stream_error_events = 0;
-@@ -1303,8 +1328,8 @@ async fn sse_overload_without_retry_after_is_terminal() -> Result<()> {
+@@ -1304,8 +1329,8 @@ async fn sse_overload_without_retry_after_is_terminal() -> Result<()> {
      }
  
      assert_eq!(error_events, 1);
@@ -1732,7 +1656,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      let request_count = server
          .received_requests()
          .await
-@@ -1312,7 +1337,26 @@ async fn sse_overload_without_retry_after_is_terminal() -> Result<()> {
+@@ -1313,7 +1338,26 @@ async fn sse_overload_without_retry_after_is_terminal() -> Result<()> {
          .into_iter()
          .filter(|request| request.url.path() == "/v1/responses")
          .count();
@@ -1760,7 +1684,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      assert_eq!(
          telemetry.events.try_recv(),
          Err(mpsc::error::TryRecvError::Empty)
-@@ -1604,27 +1648,33 @@ async fn websocket_rate_limit_without_retry_after_is_terminal() -> Result<()> {
+@@ -1605,27 +1649,33 @@ async fn websocket_rate_limit_without_retry_after_is_terminal() -> Result<()> {
  }
  
  // TODO(anp) respect Retry-After
@@ -1809,7 +1733,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      .await;
      let test = test_codex()
          .with_config(|config| {
-@@ -1634,7 +1684,7 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
+@@ -1638,7 +1688,7 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
          .build_with_websocket_server(&server)
          .await?;
  
@@ -1818,7 +1742,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
  
      let mut error_events = 0;
      let mut stream_error_events = 0;
-@@ -1659,24 +1709,32 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
+@@ -1663,24 +1713,32 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
                  fallback_warning_events += 1;
              }
              EventMsg::TurnComplete(event) => {
@@ -1858,7 +1782,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      assert_eq!(
          telemetry.events.try_recv(),
          Err(mpsc::error::TryRecvError::Empty)
-@@ -1686,26 +1744,32 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
+@@ -1690,26 +1748,32 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
      Ok(())
  }
  
@@ -1905,7 +1829,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
      .await;
      let test = test_codex()
          .with_config(|config| {
-@@ -1715,7 +1779,7 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
+@@ -1722,7 +1786,7 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
          .build_with_websocket_server(&server)
          .await?;
  
@@ -1914,7 +1838,7 @@ index c24d510049e7774bb00de852135847de3debaec7..ff5bf68a9af15dbb25280ba31ee47eac
  
      let mut error_events = 0;
      let mut stream_error_events = 0;
-@@ -1740,24 +1804,32 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
+@@ -1747,24 +1811,32 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
                  fallback_warning_events += 1;
              }
              EventMsg::TurnComplete(event) => {

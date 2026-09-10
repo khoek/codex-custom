@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index f642b4591ba02ad747d0d05d6d982aa155dc18a6..4e8f55829f8aaac4a8c84cec44630760e64c0c83 100644
+index d735f833ad74c8705fbb7bac56680eae555f169d..15658fd949783c8ab48db57bf1d3e1849c189099 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -3775,6 +3775,7 @@ dependencies = [
+@@ -3816,6 +3816,7 @@ dependencies = [
   "http 1.4.0",
   "jsonwebtoken",
   "keyring",
@@ -32,7 +32,7 @@ index e42fa9be0171c082ad088475f41fea6e63f5fae0..a231ff420a3636a9b64e91827966091b
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index dd806d7e3012d12aa9a085d467287af408aff2d7..5fe4ec92b5811c42c7acffecf95f54dfb6fe071d 100644
+index 84784ced2e00335b2bd0d0b3d76e33c12b48c2b3..3846547eb0b49838e9d04f42c0066066846fab58 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -132,6 +132,91 @@ struct MultitoolCli {
@@ -127,7 +127,7 @@ index dd806d7e3012d12aa9a085d467287af408aff2d7..5fe4ec92b5811c42c7acffecf95f54df
      #[clap(flatten)]
      pub feature_toggles: FeatureToggles,
  
-@@ -1147,12 +1232,64 @@ async fn cli_main(
+@@ -1154,12 +1239,64 @@ async fn cli_main(
  ) -> anyhow::Result<ExitCode> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
@@ -192,7 +192,7 @@ index dd806d7e3012d12aa9a085d467287af408aff2d7..5fe4ec92b5811c42c7acffecf95f54df
      // Fold --enable/--disable into config overrides so they flow to all subcommands.
      let toggle_overrides = feature_toggles.to_overrides()?;
      root_config_overrides.raw_overrides.extend(toggle_overrides);
-@@ -3170,6 +3307,13 @@ mod tests {
+@@ -3188,6 +3325,13 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -206,7 +206,7 @@ index dd806d7e3012d12aa9a085d467287af408aff2d7..5fe4ec92b5811c42c7acffecf95f54df
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3212,6 +3356,13 @@ mod tests {
+@@ -3230,6 +3374,13 @@ mod tests {
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -220,7 +220,7 @@ index dd806d7e3012d12aa9a085d467287af408aff2d7..5fe4ec92b5811c42c7acffecf95f54df
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3256,6 +3407,13 @@ mod tests {
+@@ -3274,6 +3425,13 @@ mod tests {
          let MultitoolCli {
              interactive,
              config_overrides: root_overrides,
@@ -234,7 +234,7 @@ index dd806d7e3012d12aa9a085d467287af408aff2d7..5fe4ec92b5811c42c7acffecf95f54df
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3517,6 +3675,149 @@ mod tests {
+@@ -3535,6 +3693,149 @@ mod tests {
          }
      }
  
@@ -1175,7 +1175,7 @@ diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
 index 226255f39e25763c88110cb7481a116dcdd09a0c..0b69a11000446253b7065523847880823d573bb7 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
-@@ -10,10 +10,48 @@ mod storage;
+@@ -11,10 +11,48 @@ mod storage;
  mod util;
  mod workload_identity;
  
@@ -1333,7 +1333,7 @@ diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
 index e33e5871213c234df90f84a8fba0694b336638df..70cd354b72a2c9e4b27d81864cc1aea6c06a1b6d 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
-@@ -39,6 +39,7 @@ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
+@@ -40,6 +40,7 @@ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
  pub use auth::CODEX_ACCESS_TOKEN_ENV_VAR;
  pub use auth::CODEX_API_KEY_ENV_VAR;
  pub use auth::CodexAuth;
@@ -1341,7 +1341,7 @@ index e33e5871213c234df90f84a8fba0694b336638df..70cd354b72a2c9e4b27d81864cc1aea6
  pub use auth::ExternalAuth;
  pub use auth::ExternalAuthFuture;
  pub use auth::ExternalAuthRefreshContext;
-@@ -48,6 +49,8 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
+@@ -49,6 +50,8 @@ pub use auth::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
  pub use auth::REVOKE_TOKEN_URL_OVERRIDE_ENV_VAR;
  pub use auth::RefreshTokenError;
  pub use auth::UnauthorizedRecovery;
@@ -1350,7 +1350,7 @@ index e33e5871213c234df90f84a8fba0694b336638df..70cd354b72a2c9e4b27d81864cc1aea6
  pub use auth::default_client;
  pub use auth::enforce_login_restrictions;
  pub use auth::is_workload_identity_selected;
-@@ -58,10 +61,12 @@ pub use auth::login_with_bedrock_access_keys;
+@@ -59,10 +62,12 @@ pub use auth::login_with_bedrock_access_keys;
  pub use auth::login_with_bedrock_api_key;
  pub use auth::logout;
  pub use auth::logout_with_revoke;

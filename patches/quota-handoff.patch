@@ -1,5 +1,5 @@
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af408aff2d7 100644
+index 949e437b83b0c64fdb3521e1786d8f9d8de8c4d3..84784ced2e00335b2bd0d0b3d76e33c12b48c2b3 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -374,6 +374,15 @@ struct ResumeCommand {
@@ -18,7 +18,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
      #[clap(flatten)]
      remote: InteractiveRemoteOptions,
  
-@@ -885,7 +894,7 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<ExitCode> {
+@@ -892,7 +901,7 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<ExitCode> {
          | ExitReason::Archived(_)
          | ExitReason::TurnInterrupted
          | ExitReason::ThreadRemoved => (ExitCode::SUCCESS, true),
@@ -27,7 +27,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
      };
  
      let update_action = exit_info.update_action;
-@@ -1476,6 +1485,7 @@ async fn cli_main(
+@@ -1493,6 +1502,7 @@ async fn cli_main(
              all,
              include_non_interactive,
              start_immediately,
@@ -35,7 +35,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
              remote,
              config_overrides,
          })) => {
-@@ -1490,6 +1500,7 @@ async fn cli_main(
+@@ -1507,6 +1517,7 @@ async fn cli_main(
                  config_overrides,
              );
              interactive.start_immediately = start_immediately;
@@ -43,7 +43,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
              let exit_info = run_interactive_tui(
                  interactive,
                  remote.remote.or(root_remote.clone()),
-@@ -3173,6 +3184,7 @@ mod tests {
+@@ -3191,6 +3202,7 @@ mod tests {
              all,
              include_non_interactive,
              start_immediately,
@@ -51,7 +51,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
              remote: _,
              config_overrides: resume_cli,
          }) = subcommand.expect("resume present")
-@@ -3191,6 +3203,7 @@ mod tests {
+@@ -3209,6 +3221,7 @@ mod tests {
              resume_cli,
          );
          interactive.start_immediately = start_immediately;
@@ -59,7 +59,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
          interactive
      }
  
-@@ -4034,30 +4047,25 @@ mod tests {
+@@ -4052,30 +4065,25 @@ mod tests {
      }
  
      #[test]
@@ -97,7 +97,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
                  )
                  .to_string()]
              );
-@@ -4071,9 +4079,11 @@ mod tests {
+@@ -4089,9 +4097,11 @@ mod tests {
              Some("123e4567-e89b-12d3-a456-426614174000"),
              /*thread_name*/ None,
          );
@@ -111,7 +111,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
          };
  
          assert_eq!(
-@@ -4082,6 +4092,32 @@ mod tests {
+@@ -4100,6 +4110,32 @@ mod tests {
          );
      }
  
@@ -144,7 +144,7 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -4291,6 +4327,38 @@ mod tests {
+@@ -4309,6 +4345,38 @@ mod tests {
          }
      }
  
@@ -184,10 +184,10 @@ index 46622921769ddba311bdf5b25f177882cf41e3f2..dd806d7e3012d12aa9a085d467287af4
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 05c439058fce1f79b7a747fadad9a29c7c5d2f14..3db1666bd9732af1eca85d9f2f40f3bbaa58b8ac 100644
+index dbdfe702014afce671ebe4d4054d4e95393e64ef..f903bc72e0c55094c3a6ebe0775e7be91d78c37d 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -470,13 +470,23 @@ pub enum ExitReason {
+@@ -478,13 +478,23 @@ pub enum ExitReason {
      TurnInterrupted,
      /// The current thread was deleted, rather than disconnected.
      ThreadRemoved,
@@ -213,7 +213,7 @@ index 05c439058fce1f79b7a747fadad9a29c7c5d2f14..3db1666bd9732af1eca85d9f2f40f3bb
  fn session_summary(
      token_usage: TokenUsage,
      thread_id: Option<ThreadId>,
-@@ -614,6 +624,12 @@ pub(crate) struct App {
+@@ -623,6 +633,12 @@ pub(crate) struct App {
      exit_on_quota_exceeded: bool,
      /// The resumable primary thread recorded by the first quota error that requested shutdown.
      quota_exceeded_exit_thread_id: Option<ThreadId>,
@@ -226,7 +226,7 @@ index 05c439058fce1f79b7a747fadad9a29c7c5d2f14..3db1666bd9732af1eca85d9f2f40f3bb
  
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
-@@ -859,6 +875,11 @@ impl App {
+@@ -873,6 +889,11 @@ impl App {
              return Ok(AppRunControl::Exit(ExitReason::UserRequested));
          }
          let screen_size = tui.screen_size_for_event(&event)?;
@@ -420,7 +420,7 @@ index cb30671b92e188a7f9606c68a9ae6cdfeeb469b5..f1c88856d8910b9e4e2f3d8dc1ab6fb8
                  }
              };
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e696961379a60d64e 100644
+index af6affed6d092bd2273bcd353c9a513464f30bcb..4ea9418a2edfa55013489dfd5395b8c0e3724f97 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -147,6 +147,7 @@ impl App {
@@ -431,7 +431,7 @@ index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e69696137
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -727,6 +728,10 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -728,6 +729,10 @@ See the Codex keymap documentation for supported actions and examples."
              pending_update_action: None,
              exit_on_quota_exceeded,
              quota_exceeded_exit_thread_id: None,
@@ -442,7 +442,7 @@ index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e69696137
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -817,6 +822,23 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -818,6 +823,23 @@ See the Codex keymap documentation for supported actions and examples."
                  app.ensure_thread_channel(thread_id).mark_external_writer();
                  app.chat_widget.show_external_writer_thread();
              }
@@ -466,7 +466,7 @@ index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e69696137
              if !read_only_thread && start_immediately {
                  let resumed = match startup_draft
                      .run_until(
-@@ -829,7 +851,11 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -830,7 +852,11 @@ See the Codex keymap documentation for supported actions and examples."
                      Err(err) => return shutdown_on_startup_error(app_server, err).await,
                  };
                  if resumed {
@@ -479,7 +479,7 @@ index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e69696137
                  }
              } else if !read_only_thread
                  && should_prompt_for_paused_goal_after_startup_resume
-@@ -845,6 +871,15 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -846,6 +872,15 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, err).await;
              }
@@ -495,7 +495,7 @@ index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e69696137
          }
          if !start_in_agents_overview
              && !pending_startup_thread_start
-@@ -1253,12 +1288,26 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1255,12 +1290,26 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -527,10 +527,10 @@ index 190c5ccf064bfbb0b0acdfc0d9fa9dd4a09e7774..49228f8274128ab84469808e69696137
          Ok(app.exit_info(exit_reason))
      }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 117702e1c146b0fbc225e9748f757717195f7af0..c261cab7731352dd925931a8716cc04d5394d2b6 100644
+index 716fa19e46525a8e54dd7050d22a3c68cc806e89..83b8ce3be585c7b5766e0ffddcec8df6269142b0 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -63,6 +63,10 @@ pub(super) async fn make_test_app() -> App {
+@@ -64,6 +64,10 @@ pub(super) async fn make_test_app() -> App {
          pending_update_action: None,
          exit_on_quota_exceeded: false,
          quota_exceeded_exit_thread_id: None,
@@ -542,10 +542,10 @@ index 117702e1c146b0fbc225e9748f757717195f7af0..c261cab7731352dd925931a8716cc04d
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 31fc6e8328482921c4511000644731fd006e822f..911a2ba5cc4c56eefa00686c979736c993e7fe1c 100644
+index 8b7522e2e1f5e7347fcb50961085cc63b5d3a441..fd863cc9511a36020dd97797bf9e7029ca1d1d04 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -5836,6 +5836,10 @@ async fn make_test_app() -> App {
+@@ -5879,6 +5879,10 @@ async fn make_test_app() -> App {
          pending_update_action: None,
          exit_on_quota_exceeded: false,
          quota_exceeded_exit_thread_id: None,
@@ -556,7 +556,7 @@ index 31fc6e8328482921c4511000644731fd006e822f..911a2ba5cc4c56eefa00686c979736c9
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -5930,6 +5934,10 @@ pub(super) async fn make_test_app_with_channels() -> (
+@@ -5980,6 +5984,10 @@ pub(super) async fn make_test_app_with_channels() -> (
              pending_update_action: None,
              exit_on_quota_exceeded: false,
              quota_exceeded_exit_thread_id: None,
@@ -682,10 +682,10 @@ index 12acdeed6721f5e043a1888aeb99d0465cbe12c7..aaccba96a132f8c73d379d526658fe38
          (true, false, CodexErrorInfo::Other),
      ] {
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index 8ee279112da687688144f5fa2e9c9e801febfbdd..d40f5ac6e05e6750c4872f5af8480f3f0b1a13a3 100644
+index afa4506b96ffb41aef2a676a62c693dbc78b34f8..23a181a83128d225e323918223cc73a04b47077d 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-@@ -29,6 +29,7 @@ async fn run_fresh_startup_for_test(
+@@ -30,6 +30,7 @@ async fn run_startup_for_test(
          /*should_prompt_windows_sandbox_nux_at_startup*/ false,
          AppServerTarget::Embedded,
          /*start_immediately*/ false,
@@ -694,10 +694,10 @@ index 8ee279112da687688144f5fa2e9c9e801febfbdd..d40f5ac6e05e6750c4872f5af8480f3f
          Arc::new(EnvironmentManager::default_for_tests()),
          Duration::ZERO,
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index acc1425c1ee954ad7d1ec2ff2ac9b1d4d435c54a..3ad6b39f4a5bb36e63d09eaa2382e4d0fc0f207d 100644
+index b5639c05e2e9ba4a0325f740c936fc21c7ddfb5f..23f3ca199edb11bd86fc56aac48c432cd0c086ad 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-@@ -452,7 +452,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
+@@ -455,7 +455,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
          )
  }
  
@@ -711,7 +711,7 @@ diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/
 index 8c75f87b39647c92a45b71a5f44c08e86645c576..5eab5d1608d557741280e3f7564a2b0500870fcb 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
-@@ -102,13 +102,13 @@ pub(crate) use status_line_style::status_line_from_segments;
+@@ -106,13 +106,13 @@ pub(crate) use voice_strip::VoiceStripState;
  mod bottom_pane_view;
  mod effort_ignition;
  
@@ -728,7 +728,7 @@ index 8c75f87b39647c92a45b71a5f44c08e86645c576..5eab5d1608d557741280e3f7564a2b05
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index 0ccb35e6e663ab62a5da9c16805fe5b4776f257f..99f277851686f934c30061d20a179461bad1ad3a 100644
+index 4e345366999e7731847cb341747a69c50c1b59da..d0a816380ef6e38f339865feabd08b29cbf89067 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
 @@ -351,6 +351,7 @@ mod input_restore;
@@ -741,10 +741,10 @@ index 0ccb35e6e663ab62a5da9c16805fe5b4776f257f..99f277851686f934c30061d20a179461
  mod mcp_startup;
 diff --git a/codex-rs/tui/src/chatwidget/quota_handoff.rs b/codex-rs/tui/src/chatwidget/quota_handoff.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d32394d1f045
+index 0000000000000000000000000000000000000000..b177ca75f33c72c6623467152d35f77f5a9bd68d
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/quota_handoff.rs
-@@ -0,0 +1,330 @@
+@@ -0,0 +1,336 @@
 +//! Durable +k handoff for local input that is not part of the rollout transcript.
 +
 +use std::ffi::OsStr;
@@ -773,6 +773,7 @@ index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d323
 +use super::QueuedUserMessage;
 +use super::ThreadComposerState;
 +use super::UserMessageHistoryRecord;
++use super::UserMessageSource;
 +
 +const HANDOFF_FORMAT: &str = "codex+k-input-handoff";
 +const HANDOFF_VERSION: u8 = 1;
@@ -884,10 +885,15 @@ index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d323
 +        for (index, user_message) in self.input_queue.rejected_steers_queue.iter().enumerate() {
 +            messages.push(QuotaHandoffMessage {
 +                source: QuotaHandoffMessageSource::RejectedSteer,
-+                queued_message: QueuedUserMessage::new(
-+                    user_message.clone(),
-+                    QueuedInputAction::Plain,
-+                ),
++                queued_message: QueuedUserMessage {
++                    source: self
++                        .input_queue
++                        .rejected_steer_sources
++                        .get(index)
++                        .copied()
++                        .unwrap_or(UserMessageSource::Prompt),
++                    ..QueuedUserMessage::new(user_message.clone(), QueuedInputAction::Plain)
++                },
 +                history_record: self
 +                    .input_queue
 +                    .rejected_steer_history_records
@@ -899,10 +905,10 @@ index 0000000000000000000000000000000000000000..9ff21dee6136ebcee2a2a05ee0c9d323
 +        for pending in &self.input_queue.pending_steers {
 +            messages.push(QuotaHandoffMessage {
 +                source: QuotaHandoffMessageSource::PendingSteer,
-+                queued_message: QueuedUserMessage::new(
-+                    pending.user_message.clone(),
-+                    QueuedInputAction::Plain,
-+                ),
++                queued_message: QueuedUserMessage {
++                    source: pending.source,
++                    ..QueuedUserMessage::new(pending.user_message.clone(), QueuedInputAction::Plain)
++                },
 +                history_record: pending.history_record.clone(),
 +            });
 +        }
@@ -1089,10 +1095,10 @@ index c7aaa1a7a5ce39573881bc0f9d7b14f8b0402c49..716b13e4a4ba15c788db63a6aecf415e
  #[path = "tests/reasoning_status_tests.rs"]
 diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..25bb94a8d9e76b72fd958e7a507ed26a54bdc18c
+index 0000000000000000000000000000000000000000..670c7eae90b6dd332e937b897162db904a75c749
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
-@@ -0,0 +1,160 @@
+@@ -0,0 +1,169 @@
 +use std::fs;
 +#[cfg(unix)]
 +use std::os::unix::fs::PermissionsExt;
@@ -1135,12 +1141,16 @@ index 0000000000000000000000000000000000000000..25bb94a8d9e76b72fd958e7a507ed26a
 +        .rejected_steers_queue
 +        .push_back(UserMessage::from("rejected steer"));
 +    chat.input_queue
++        .rejected_steer_sources
++        .push_back(UserMessageSource::QuestionAnswer);
++    chat.input_queue
 +        .rejected_steer_history_records
 +        .push_back(UserMessageHistoryRecord::UserMessageText);
 +    chat.input_queue.pending_steers.push_back(PendingSteer {
 +        client_id: "pending-steer".to_string(),
 +        user_message: UserMessage::from("pending steer"),
 +        history_record: UserMessageHistoryRecord::UserMessageText,
++        source: UserMessageSource::QuestionAnswer,
 +        compare_key: PendingSteerCompareKey {
 +            message: "pending steer".to_string(),
 +            image_count: 0,
@@ -1152,6 +1162,7 @@ index 0000000000000000000000000000000000000000..25bb94a8d9e76b72fd958e7a507ed26a
 +            user_message: UserMessage::from("/status"),
 +            action: QueuedInputAction::ParseSlash,
 +            pending_pastes: vec![("[Pasted Content 1]".to_string(), "payload".to_string())],
++            source: UserMessageSource::Prompt,
 +        });
 +    chat.input_queue
 +        .queued_user_message_history_records
@@ -1204,9 +1215,13 @@ index 0000000000000000000000000000000000000000..25bb94a8d9e76b72fd958e7a507ed26a
 +            .input_queue
 +            .queued_user_messages
 +            .iter()
-+            .map(|message| message.text.as_str())
++            .map(|message| (message.text.as_str(), message.source))
 +            .collect::<Vec<_>>(),
-+        vec!["rejected steer", "pending steer", "/status"]
++        vec![
++            ("rejected steer", UserMessageSource::QuestionAnswer),
++            ("pending steer", UserMessageSource::QuestionAnswer),
++            ("/status", UserMessageSource::Prompt),
++        ]
 +    );
 +    let queued_command = restored.input_queue.queued_user_messages.back().unwrap();
 +    assert_eq!(queued_command.action, QueuedInputAction::ParseSlash);
@@ -1254,7 +1269,7 @@ index 0000000000000000000000000000000000000000..25bb94a8d9e76b72fd958e7a507ed26a
 +    );
 +}
 diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
-index 01112aaf74a9276ab47193a5b52aa81c02448c5e..26333939567f56e1c689f2fefa381b17065cfc8a 100644
+index 59dec1f6d252a1379409d95b5093ae70ee68e6eb..0f818edfc53737f9d95f1264ccac49ca09a87377 100644
 --- a/codex-rs/tui/src/chatwidget/user_messages.rs
 +++ b/codex-rs/tui/src/chatwidget/user_messages.rs
 @@ -26,7 +26,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
@@ -1283,8 +1298,15 @@ index 01112aaf74a9276ab47193a5b52aa81c02448c5e..26333939567f56e1c689f2fefa381b17
  pub(super) struct UserMessageHistoryOverride {
      pub(super) text: String,
      pub(super) text_elements: Vec<TextElement>,
-@@ -58,7 +59,7 @@ pub(super) enum ShellEscapePolicy {
+@@ -58,13 +59,13 @@ pub(super) enum ShellEscapePolicy {
      Disallow,
+ }
+ 
+-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
+ pub(super) enum UserMessageSource {
+     Prompt,
+     QuestionAnswer,
  }
  
 -#[derive(Debug, Clone, PartialEq)]
@@ -1292,7 +1314,7 @@ index 01112aaf74a9276ab47193a5b52aa81c02448c5e..26333939567f56e1c689f2fefa381b17
  pub(super) struct QueuedUserMessage {
      pub(super) user_message: UserMessage,
      pub(super) action: QueuedInputAction,
-@@ -99,7 +100,7 @@ pub(super) enum QueueDrain {
+@@ -107,7 +108,7 @@ pub(super) enum QueueDrain {
      Stop,
  }
  
@@ -1325,10 +1347,10 @@ index 50d877cce1ebaad6727e4fc011ab2fc4196c1e32..5ce1c3a0b77d1592b90ab5b87e5e93cd
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index d3076467b307bfc889577212248b29d76f170c79..61b6c16ce83794a6ee0b878d23c7e82e0d9f46fe 100644
+index 20fe2f51e5df48a0f062742acfe2a4ef28a7e218..8695e2d5ab38031fe5075421ae33e22441169077 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -25,6 +25,7 @@ pub use app::AppExitInfo;
+@@ -26,6 +26,7 @@ pub use app::AppExitInfo;
  pub use app::DisconnectInfo;
  pub use app::ExitReason;
  pub use app::ResumableThread;
@@ -1336,7 +1358,7 @@ index d3076467b307bfc889577212248b29d76f170c79..61b6c16ce83794a6ee0b878d23c7e82e
  /// Process status emitted with a quota recovery marker.
  pub const QUOTA_EXCEEDED_EXIT_CODE: u8 = 75;
  use app_server_session::AppServerSession;
-@@ -1686,6 +1687,7 @@ async fn run_ratatui_app(
+@@ -1696,6 +1697,7 @@ async fn run_ratatui_app(
  
      let Cli {
          start_immediately,
@@ -1344,7 +1366,7 @@ index d3076467b307bfc889577212248b29d76f170c79..61b6c16ce83794a6ee0b878d23c7e82e
          prompt,
          shared,
          no_alt_screen,
-@@ -1824,6 +1826,7 @@ async fn run_ratatui_app(
+@@ -1836,6 +1838,7 @@ async fn run_ratatui_app(
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,
          start_immediately,
