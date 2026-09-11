@@ -24,6 +24,9 @@ small, ordered patch series:
    broker mutation lock.
 8. [`patches/cybersecurity-abort-bell.patch`](patches/cybersecurity-abort-bell.patch)
    rings the terminal bell when a turn is aborted by the cybersecurity policy.
+9. [`patches/writable-file-sandbox.patch`](patches/writable-file-sandbox.patch)
+   keeps exact regular-file write grants usable on Linux without attempting to mount
+   repository metadata beneath a file. Directory metadata protections remain unchanged.
 
 The original code patch sets the custom release version, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -230,7 +233,8 @@ cat \
     patches/quota-handoff.patch \
     patches/auth-file.patch \
     patches/canonical-auth-refresh.patch \
-    patches/cybersecurity-abort-bell.patch >"$patch_bundle"
+    patches/cybersecurity-abort-bell.patch \
+    patches/writable-file-sandbox.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
 git -C codex apply "$patch_bundle"
 rm -f -- "$patch_bundle"
@@ -246,6 +250,7 @@ cargo build --release --bin codex --bin codex-code-mode-host
 To return the submodule to its pinned clean state:
 
 ```sh
+git -C codex apply --reverse ../patches/writable-file-sandbox.patch
 git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
 git -C codex apply --reverse ../patches/canonical-auth-refresh.patch
 git -C codex apply --reverse ../patches/auth-file.patch

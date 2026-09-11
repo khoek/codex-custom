@@ -1,0 +1,37 @@
+diff --git a/codex-rs/linux-sandbox/src/bwrap.rs b/codex-rs/linux-sandbox/src/bwrap.rs
+--- a/codex-rs/linux-sandbox/src/bwrap.rs
++++ b/codex-rs/linux-sandbox/src/bwrap.rs
+@@ -606,7 +606,13 @@ fn create_filesystem_args(
+             .filter(|path| !unreadable_paths.contains(path))
+             .filter(|path| !missing_auto_metadata_read_only_project_root_subpaths.contains(path))
+             .collect();
+-        let protected_metadata_names = writable_root.protected_metadata_names.clone();
++        // A regular-file bind cannot contain repository metadata. Directory masks
++        // beneath it would make bubblewrap fail with ENOTDIR before tool startup.
++        let protected_metadata_names = if fs::metadata(mount_root)?.is_file() {
++            Vec::new()
++        } else {
++            writable_root.protected_metadata_names.clone()
++        };
+         append_metadata_path_masks_for_writable_root(
+             &mut read_only_subpaths,
+             root,
+@@ -2488,6 +2494,18 @@ mod tests {
+             "expected unreadable parent mask before rebinding writable file child: {:#?}",
+             args.args
+         );
++        for name in [".git", ".agents", ".codex"] {
++            let impossible_child = allowed_file.as_path().join(name);
++            assert!(
++                !args
++                    .args
++                    .iter()
++                    .any(|arg| Path::new(arg) == impossible_child),
++                "file authority must not generate directory metadata mounts: {:#?}",
++                args.args
++            );
++        }
++        assert!(args.protected_create_targets.is_empty());
+     }
+ 
+     #[test]
