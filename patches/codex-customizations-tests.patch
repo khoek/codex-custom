@@ -1433,11 +1433,11 @@ index 0b2502336356d79712929670495c9371c73f2a2e..9bd9c01f9dc8727d48042dfd900150e1
  │ model:     gpt-test   /model to change │
  │ directory: /tmp/project                │
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
-index 45a423ced33ece99f7573c10e4bd51ad3ec31119..c9484ab29a3586b673d0ba5143c2d5cd29c470f7 100644
+index 8893207f3b7d2388cfead7e549a81164d12b2e9b..86bd130abea7ce3c5eedb8b4808cfa59883e072c 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
-@@ -4,7 +4,7 @@ assertion_line: 182
- expression: "rendered.replace(&app.config.cwd.display().to_string(), \"/tmp/project\")"
+@@ -4,7 +4,7 @@ assertion_line: 1023
+ expression: "normalize_voice_snapshot_directory(&rendered, &app.config.cwd)"
  ---
  ╭────────────────────────────────────────╮
 -│ >_ OpenAI Codex (v0.0.0)               │
