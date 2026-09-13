@@ -7,7 +7,7 @@ index 788afe6e80de5f09c9bd71f3961085391454796f..62d6169bad6d0d26c3cad86e85350bd4
  
  [workspace.package]
 -version = "0.0.0"
-+version = "0.155.0-k.c4017a87"
++version = "0.155.0-k.1715e550"
  # Track the edition for all workspace crates in one place. Individual
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
