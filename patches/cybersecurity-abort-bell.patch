@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 2ce46b43f171204951a4300cd222fe5b4234a024..35fdd842d2560d130e5a26ca145e374922532501 100644
+index e48049de8384a3aabf6412a4469254872b28f70b..adceff8ec6e371c838b2132dfd413163fa38d27b 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -306,6 +306,9 @@ impl App {
+@@ -332,6 +332,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -13,10 +13,10 @@ index 2ce46b43f171204951a4300cd222fe5b4234a024..35fdd842d2560d130e5a26ca145e3749
                  self.clear_terminal_ui(tui, /*redraw_header*/ false)?;
                  self.reset_app_ui_state_after_clear();
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index 3697ebb118fbf199e45415b90a202d7032e6390c..c353c1093fff3d354a8f4eafd10a92d1a2e5f780 100644
+index 61dfd920ebe1028fe2665c8dcc231ae4eded02f4..5bd9f816cb34bc1e2ac619db67a0658cefa3e62c 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -516,6 +516,9 @@ pub(crate) enum AppEvent {
+@@ -543,6 +543,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -27,10 +27,10 @@ index 3697ebb118fbf199e45415b90a202d7032e6390c..c353c1093fff3d354a8f4eafd10a92d1
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index ed61f32745cb048521ca454c78276e6d60881ab6..fb1ec3d2df827de68a05de19699943adf90088e7 100644
+index 03992067f108d9facbd9551c9a97b6a1f5ef0c6e..4d204b7c1274b96331328f6bf4186146b795d363 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-@@ -127,7 +127,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
+@@ -128,7 +128,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
          Some(CodexErrorInfo::CyberPolicy),
      );
  
@@ -77,10 +77,10 @@ index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 2e3b272d6650915fc9cca714f49baf7360611d73..2d34610236039ab12e91612f52734f9a85d061f1 100644
+index 223e285fcee657d009c17498a995d3ce3592316b..bb8274ad185cc357db1efc35c834c50fb3f9b355 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
-@@ -816,6 +816,13 @@ impl Tui {
+@@ -821,6 +821,13 @@ impl Tui {
          }
      }
  

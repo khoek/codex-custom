@@ -1,4 +1,5 @@
 diff --git a/codex-rs/linux-sandbox/src/bwrap.rs b/codex-rs/linux-sandbox/src/bwrap.rs
+index d63997d6178ccc09509eb0f1644c3eeb323378ab..ace647ff41169affaedb8426ceb8fd785d595c43 100644
 --- a/codex-rs/linux-sandbox/src/bwrap.rs
 +++ b/codex-rs/linux-sandbox/src/bwrap.rs
 @@ -606,7 +606,13 @@ fn create_filesystem_args(

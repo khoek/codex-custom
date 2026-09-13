@@ -1,30 +1,25 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `c4017a87aacc7558002b7cb510025e967c1d765e`
+repository as a submodule at commit `1715e55076737158ba61d43158ede504de6d4ce1`
 from upstream `main`. The custom version is `0.155.0-k.c4017a87`. It carries a
 small, ordered patch series:
 
 1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
-   contains the original UI, release version, and capacity-retry code.
+   contains the UI, Reserve opt-out, release version, and capacity-retry code.
 2. [`patches/codex-customizations-tests.patch`](patches/codex-customizations-tests.patch)
    contains their corresponding test assertions and snapshots, including the
    custom version snapshots.
 3. [`patches/exit-on-quota-exceeded.patch`](patches/exit-on-quota-exceeded.patch)
-   adds the opt-in quota-exit behavior described below.
-4. [`patches/start-immediately.patch`](patches/start-immediately.patch) adds the
-   race-free `codex resume SESSION_ID --start-immediately` continuation mode.
-5. [`patches/quota-handoff.patch`](patches/quota-handoff.patch) durably carries
-   queued TUI input and the composer draft across a quota-triggered restart.
-6. [`patches/auth-file.patch`](patches/auth-file.patch) adds the custom-build
+   implements supervised exit, durable queued-input/draft handoff, and race-free
+   `codex resume SESSION_ID --start-immediately` continuation together.
+4. [`patches/auth-file.patch`](patches/auth-file.patch) adds the custom-build
    hidden credential-slot arguments. They select one auth file and join the
-   generic broker lock protocol without moving the rest of Codex state.
-7. [`patches/canonical-auth-refresh.patch`](patches/canonical-auth-refresh.patch)
-   serializes reload, refresh, and persistence across processes that share a
-   broker mutation lock.
-8. [`patches/cybersecurity-abort-bell.patch`](patches/cybersecurity-abort-bell.patch)
+   generic broker lock protocol, including serialized refresh and persistence,
+   without moving the rest of Codex state.
+5. [`patches/cybersecurity-abort-bell.patch`](patches/cybersecurity-abort-bell.patch)
    rings the terminal bell when a turn is aborted by the cybersecurity policy.
-9. [`patches/writable-file-sandbox.patch`](patches/writable-file-sandbox.patch)
+6. [`patches/writable-file-sandbox.patch`](patches/writable-file-sandbox.patch)
    keeps exact regular-file write grants usable on Linux without attempting to mount
    repository metadata beneath a file. Directory metadata protections remain unchanged.
 
@@ -52,6 +47,16 @@ the view is dismissed, and `notice.hide_rate_limit_model_nudge = true` is
 persisted to `config.toml`. This does not change rate-limit accounting,
 informational threshold warnings, or hard-stop behavior.
 
+Reserve is disabled at the TUI account-usage boundary, independently of that
+older prompt opt-out and without a configuration switch. Reads do not advertise
+Reserve support. Unsolicited `luna_reserve` banners and `gpt-reserve` fallback
+candidates are filtered before task settings or queued input can be affected,
+including responses from older app servers. Usage information, errors, and
+supervised credential rotation remain intact. Explicitly selecting a model or
+resuming a session already saved with that model is not rewritten by this policy;
+an existing Reserve session must be switched back manually. Other backend banner
+types and non-Reserve fallback candidates are unchanged.
+
 Typed `ServerOverloaded` model-capacity errors use the same bounded stream
 retry budget, exponential backoff, and transport fallback as `RateLimitExceeded`
 for sampling and streaming remote compaction. The retry budget is shared with
@@ -73,8 +78,7 @@ requests the same shutdown-first exit used by an ordinary interactive quit.
 After the app server, threads, terminal, and telemetry have been cleaned up,
 the CLI emits one final unstyled line, flushes it, and returns process status
 `75` (`EX_TEMPFAIL`) through normal unwinding. The status is the authoritative
-quota signal; the line carries recovery data. The quota-handoff patch makes it
-point at a durable companion file:
+quota signal; the line points at a durable companion file:
 
 ```text
 codex+k (CODEX_UUID_WHICH_YOU_CAN_USE_TO_RESUME): supervised exit {"version":3,"outcome":"quota-exhausted","unavailable_until":1789000000,"handoff_path":"/…/rollout.jsonl.codex+k-…-handoff.json"}
@@ -111,7 +115,7 @@ before all queued input is delivered. Other retryable errors and runs without
 the flag retain their existing behavior. The flag can be
 supplied to a fresh interactive run or to `codex resume` and `codex fork`.
 
-The start-immediately patch reactivates a paused, blocked, or usage-limited goal,
+The start-immediately continuation reactivates a paused, blocked, or usage-limited goal,
 then submits `You were interrupted, continue work`. If the resumed turn is still
 running, Codex orders its interruption before the locally queued continuation;
 even if the old turn completes concurrently, the interrupt cannot land on the
@@ -120,7 +124,7 @@ new turn.
 Versions use `<major>.<next-stable-minor>.0-k.<commit-first8>`. Take the latest
 stable upstream release, increment its minor version, and reset the patch version
 to zero. Append `-k.` and the first eight characters of the pinned upstream commit.
-For example, stable `0.154.0` and commit `c4017a87aacc…` produce
+For example, stable `0.154.0` and commit `1715e5507673…` produce
 `0.155.0-k.c4017a87`. Builds use that exact commit; installation never fetches
 a moving upstream branch.
 
@@ -151,7 +155,7 @@ use file exclusively and then the mutation file exclusively. All participants
 use that lock order. Managed auth writes atomically replace and durably flush
 the shared file, so concurrent consumers never read a partial token update.
 
-The canonical-auth-refresh patch keeps the mutation lock across the complete
+The auth-file patch keeps the mutation lock across the complete
 reload, authority request, and persistence transaction. A second process then
 reloads the newly issued refresh token instead of replaying a stale one. Codex
 does not create an adjacent `.refresh.lock`; the explicit broker mutation lock
@@ -229,10 +233,7 @@ cat \
     patches/codex-customizations.patch \
     patches/codex-customizations-tests.patch \
     patches/exit-on-quota-exceeded.patch \
-    patches/start-immediately.patch \
-    patches/quota-handoff.patch \
     patches/auth-file.patch \
-    patches/canonical-auth-refresh.patch \
     patches/cybersecurity-abort-bell.patch \
     patches/writable-file-sandbox.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
@@ -252,10 +253,7 @@ To return the submodule to its pinned clean state:
 ```sh
 git -C codex apply --reverse ../patches/writable-file-sandbox.patch
 git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
-git -C codex apply --reverse ../patches/canonical-auth-refresh.patch
 git -C codex apply --reverse ../patches/auth-file.patch
-git -C codex apply --reverse ../patches/quota-handoff.patch
-git -C codex apply --reverse ../patches/start-immediately.patch
 git -C codex apply --reverse ../patches/exit-on-quota-exceeded.patch
 git -C codex apply --reverse ../patches/codex-customizations-tests.patch
 git -C codex apply --reverse ../patches/codex-customizations.patch

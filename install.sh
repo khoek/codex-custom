@@ -7,10 +7,7 @@ codex_dir="$repo_dir/codex"
 code_patch_file="$repo_dir/patches/codex-customizations.patch"
 test_patch_file="$repo_dir/patches/codex-customizations-tests.patch"
 quota_patch_file="$repo_dir/patches/exit-on-quota-exceeded.patch"
-start_patch_file="$repo_dir/patches/start-immediately.patch"
-handoff_patch_file="$repo_dir/patches/quota-handoff.patch"
 auth_patch_file="$repo_dir/patches/auth-file.patch"
-refresh_patch_file="$repo_dir/patches/canonical-auth-refresh.patch"
 bell_patch_file="$repo_dir/patches/cybersecurity-abort-bell.patch"
 file_sandbox_patch_file="$repo_dir/patches/writable-file-sandbox.patch"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
@@ -168,10 +165,7 @@ done
 [ -f "$code_patch_file" ] || die "missing patch: $code_patch_file"
 [ -f "$test_patch_file" ] || die "missing patch: $test_patch_file"
 [ -f "$quota_patch_file" ] || die "missing patch: $quota_patch_file"
-[ -f "$start_patch_file" ] || die "missing patch: $start_patch_file"
-[ -f "$handoff_patch_file" ] || die "missing patch: $handoff_patch_file"
 [ -f "$auth_patch_file" ] || die "missing patch: $auth_patch_file"
-[ -f "$refresh_patch_file" ] || die "missing patch: $refresh_patch_file"
 [ -f "$bell_patch_file" ] || die "missing patch: $bell_patch_file"
 [ -f "$file_sandbox_patch_file" ] || die "missing patch: $file_sandbox_patch_file"
 
@@ -184,10 +178,7 @@ patch_digest=$(sha256_files \
     "$code_patch_file" \
     "$test_patch_file" \
     "$quota_patch_file" \
-    "$start_patch_file" \
-    "$handoff_patch_file" \
     "$auth_patch_file" \
-    "$refresh_patch_file" \
     "$bell_patch_file" \
     "$file_sandbox_patch_file")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
@@ -212,10 +203,7 @@ cat \
     "$code_patch_file" \
     "$test_patch_file" \
     "$quota_patch_file" \
-    "$start_patch_file" \
-    "$handoff_patch_file" \
     "$auth_patch_file" \
-    "$refresh_patch_file" \
     "$bell_patch_file" \
     "$file_sandbox_patch_file" >"$patch_bundle"
 git -C "$codex_dir" apply --check "$patch_bundle" ||

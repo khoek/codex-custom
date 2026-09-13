@@ -12,10 +12,10 @@ index 788afe6e80de5f09c9bd71f3961085391454796f..62d6169bad6d0d26c3cad86e85350bd4
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index d96ad4eca170c3aaaec2af0e0adf29e0a2d7f377..17a104677aac40fad85f83ad5a632db44088f2e3 100644
+index 3bb68a8839276a5bfc9cebe1627c3ed161fc0a71..d9a5a364c7c2c6a9f27f7833851a494846cc7661 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4717,14 +4717,19 @@ impl Session {
+@@ -4793,14 +4793,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -39,6 +39,23 @@ index d96ad4eca170c3aaaec2af0e0adf29e0a2d7f377..17a104677aac40fad85f83ad5a632db4
          });
          self.send_event(turn_context, event).await;
      }
+diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
+index fad51f2b96cbc917f6293d5db18b95b407d9eed9..ad63f65916452e166af64232d9ff06f044961f04 100644
+--- a/codex-rs/protocol/src/error.rs
++++ b/codex-rs/protocol/src/error.rs
+@@ -392,11 +392,11 @@ impl CodexErr {
+             | CodexErrorDetails::Spawn
+             | CodexErrorDetails::SessionConfiguredNotFirstEvent
+             | CodexErrorDetails::UsageLimitReached(_)
+-            | CodexErrorDetails::ServerOverloaded
+             | CodexErrorDetails::CyberPolicy { .. }
+             | CodexErrorDetails::MisalignmentPolicyViolation { .. } => false,
+             CodexErrorDetails::Stream(..)
+             | CodexErrorDetails::RateLimitExceeded(_)
++            | CodexErrorDetails::ServerOverloaded
+             | CodexErrorDetails::Timeout
+             | CodexErrorDetails::RequestTimeout
+             | CodexErrorDetails::UnexpectedStatus(_)
 diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
 index cd88e565aa0925259ed63fce21b389ae4ef1fe25..3f4f6b3e24aa56748afcfc89eaa6f9ccb13b91ef 100644
 --- a/codex-rs/tui/src/chatwidget/rate_limits.rs
@@ -71,20 +88,58 @@ index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6
      }
  
      pub(crate) fn confirm_safety_buffered_retry(
-diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index fad51f2b96cbc917f6293d5db18b95b407d9eed9..ad63f65916452e166af64232d9ff06f044961f04 100644
---- a/codex-rs/protocol/src/error.rs
-+++ b/codex-rs/protocol/src/error.rs
-@@ -392,11 +392,11 @@ impl CodexErr {
-             | CodexErrorDetails::Spawn
-             | CodexErrorDetails::SessionConfiguredNotFirstEvent
-             | CodexErrorDetails::UsageLimitReached(_)
--            | CodexErrorDetails::ServerOverloaded
-             | CodexErrorDetails::CyberPolicy { .. }
-             | CodexErrorDetails::MisalignmentPolicyViolation { .. } => false,
-             CodexErrorDetails::Stream(..)
-             | CodexErrorDetails::RateLimitExceeded(_)
-+            | CodexErrorDetails::ServerOverloaded
-             | CodexErrorDetails::Timeout
-             | CodexErrorDetails::RequestTimeout
-             | CodexErrorDetails::UnexpectedStatus(_)
+diff --git a/codex-rs/tui/src/app/background_requests.rs b/codex-rs/tui/src/app/background_requests.rs
+index 19f3308d47e7e51bac1874a3a0c47dcea4a118f7..3b4eeeadfd5e24fbaf281b5abffdef8d7832f38f 100644
+--- a/codex-rs/tui/src/app/background_requests.rs
++++ b/codex-rs/tui/src/app/background_requests.rs
+@@ -808,27 +808,45 @@ pub(super) async fn fetch_account_rate_limits(
+         .request_typed(ClientRequest::GetAccountRateLimits {
+             request_id: request_id.clone(),
+             params: Some(GetAccountRateLimitsParams {
+-                supports_luna_reserve: true,
++                supports_luna_reserve: false,
+                 exclude_reset_credit_details: origin == RateLimitRefreshOrigin::Periodic,
+             }),
+         })
+         .await;
+     // Older remote app servers accept only null params. Keep their usage reads working
+     // without opting them into exposure or pretending that they support the new capability.
+-    if matches!(
++    let result = if matches!(
+         &result,
+         Err(codex_app_server_client::TypedRequestError::Server { source, .. })
+             if matches!(source.code, -32600 | -32602)
+     ) {
+-        return request_handle
++        request_handle
+             .request_typed(ClientRequest::GetAccountRateLimits {
+                 request_id,
+                 params: None,
+             })
+             .await
+-            .wrap_err("account/rateLimits/read failed in TUI");
++    } else {
++        result
++    };
++    let mut response: GetAccountRateLimitsResponse =
++        result.wrap_err("account/rateLimits/read failed in TUI")?;
++    // Reserve is disabled in this build. Ignore unsolicited offers before they can
++    // change task settings or hold queued input waiting for a Reserve transition.
++    if response.rate_limit_upsell.as_ref().is_some_and(|banner| {
++        banner["banner_type"].as_str() == Some(crate::backend_banners::LUNA_RESERVE_BANNER)
++    }) {
++        response.rate_limit_upsell = None;
+     }
+-    result.wrap_err("account/rateLimits/read failed in TUI")
++    if let Some(fallbacks) = response
++        .rate_limit_upsell
++        .as_mut()
++        .and_then(|banner| banner.get_mut("fallback_model_slugs"))
++        .and_then(serde_json::Value::as_array_mut)
++    {
++        fallbacks.retain(|model| model.as_str() != Some(crate::model_catalog::LUNA_RESERVE_MODEL));
++    }
++    Ok(response)
+ }
+ 
+ pub(super) async fn fetch_account_token_activity(
