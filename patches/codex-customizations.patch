@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index 788afe6e80de5f09c9bd71f3961085391454796f..ff61bd0733d2be7c86dccef7f417772547663cd5 100644
+index ac80e2ffe8b617e993d46f686ce5adec10ca6add..ff855b687a7de910da9fc29679a2380cdb98b95d 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -151,7 +151,7 @@ members = [
+@@ -154,7 +154,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
@@ -12,10 +12,10 @@ index 788afe6e80de5f09c9bd71f3961085391454796f..ff61bd0733d2be7c86dccef7f4177725
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 3bb68a8839276a5bfc9cebe1627c3ed161fc0a71..d9a5a364c7c2c6a9f27f7833851a494846cc7661 100644
+index b977bb16f6dc9413e63252e2e423c016f4964724..7e3f129344de9cfda81a050527e9b860af8baa29 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4793,14 +4793,19 @@ impl Session {
+@@ -4921,14 +4921,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -40,16 +40,17 @@ index 3bb68a8839276a5bfc9cebe1627c3ed161fc0a71..d9a5a364c7c2c6a9f27f7833851a4948
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index fad51f2b96cbc917f6293d5db18b95b407d9eed9..ad63f65916452e166af64232d9ff06f044961f04 100644
+index 14825e4db652ff1b00970bab438a1c4a94c6d9fd..4b749030d6d744fc2bdd1f864eba5f24355dd2f8 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -392,11 +392,11 @@ impl CodexErr {
+@@ -402,12 +402,12 @@ impl CodexErr {
              | CodexErrorDetails::Spawn
              | CodexErrorDetails::SessionConfiguredNotFirstEvent
              | CodexErrorDetails::UsageLimitReached(_)
 -            | CodexErrorDetails::ServerOverloaded
              | CodexErrorDetails::CyberPolicy { .. }
-             | CodexErrorDetails::MisalignmentPolicyViolation { .. } => false,
+             | CodexErrorDetails::BioPolicy { .. }
+             | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
              CodexErrorDetails::Stream(..)
              | CodexErrorDetails::RateLimitExceeded(_)
 +            | CodexErrorDetails::ServerOverloaded
@@ -57,12 +58,12 @@ index fad51f2b96cbc917f6293d5db18b95b407d9eed9..ad63f65916452e166af64232d9ff06f0
              | CodexErrorDetails::RequestTimeout
              | CodexErrorDetails::UnexpectedStatus(_)
 diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
-index cd88e565aa0925259ed63fce21b389ae4ef1fe25..3f4f6b3e24aa56748afcfc89eaa6f9ccb13b91ef 100644
+index 36f72ed722f80e4ae0573cc84b7411b6be05611a..383a058ce45cf0fd79a830925e730c7f58236e26 100644
 --- a/codex-rs/tui/src/chatwidget/rate_limits.rs
 +++ b/codex-rs/tui/src/chatwidget/rate_limits.rs
-@@ -515,6 +515,13 @@ impl ChatWidget {
+@@ -535,6 +535,13 @@ impl ChatWidget {
              items,
-             ..Default::default()
+             ..SelectionViewParams::picker()
          });
 +        // Match "Keep current model (never show again)": preserve the model and persist the opt-out.
 +        self.app_event_tx
@@ -75,12 +76,12 @@ index cd88e565aa0925259ed63fce21b389ae4ef1fe25..3f4f6b3e24aa56748afcfc89eaa6f9cc
  
      pub(super) fn open_workspace_owner_nudge_prompt(
 diff --git a/codex-rs/tui/src/chatwidget/safety_buffering.rs b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6ff6a577e 100644
+index dacfbc5db082d731c0a08dc1ac958c1e0a3aef9d..cec1f79b1e7d1787b28d2c0dbb2ba0b8a8da7e74 100644
 --- a/codex-rs/tui/src/chatwidget/safety_buffering.rs
 +++ b/codex-rs/tui/src/chatwidget/safety_buffering.rs
 @@ -234,6 +234,9 @@ impl ChatWidget {
              items,
-             ..Default::default()
+             ..SelectionViewParams::picker()
          });
 +        // Match "Dismiss and keep waiting": close only the modal while the turn continues.
 +        self.bottom_pane
@@ -89,10 +90,10 @@ index b15856852081f9995c34a14a1cf0ae42ec6d1666..4e223a7506878c81d3db416acf7080e6
  
      pub(crate) fn confirm_safety_buffered_retry(
 diff --git a/codex-rs/tui/src/app/background_requests.rs b/codex-rs/tui/src/app/background_requests.rs
-index 19f3308d47e7e51bac1874a3a0c47dcea4a118f7..3b4eeeadfd5e24fbaf281b5abffdef8d7832f38f 100644
+index bfa33203da5025c3de954e7a796cc8dff11d3bb9..d4cc38e3623627a791738337cb6f318008a24b2f 100644
 --- a/codex-rs/tui/src/app/background_requests.rs
 +++ b/codex-rs/tui/src/app/background_requests.rs
-@@ -808,27 +808,45 @@ pub(super) async fn fetch_account_rate_limits(
+@@ -789,27 +789,45 @@ pub(super) async fn fetch_account_rate_limits(
          .request_typed(ClientRequest::GetAccountRateLimits {
              request_id: request_id.clone(),
              params: Some(GetAccountRateLimitsParams {
@@ -142,4 +143,4 @@ index 19f3308d47e7e51bac1874a3a0c47dcea4a118f7..3b4eeeadfd5e24fbaf281b5abffdef8d
 +    Ok(response)
  }
  
- pub(super) async fn fetch_account_token_activity(
+ pub(super) async fn fetch_thread_usage(

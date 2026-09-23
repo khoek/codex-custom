@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `3abbf9fe2c6b6910e9de61f6a0c5bb468f74b5c8`
+repository as a submodule at commit `4981037e99a322ee9cf29bc8730cb64d263fa00b`
 from upstream `main`. The custom version is `0.155.0-k.3abbf9fe`. It carries a
 small, ordered patch series:
 
@@ -114,6 +114,11 @@ after restore for at-least-once delivery if the restarted process exits again
 before all queued input is delivered. Other retryable errors and runs without
 the flag retain their existing behavior. The flag can be
 supplied to a fresh interactive run or to `codex resume` and `codex fork`.
+
+Supervised interactive runs and runs using managed credential slots use the
+embedded server, not upstream's shared daemon. This keeps credential selection,
+lock ownership, and shutdown within the supervised process. Input awaiting image
+preparation is returned to the queue before the handoff is saved.
 
 The start-immediately continuation reactivates a paused, blocked, or usage-limited goal,
 then submits `You were interrupted, continue work`. If the resumed turn is still

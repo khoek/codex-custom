@@ -1,8 +1,8 @@
 diff --git a/codex-rs/linux-sandbox/src/bwrap.rs b/codex-rs/linux-sandbox/src/bwrap.rs
-index d63997d6178ccc09509eb0f1644c3eeb323378ab..ace647ff41169affaedb8426ceb8fd785d595c43 100644
+index 1218496abaf62d0b4d8939e2729d6615b0bf9573..6bfc72ca763d050471ec507e44fdc1c29022a831 100644
 --- a/codex-rs/linux-sandbox/src/bwrap.rs
 +++ b/codex-rs/linux-sandbox/src/bwrap.rs
-@@ -606,7 +606,13 @@ fn create_filesystem_args(
+@@ -646,7 +646,13 @@ fn create_filesystem_args(
              .filter(|path| !unreadable_paths.contains(path))
              .filter(|path| !missing_auto_metadata_read_only_project_root_subpaths.contains(path))
              .collect();
@@ -17,7 +17,7 @@ index d63997d6178ccc09509eb0f1644c3eeb323378ab..ace647ff41169affaedb8426ceb8fd78
          append_metadata_path_masks_for_writable_root(
              &mut read_only_subpaths,
              root,
-@@ -2488,6 +2494,18 @@ mod tests {
+@@ -2579,6 +2585,18 @@ mod tests {
              "expected unreadable parent mask before rebinding writable file child: {:#?}",
              args.args
          );

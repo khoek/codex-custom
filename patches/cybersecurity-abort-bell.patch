@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index e48049de8384a3aabf6412a4469254872b28f70b..adceff8ec6e371c838b2132dfd413163fa38d27b 100644
+index 7fc9161a24829958904853ebcaa7f7291a45639a..c2d49466cc5bb86599068f1211125b413775afab 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -332,6 +332,9 @@ impl App {
+@@ -367,6 +367,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -10,13 +10,13 @@ index e48049de8384a3aabf6412a4469254872b28f70b..adceff8ec6e371c838b2132dfd413163
 +                tui.ring_bell();
 +            }
              AppEvent::ClearUiAndSubmitUserMessage { text } => {
-                 self.clear_terminal_ui(tui, /*redraw_header*/ false)?;
-                 self.reset_app_ui_state_after_clear();
+                 if self.reject_pending_permission_root_switch() {
+                     self.chat_widget.restore_user_message_to_composer(text.into());
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index 61dfd920ebe1028fe2665c8dcc231ae4eded02f4..5bd9f816cb34bc1e2ac619db67a0658cefa3e62c 100644
+index 4dbdc87bf5e9b12b6b40f4a68bf3f5ff7c11d182..37f2032ea34cae0617af995511f5428975c0c363 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -543,6 +543,9 @@ pub(crate) enum AppEvent {
+@@ -558,6 +558,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -27,10 +27,10 @@ index 61dfd920ebe1028fe2665c8dcc231ae4eded02f4..5bd9f816cb34bc1e2ac619db67a0658c
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 03992067f108d9facbd9551c9a97b6a1f5ef0c6e..4d204b7c1274b96331328f6bf4186146b795d363 100644
+index 5eeacb91d7b65776076f051675d71d9a6488bbd2..0aa15b7220ad3863fff15f89055006f541f94f6a 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-@@ -128,7 +128,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
+@@ -133,7 +133,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
          Some(CodexErrorInfo::CyberPolicy),
      );
  
@@ -50,10 +50,10 @@ index 03992067f108d9facbd9551c9a97b6a1f5ef0c6e..4d204b7c1274b96331328f6bf4186146
      let rendered = lines_to_single_string(&cells[0]);
      assert!(rendered.contains("This content can’t be shown"));
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index efdd9971e0a3436057a2243c6859db3ce1ffa4fb..dfaddee12e2846ec02c396563d4b648389ecd146 100644
+index ffafea3060549aba03c63e3b5d720ef2b7cb2a9e..91c52eaef3cf0c83d5bcbbfabafe50f1a077b67d 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-@@ -401,6 +401,7 @@ impl ChatWidget {
+@@ -394,6 +394,7 @@ impl ChatWidget {
      }
  
      pub(super) fn on_cyber_policy_error(&mut self) {
@@ -77,10 +77,10 @@ index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 223e285fcee657d009c17498a995d3ce3592316b..bb8274ad185cc357db1efc35c834c50fb3f9b355 100644
+index a2ed6f98d0123a99c02ac1fdda8900d11fb4f0cb..13d7496fd87538ccd74b9444c396e0af816679cf 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
-@@ -821,6 +821,13 @@ impl Tui {
+@@ -952,6 +952,13 @@ impl Tui {
          }
      }
  
