@@ -2,7 +2,7 @@
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
 repository as a submodule at commit `4981037e99a322ee9cf29bc8730cb64d263fa00b`
-from upstream `main`. The custom version is `0.155.0-k.3abbf9fe`. It carries a
+from upstream `main`. The custom version is `0.157.0-k.4981037e`. It carries a
 small, ordered patch series:
 
 1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
@@ -69,7 +69,7 @@ model-capacity classification, separate from quota and usage-limit errors.
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
-expected auto-dismissed UI and `0.155.0-k.3abbf9fe` snapshot output.
+expected auto-dismissed UI and `0.157.0-k.4981037e` snapshot output.
 
 The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
 flag present, a terminal typed `UsageLimitExceeded` error from either the main
@@ -129,8 +129,8 @@ new turn.
 Versions use `<major>.<next-stable-minor>.0-k.<commit-first8>`. Take the latest
 stable upstream release, increment its minor version, and reset the patch version
 to zero. Append `-k.` and the first eight characters of the pinned upstream commit.
-For example, stable `0.154.0` and commit `3abbf9fe2c6b…` produce
-`0.155.0-k.3abbf9fe`. Builds use that exact commit; installation never fetches
+For example, stable `0.156.1` and commit `4981037e99a3…` produce
+`0.157.0-k.4981037e`. Builds use that exact commit; installation never fetches
 a moving upstream branch.
 
 The auth-file patch exposes one complete, generic managed-credential protocol:
