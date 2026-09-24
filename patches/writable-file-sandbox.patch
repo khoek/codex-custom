@@ -1,23 +1,23 @@
 diff --git a/codex-rs/linux-sandbox/src/bwrap.rs b/codex-rs/linux-sandbox/src/bwrap.rs
-index 1218496abaf62d0b4d8939e2729d6615b0bf9573..6bfc72ca763d050471ec507e44fdc1c29022a831 100644
+index bcc7dcbaa33fe65e67ffc2ff6265cf047e0acfc2..3da40ef460f79dba6eac38187f7bedb7d3ba762f 100644
 --- a/codex-rs/linux-sandbox/src/bwrap.rs
 +++ b/codex-rs/linux-sandbox/src/bwrap.rs
-@@ -646,7 +646,13 @@ fn create_filesystem_args(
-             .filter(|path| !unreadable_paths.contains(path))
-             .filter(|path| !missing_auto_metadata_read_only_project_root_subpaths.contains(path))
+@@ -664,7 +664,13 @@ fn create_filesystem_args(
+             })
+             .cloned()
              .collect();
--        let protected_metadata_names = writable_root.protected_metadata_names.clone();
+-        let protected_metadata_names = &writable_root.protected_metadata_names;
 +        // A regular-file bind cannot contain repository metadata. Directory masks
 +        // beneath it would make bubblewrap fail with ENOTDIR before tool startup.
 +        let protected_metadata_names = if fs::metadata(mount_root)?.is_file() {
-+            Vec::new()
++            &[]
 +        } else {
-+            writable_root.protected_metadata_names.clone()
++            writable_root.protected_metadata_names.as_slice()
 +        };
          append_metadata_path_masks_for_writable_root(
              &mut read_only_subpaths,
              root,
-@@ -2579,6 +2585,18 @@ mod tests {
+@@ -2617,6 +2623,18 @@ mod tests {
              "expected unreadable parent mask before rebinding writable file child: {:#?}",
              args.args
          );

@@ -388,7 +388,7 @@ index 0a28adaad5b81eae69b54a02aa5f26e6ee4b9118..354c4c93ca1f30e7c721d7a072d092f7
      fn approve_for_me_defaults_propagate_from_root_to_exec() {
          let exec = finalize_exec_from_args(&["codex", "--approve-for-me", "exec", "summarize"]);
 diff --git a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
-index e2bd9f12784dc9f40930b1da0bcebecc7aa4efd1..c55762b4fd2e768b54db7abc000e6711a0bad724 100644
+index 8ff0748607c1a2aa44a3ff6c4439616bd936ce9d..fba33fbc24ee5ff2fec0af47cce72ebd683b2b05 100644
 --- a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
 +++ b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
 @@ -21,9 +21,6 @@ Options:
@@ -412,26 +412,22 @@ index e2bd9f12784dc9f40930b1da0bcebecc7aa4efd1..c55762b4fd2e768b54db7abc000e6711
        --listen <URL>
            Transport endpoint URL. Supported values: `ws://IP:PORT` (default),
            `stdio`, `stdio://`
-@@ -57,6 +50,9 @@ Options:
-       --name <NAME>
-           Human-readable environment name
+@@ -55,9 +48,16 @@ Options:
+       --ws-shared-secret-file <PATH>
+           Absolute path to the shared secret file for signed JWT bearer tokens
  
 +      --enable <FEATURE>
 +          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
 +
-       --use-agent-identity-auth
-           Use Agent Identity auth from CODEX_ACCESS_TOKEN for remote
-           registration
-@@ -65,6 +61,10 @@ Options:
-           Sign Direct registration and WebSocket handshake requests with AWS
-           SigV4
+       --ws-issuer <ISSUER>
+           Expected issuer for signed JWT bearer tokens
  
 +      --disable <FEATURE>
 +          Disable a feature (repeatable). Equivalent to `-c
 +          features.<name>=false`
 +
-       --aws-profile <PROFILE>
-           AWS profile used for SigV4 authentication
+       --ws-audience <AUDIENCE>
+           Expected audience for signed JWT bearer tokens
  
 diff --git a/codex-rs/login/Cargo.toml b/codex-rs/login/Cargo.toml
 index 2971dec6c1a81cb80379477333371bba6e8fbece..ac8621bf6cbc79078704de52919adc29cc66dd90 100644
