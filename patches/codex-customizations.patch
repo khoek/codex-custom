@@ -40,14 +40,15 @@ index b977bb16f6dc9413e63252e2e423c016f4964724..7e3f129344de9cfda81a050527e9b860
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 14825e4db652ff1b00970bab438a1c4a94c6d9fd..4b749030d6d744fc2bdd1f864eba5f24355dd2f8 100644
+index 9cb401f29fbbde8f18e933301a9b5e11c4964389..1b303dea62702b66644e426d2fd01e2edf4eaf8d 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -402,12 +402,12 @@ impl CodexErr {
+@@ -405,13 +405,13 @@ impl CodexErr {
              | CodexErrorDetails::Spawn
              | CodexErrorDetails::SessionConfiguredNotFirstEvent
              | CodexErrorDetails::UsageLimitReached(_)
 -            | CodexErrorDetails::ServerOverloaded
+             | CodexErrorDetails::FlexUnavailable
              | CodexErrorDetails::CyberPolicy { .. }
              | CodexErrorDetails::BioPolicy { .. }
              | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,

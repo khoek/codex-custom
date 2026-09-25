@@ -1346,12 +1346,12 @@ index 3f16d118e16b5b6f7e6fe641ce8fadd9455602e4..dac7870e5bbe9a7c29e6709e5fe89862
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index 984a9582cc931881eaa786f721a2c652840a8411..0a103f142a3eafae657a0e4c8c24ba816cdfb1d9 100644
+index 79db6b69bf118ec81ddbd83deed1d5652cbe2ce7..0129700c2003709477a6aa22cd8301c391a11412 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
-@@ -349,6 +349,7 @@ mod input_restore;
- mod input_submission;
+@@ -290,6 +290,7 @@ mod input_submission;
  mod interrupts;
+ mod prompt_suggestions;
  mod questions;
 +mod quota_handoff;
  mod startup_submission;

@@ -2295,3 +2295,25 @@ index 7e65d321ce10516947dcf5333c3041fd85412909..48b98b06202d001870c3b8c3a4a7735d
  │                                                                             │
  │ Visit https://chatgpt.com/codex/settings/usage for up-to-date               │
  │ information on rate limits and credits                                      │
+diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
+index 5a78a900acfd58b3330b29dfe2d5aee0ef71656e..e433b6eb63b074a244db141429697c7cd46d2700 100644
+--- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
++++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
+@@ -4,7 +4,7 @@ expression: "normalize_snapshot_paths(normalize_agent_center_snapshot(snapshots.
+ ---
+ 80 columns
+ ╭────────────────────────────────────────╮
+-│ >_ OpenAI Codex (v0.0.0)               │
++│ >_ OpenAI Codex (v0.157.0-k.53446f90)  │
+ │                                        │
+ │ model:     gpt-test   /model to change │
+ │ directory: /tmp/project                │
+@@ -26,7 +26,7 @@ expression: "normalize_snapshot_paths(normalize_agent_center_snapshot(snapshots.
+
+ 32 columns
+ ╭──────────────────────────────╮
+-│ >_ OpenAI Codex (v0.0.0)     │
++│ >_ OpenAI Codex (v0.157.0-k… │
+ │                              │
+ │ model:     gpt-test   /mode… │
+ │ directory: /tmp/project      │
