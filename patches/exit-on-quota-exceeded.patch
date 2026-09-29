@@ -1,8 +1,8 @@
 diff --git a/codex-rs/arg0/src/lib.rs b/codex-rs/arg0/src/lib.rs
-index 6b0d99a4372414409e2cdfd220c944b8190e51cc..62416f703030986ee2e58c4d7b84dcab1de13332 100644
+index 5bed3b93efda109906a0d12806265688f8d441ed..0af781541ea846aacf0a1ab43ccb50ad2af430c4 100644
 --- a/codex-rs/arg0/src/lib.rs
 +++ b/codex-rs/arg0/src/lib.rs
-@@ -212,17 +212,18 @@ fn prepare_path_env_var_with_aliases(
+@@ -214,17 +214,18 @@ fn prepare_path_env_var_with_aliases(
  ///     `codex-linux-sandbox` helper path (falling back to the current
  ///     executable if needed) so children can re-invoke the sandbox when running
  ///     on Linux.
@@ -25,7 +25,7 @@ index 6b0d99a4372414409e2cdfd220c944b8190e51cc..62416f703030986ee2e58c4d7b84dcab
  {
      // Retain the TempDir so it exists for the lifetime of the invocation of
      // this executable. Admittedly, we could invoke `keep()` on it, but it
-@@ -250,14 +251,14 @@ where
+@@ -252,14 +253,14 @@ where
      }
  }
  
@@ -43,7 +43,7 @@ index 6b0d99a4372414409e2cdfd220c944b8190e51cc..62416f703030986ee2e58c4d7b84dcab
  {
      let paths = Arg0DispatchPaths {
          codex_self_exe: current_exe.clone(),
-@@ -731,7 +732,7 @@ mod tests {
+@@ -733,7 +734,7 @@ mod tests {
  
      #[cfg(unix)]
      #[test]
@@ -52,7 +52,7 @@ index 6b0d99a4372414409e2cdfd220c944b8190e51cc..62416f703030986ee2e58c4d7b84dcab
          let temp_dir = TempDir::new()?;
          let alias_path = temp_dir.path().join("codex-helper-alias");
          fs::write(&alias_path, b"")?;
-@@ -746,7 +747,7 @@ mod tests {
+@@ -748,7 +749,7 @@ mod tests {
              },
          );
  
@@ -61,7 +61,7 @@ index 6b0d99a4372414409e2cdfd220c944b8190e51cc..62416f703030986ee2e58c4d7b84dcab
              /*path_entry_guard*/ Some(path_entry),
              Some(PathBuf::from("/usr/bin/codex")),
              |paths| async move {
-@@ -767,9 +768,12 @@ mod tests {
+@@ -769,9 +770,12 @@ mod tests {
                      "alias path disappeared while main future was running: {}",
                      alias_path.display()
                  );
@@ -77,7 +77,7 @@ index 6b0d99a4372414409e2cdfd220c944b8190e51cc..62416f703030986ee2e58c4d7b84dcab
  
      #[test]
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index be141103c33c923bf651612c32a070d5f4268a9b..0a28adaad5b81eae69b54a02aa5f26e6ee4b9118 100644
+index bdd7771b3aadfd69f46698c14844a6d65e1e65ba..e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -30,6 +30,7 @@ use codex_state::StateRuntime;
@@ -309,7 +309,7 @@ index be141103c33c923bf651612c32a070d5f4268a9b..0a28adaad5b81eae69b54a02aa5f26e6
      }
  
      fn finalize_fork_from_args(args: &[&str]) -> TuiCli {
-@@ -3757,6 +3789,78 @@ mod tests {
+@@ -3758,6 +3790,78 @@ mod tests {
          ");
      }
  
@@ -388,7 +388,7 @@ index be141103c33c923bf651612c32a070d5f4268a9b..0a28adaad5b81eae69b54a02aa5f26e6
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -3884,6 +3988,26 @@ mod tests {
+@@ -3885,6 +3989,26 @@ mod tests {
          }
      }
  
@@ -415,7 +415,7 @@ index be141103c33c923bf651612c32a070d5f4268a9b..0a28adaad5b81eae69b54a02aa5f26e6
      #[test]
      fn resume_and_fork_preserve_no_alt_screen() {
          for (command, finalize) in [
-@@ -3958,6 +4082,61 @@ mod tests {
+@@ -3959,6 +4083,61 @@ mod tests {
          assert_eq!(interactive.prompt.as_deref(), Some("continue here"));
      }
  
@@ -477,7 +477,7 @@ index be141103c33c923bf651612c32a070d5f4268a9b..0a28adaad5b81eae69b54a02aa5f26e6
      #[test]
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
-@@ -3965,6 +4144,22 @@ mod tests {
+@@ -3966,6 +4145,22 @@ mod tests {
          assert!(interactive.resume_show_all);
      }
  
@@ -501,10 +501,10 @@ index be141103c33c923bf651612c32a070d5f4268a9b..0a28adaad5b81eae69b54a02aa5f26e6
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 9349649f248df7a23686ccdb2dfc41ae77d5f374..88aefe65ddca9629b82872543e0b75a324debbc8 100644
+index 37b5c788ad9f514e580c8302598abf8f6994bae1..d423355d5b35e495ffad7ae87d6a840bc84a4d74 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -483,9 +483,23 @@ pub enum ExitReason {
+@@ -486,9 +486,23 @@ pub enum ExitReason {
      TurnInterrupted,
      /// The current thread was deleted, rather than disconnected.
      ThreadRemoved,
@@ -525,10 +525,10 @@ index 9349649f248df7a23686ccdb2dfc41ae77d5f374..88aefe65ddca9629b82872543e0b75a3
 +    ModelCapacity,
 +}
 +
- fn session_summary(
-     token_usage: TokenUsage,
+ fn resumable_thread(
      thread_id: Option<ThreadId>,
-@@ -624,6 +638,17 @@ pub(crate) struct App {
+     thread_name: Option<String>,
+@@ -596,6 +610,17 @@ pub(crate) struct App {
      daemon_cli_executable: Option<AbsolutePathBuf>,
      pub(crate) pending_update_action: Option<UpdateAction>,
  
@@ -546,7 +546,7 @@ index 9349649f248df7a23686ccdb2dfc41ae77d5f374..88aefe65ddca9629b82872543e0b75a3
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
-@@ -900,6 +925,11 @@ impl App {
+@@ -880,6 +905,11 @@ impl App {
              return Ok(AppRunControl::Exit(ExitReason::UserRequested));
          }
          let screen_size = tui.screen_size_for_event(&event)?;
@@ -559,7 +559,7 @@ index 9349649f248df7a23686ccdb2dfc41ae77d5f374..88aefe65ddca9629b82872543e0b75a3
              &event,
              TuiEvent::Key(_) | TuiEvent::Mouse(_) | TuiEvent::Paste(_) | TuiEvent::FocusLost
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index cf6e42e3d4cb8cb3ed20e21b7ba76b357e14a3e5..f06b0b4fdc6a99b7a0674c1c8da6d8d1d900b58f 100644
+index 7f569039b8d4eef515992fbc18a5d449e6436733..11a055e1bbc65b2e680c6ae95c6285f2bad2ecd8 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -1,12 +1,14 @@
@@ -661,7 +661,7 @@ index cf6e42e3d4cb8cb3ed20e21b7ba76b357e14a3e5..f06b0b4fdc6a99b7a0674c1c8da6d8d1
      pub(super) fn refresh_mcp_startup_expected_servers_from_config(&mut self) {
          if self
              .current_displayed_thread_id()
-@@ -266,6 +334,16 @@ impl App {
+@@ -279,6 +347,16 @@ impl App {
                  self.refresh_mcp_startup_expected_servers_from_config();
              }
              ServerNotification::AccountRateLimitsUpdated(notification) => {
@@ -678,7 +678,7 @@ index cf6e42e3d4cb8cb3ed20e21b7ba76b357e14a3e5..f06b0b4fdc6a99b7a0674c1c8da6d8d1
                  let workspace_hard_stop = matches!(
                      notification.rate_limits.rate_limit_reached_type,
                      Some(
-@@ -375,6 +453,27 @@ impl App {
+@@ -388,6 +466,27 @@ impl App {
              _ => {}
          }
  
@@ -706,7 +706,7 @@ index cf6e42e3d4cb8cb3ed20e21b7ba76b357e14a3e5..f06b0b4fdc6a99b7a0674c1c8da6d8d1
          match server_notification_thread_target(&notification) {
              ServerNotificationThreadTarget::Thread(thread_id) => {
                  if self.current_displayed_thread_id() != Some(thread_id)
-@@ -436,6 +535,12 @@ impl App {
+@@ -449,6 +548,12 @@ impl App {
                  {
                      return;
                  }
@@ -719,7 +719,7 @@ index cf6e42e3d4cb8cb3ed20e21b7ba76b357e14a3e5..f06b0b4fdc6a99b7a0674c1c8da6d8d1
                  let result = if self.primary_thread_id.is_none() && !background_voice {
                      self.enqueue_primary_thread_notification(notification).await
                  } else {
-@@ -446,6 +551,10 @@ impl App {
+@@ -459,6 +564,10 @@ impl App {
                  if let Err(err) = result {
                      tracing::warn!("failed to enqueue app-server notification: {err}");
                  }
@@ -731,7 +731,7 @@ index cf6e42e3d4cb8cb3ed20e21b7ba76b357e14a3e5..f06b0b4fdc6a99b7a0674c1c8da6d8d1
              }
              ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
 diff --git a/codex-rs/tui/src/app/exit_summary.rs b/codex-rs/tui/src/app/exit_summary.rs
-index 39b023805bf434fc921394744da63bbc93ba589b..f1c88856d8910b9e4e2f3d8dc1ab6fb8d813cdfc 100644
+index f9932ced06ea613e8aa534d8e1667912115cee6d..71f4168077af99ff715dbedd9e1b7fd86416abf4 100644
 --- a/codex-rs/tui/src/app/exit_summary.rs
 +++ b/codex-rs/tui/src/app/exit_summary.rs
 @@ -25,6 +25,7 @@ impl App {
@@ -775,10 +775,10 @@ index 39b023805bf434fc921394744da63bbc93ba589b..f1c88856d8910b9e4e2f3d8dc1ab6fb8
              lines.push(message.to_string());
              let mut resume_command = disconnect.command.clone();
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 95807f0a724c07544fe7d51e0eba4b1ca1bdcd27..daa593b3c891f1544f587135ceef54c844e0b4f2 100644
+index 0cdd4ce30cb7740a0e489d3b07180318346cfbb5..b3344f35daa288a43accef803318ab68c8d144de 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -166,11 +166,14 @@ impl App {
+@@ -186,11 +186,14 @@ impl App {
          cloud_config_bundle: CloudConfigBundleLoader,
          initial_prompt: Option<String>,
          initial_images: Vec<PathBuf>,
@@ -793,7 +793,7 @@ index 95807f0a724c07544fe7d51e0eba4b1ca1bdcd27..daa593b3c891f1544f587135ceef54c8
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -796,6 +799,12 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -834,6 +837,12 @@ See the Codex keymap documentation for supported actions and examples."
              },
              daemon_cli_executable,
              pending_update_action: None,
@@ -805,8 +805,8 @@ index 95807f0a724c07544fe7d51e0eba4b1ca1bdcd27..daa593b3c891f1544f587135ceef54c8
 +            quota_handoff_error: None,
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState {
-                 prompt_after_trust: should_prompt_windows_sandbox_nux_at_startup,
-@@ -895,7 +904,42 @@ See the Codex keymap documentation for supported actions and examples."
+                 prompt_after_trust: should_prompt_windows_sandbox_nux_at_startup
+@@ -936,7 +945,42 @@ See the Codex keymap documentation for supported actions and examples."
                          .add_info_message(notice.to_string(), /*hint*/ None);
                  }
              }
@@ -850,7 +850,7 @@ index 95807f0a724c07544fe7d51e0eba4b1ca1bdcd27..daa593b3c891f1544f587135ceef54c8
                  && should_prompt_for_paused_goal_after_startup_resume
                  && let Err(err) = startup_draft
                      .run_until(
-@@ -909,6 +953,15 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -950,6 +994,15 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, err).await;
              }
@@ -866,7 +866,7 @@ index 95807f0a724c07544fe7d51e0eba4b1ca1bdcd27..daa593b3c891f1544f587135ceef54c8
          }
          if !start_in_agents_overview
              && !pending_startup_thread_start
-@@ -1307,6 +1360,27 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1348,6 +1401,27 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -895,10 +895,10 @@ index 95807f0a724c07544fe7d51e0eba4b1ca1bdcd27..daa593b3c891f1544f587135ceef54c8
      }
  }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 24242f3fc9abdf572f559cfa3a5a4b6382b58dfd..476c47add7515559ed63254f740ab2f065b1a0b9 100644
+index 135c411dd1130d7b7a2a9663f45f39e89340b435..2b866b12b346667bebb20bce12e9f0a0ec5dc0dc 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -80,6 +80,12 @@ pub(crate) async fn make_test_app() -> App {
+@@ -77,6 +77,12 @@ pub(crate) async fn make_test_app() -> App {
          reconnect: Default::default(),
          daemon_cli_executable: None,
          pending_update_action: None,
@@ -912,11 +912,11 @@ index 24242f3fc9abdf572f559cfa3a5a4b6382b58dfd..476c47add7515559ed63254f740ab2f0
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 319bde4a56728ce6f299cd59015e33a90c4a5665..2579e87c4050a982ad06f74404b651c52438c460 100644
+index d918efae1e2aa9538667b756f02fd65d8c2eddbb..8014cee994d883b3b40ca067e25a6cd14b0eeb9c 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -6040,6 +6040,12 @@ async fn make_test_app() -> Box<App> {
-         reconnect: Default::default(),
+@@ -6054,6 +6054,12 @@ async fn make_test_app() -> Box<App> {
+         },
          daemon_cli_executable: None,
          pending_update_action: None,
 +        exit_on_quota_exceeded: false,
@@ -928,8 +928,8 @@ index 319bde4a56728ce6f299cd59015e33a90c4a5665..2579e87c4050a982ad06f74404b651c5
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -6146,6 +6152,12 @@ pub(super) async fn make_test_app_with_channels() -> (
-             reconnect: Default::default(),
+@@ -6171,6 +6177,12 @@ pub(super) async fn make_test_app_with_channels() -> (
+             },
              daemon_cli_executable: None,
              pending_update_action: None,
 +            exit_on_quota_exceeded: false,
@@ -941,7 +941,7 @@ index 319bde4a56728ce6f299cd59015e33a90c4a5665..2579e87c4050a982ad06f74404b651c5
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -6397,6 +6409,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
+@@ -6423,6 +6435,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
      Ok(())
  }
  
@@ -1205,7 +1205,7 @@ index 4af071c81eb78336e744207b7cbe72d5224d0ea9..3eff71415c94ee4a56b199d41237ed32
  async fn backend_banner_state_survives_widget_replacement() -> Result<()> {
      for dismiss in [false, true] {
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index 4c789caf5e6458450ca2881c648761a69e73b782..51edcc2fdec094ead8387f98212dd4510ca70d27 100644
+index 429265902a22cefea96555b354717b69364ad260..2cd67d379c32afeb8f6c91b994458cb180d415f2 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 @@ -23,11 +23,14 @@ async fn run_startup_for_test(
@@ -1224,7 +1224,7 @@ index 4c789caf5e6458450ca2881c648761a69e73b782..51edcc2fdec094ead8387f98212dd451
          Arc::new(EnvironmentManager::default_for_tests()),
          Duration::ZERO,
 diff --git a/codex-rs/tui/src/app/thread_goal_actions.rs b/codex-rs/tui/src/app/thread_goal_actions.rs
-index 1dd2c9f3e779ab2d74ab926cf064b6c995fe718d..99451326b856c6f2a1cd54502cb3c78ccae86e84 100644
+index b46853dba87a474c95795f45c57b7b905bdcc4b6..5425312f32e40b2357789d52c2bb077130ea7636 100644
 --- a/codex-rs/tui/src/app/thread_goal_actions.rs
 +++ b/codex-rs/tui/src/app/thread_goal_actions.rs
 @@ -85,6 +85,43 @@ impl App {
@@ -1312,10 +1312,10 @@ index 1dd2c9f3e779ab2d74ab926cf064b6c995fe718d..99451326b856c6f2a1cd54502cb3c78c
      }
  
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index 158c39f1c7df6eec7d0a0af28f15305a929ecbcf..e9d086c8eb7f45aa2d590614a9da31424fb68880 100644
+index 72722559fcac5be336b474ae71a48bfa7df34964..fb6c2ea53fdde84b094f4ac8ca91ea72893d2196 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-@@ -529,7 +529,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
+@@ -536,7 +536,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
          )
  }
  
@@ -1326,7 +1326,7 @@ index 158c39f1c7df6eec7d0a0af28f15305a929ecbcf..e9d086c8eb7f45aa2d590614a9da3142
      Plain,
      /// Preserve model-input provenance when paste expansion reveals a leading shell sigil.
 diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
-index 3f16d118e16b5b6f7e6fe641ce8fadd9455602e4..dac7870e5bbe9a7c29e6709e5fe89862d2a4241f 100644
+index 912880eed106549f64243f09a5059a0ea7f5e02e..ee7f7db2d2213278136bc5d46859d96f31c675d1 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
 @@ -118,13 +118,13 @@ mod bottom_pane_view;
@@ -1346,22 +1346,22 @@ index 3f16d118e16b5b6f7e6fe641ce8fadd9455602e4..dac7870e5bbe9a7c29e6709e5fe89862
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index 79db6b69bf118ec81ddbd83deed1d5652cbe2ce7..0129700c2003709477a6aa22cd8301c391a11412 100644
+index 021694a5c5ee049fa8c018426f697221b1ebfe98..729ce118d393db9ae1a645f021d110874d2ce39a 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
-@@ -290,6 +290,7 @@ mod input_submission;
+@@ -288,6 +288,7 @@ mod input_restore;
+ mod input_submission;
  mod interrupts;
- mod prompt_suggestions;
  mod questions;
 +mod quota_handoff;
  mod startup_submission;
  use self::interrupts::InterruptManager;
  mod keymap_picker;
 diff --git a/codex-rs/tui/src/chatwidget/input_queue.rs b/codex-rs/tui/src/chatwidget/input_queue.rs
-index 4ef1fe6e12fbb21311da30290e8a871646324226..049a9c8e387b355a02358d4f9a91186fe292d159 100644
+index 13600b2d865552f09155bb1dcfdd709bca887aad..41da8af85621841cffbeaaff75f0accf63b1f1f0 100644
 --- a/codex-rs/tui/src/chatwidget/input_queue.rs
 +++ b/codex-rs/tui/src/chatwidget/input_queue.rs
-@@ -46,6 +46,8 @@ pub(super) struct InputQueueState {
+@@ -48,6 +48,8 @@ pub(super) struct InputQueueState {
      /// When set, the next interrupt should resubmit all pending steers as one
      /// fresh user turn instead of restoring them into the composer.
      pub(super) submit_pending_steers_after_interrupt: bool,
@@ -1370,7 +1370,7 @@ index 4ef1fe6e12fbb21311da30290e8a871646324226..049a9c8e387b355a02358d4f9a91186f
      pub(super) suppress_queue_autosend: bool,
      /// Hold submissions while a usage failure or backend-directed model fallback is resolved.
      pub(super) rate_limit_recovery_pending: bool,
-@@ -68,6 +70,7 @@ impl InputQueueState {
+@@ -78,6 +80,7 @@ impl InputQueueState {
          self.rejected_steer_history_records.clear();
          self.pending_steers.clear();
          self.submit_pending_steers_after_interrupt = false;
@@ -1378,7 +1378,7 @@ index 4ef1fe6e12fbb21311da30290e8a871646324226..049a9c8e387b355a02358d4f9a91186f
          self.rate_limit_recovery_pending = false;
      }
  
-@@ -154,6 +157,7 @@ mod tests {
+@@ -164,6 +167,7 @@ mod tests {
              .push_back(UserMessage::from("rejected"));
          state.user_turn_pending_start = true;
          state.submit_pending_steers_after_interrupt = true;
@@ -1386,7 +1386,7 @@ index 4ef1fe6e12fbb21311da30290e8a871646324226..049a9c8e387b355a02358d4f9a91186f
  
          state.clear();
  
-@@ -164,5 +168,6 @@ mod tests {
+@@ -174,5 +178,6 @@ mod tests {
          assert!(state.rejected_steer_history_records.is_empty());
          assert!(state.pending_steers.is_empty());
          assert!(!state.submit_pending_steers_after_interrupt);
@@ -1394,7 +1394,7 @@ index 4ef1fe6e12fbb21311da30290e8a871646324226..049a9c8e387b355a02358d4f9a91186f
      }
  }
 diff --git a/codex-rs/tui/src/chatwidget/input_restore.rs b/codex-rs/tui/src/chatwidget/input_restore.rs
-index 114118f7115fe13222fef2627d17987e165284a7..1ec7b99bee2521c32741ee6e9b9065680539e0a7 100644
+index e1a798b522b62c05c1d0007ec5a668b12154e70f..971bef51c5ec3f7fe159979a562b3cfb2de3d41a 100644
 --- a/codex-rs/tui/src/chatwidget/input_restore.rs
 +++ b/codex-rs/tui/src/chatwidget/input_restore.rs
 @@ -311,13 +311,15 @@ impl ChatWidget {
@@ -1414,7 +1414,7 @@ index 114118f7115fe13222fef2627d17987e165284a7..1ec7b99bee2521c32741ee6e9b906568
                  self.add_to_history(history_cell::new_info_event(
                      "Model interrupted to submit steer instructions.".to_owned(),
                      /*hint*/ None,
-@@ -332,7 +334,9 @@ impl ChatWidget {
+@@ -340,7 +342,9 @@ impl ChatWidget {
          // The server has already discarded pending input by the time the
          // interrupted turn reaches the UI, so any unacknowledged steers still
          // tracked here must be restored locally instead of waiting for a later commit.
@@ -1425,7 +1425,7 @@ index 114118f7115fe13222fef2627d17987e165284a7..1ec7b99bee2521c32741ee6e9b906568
              let pending_steers = self
                  .input_queue
                  .pending_steers
-@@ -593,6 +597,7 @@ impl ChatWidget {
+@@ -604,6 +608,7 @@ impl ChatWidget {
          restore_mode: ThreadInputStateRestoreMode,
      ) {
          let preserve_in_flight_turn = restore_mode.preserve_in_flight_turn;
@@ -1434,7 +1434,7 @@ index 114118f7115fe13222fef2627d17987e165284a7..1ec7b99bee2521c32741ee6e9b906568
              preserve_in_flight_turn && input_state.as_ref().is_some_and(|state| state.task_running);
          if let Some(input_state) = input_state {
 diff --git a/codex-rs/tui/src/chatwidget/input_submission.rs b/codex-rs/tui/src/chatwidget/input_submission.rs
-index a37e938cdd06242610c9b93fec4eb058d714e60f..2a23cf3e9861190d77fad984c0ad3cf6678fb9be 100644
+index 5184f1c6ffef97f069beb0eeb0e347042bf2d8f6..24f97c3205902c46be54ede39f424fe544c0ea35 100644
 --- a/codex-rs/tui/src/chatwidget/input_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/input_submission.rs
 @@ -3,6 +3,8 @@
@@ -1815,10 +1815,10 @@ index 0000000000000000000000000000000000000000..8c5555a6a674626a6906df49c085c859
 +        .wrap_err_with(|| format!("could not parse input handoff {}", path.display()))
 +}
 diff --git a/codex-rs/tui/src/chatwidget/tests.rs b/codex-rs/tui/src/chatwidget/tests.rs
-index c0ec4ad6481a81bbbe98ce7b029a6c11b32d0dd0..2ca92a22bc5d8b00747bbf7ae275e80a242a1d9c 100644
+index 3dabfdc058975e1f6663616da17fb30a39edc61a..4042a5d868ab7cba54ed25ffe9b9decfd8eaedf1 100644
 --- a/codex-rs/tui/src/chatwidget/tests.rs
 +++ b/codex-rs/tui/src/chatwidget/tests.rs
-@@ -277,6 +277,7 @@ mod plan_mode;
+@@ -276,6 +276,7 @@ mod plan_mode;
  #[path = "tests/plugin_catalog_tests.rs"]
  mod plugin_catalog;
  mod popups_and_settings;
@@ -1827,7 +1827,7 @@ index c0ec4ad6481a81bbbe98ce7b029a6c11b32d0dd0..2ca92a22bc5d8b00747bbf7ae275e80a
  mod rate_limit_recovery_tests;
  #[path = "tests/reasoning_status_tests.rs"]
 diff --git a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-index 7302a406704352387742008af4619066ad9296fb..60008f161037907e2bb4fdc6b3dbb7721b0e8b90 100644
+index 099806b8a633cdfc731141cbac257e337e30befc..ba4a1693b4d8fdfd2c690d1d56f9533bfea02afe 100644
 --- a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
 @@ -383,6 +383,93 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
@@ -1926,10 +1926,10 @@ index 7302a406704352387742008af4619066ad9296fb..60008f161037907e2bb4fdc6b3dbb772
      let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ Some("gpt-5")).await;
 diff --git a/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..d56ab9c12525c5867a8010ab6ddeb7d9db5e1a2a
+index 0000000000000000000000000000000000000000..d7ef3aaef8b7a03ffec60161121bcc87edca6fa7
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
-@@ -0,0 +1,201 @@
+@@ -0,0 +1,207 @@
 +use std::fs;
 +#[cfg(unix)]
 +use std::os::unix::fs::PermissionsExt;
@@ -2024,6 +2024,7 @@ index 0000000000000000000000000000000000000000..d56ab9c12525c5867a8010ab6ddeb7d9
 +        .push_back(QueuedUserMessage {
 +            user_message: UserMessage::from("/status"),
 +            action: QueuedInputAction::ParseSlash,
++            delivery: MessageDelivery::Unconfirmed(Some("queued-input".to_string())),
 +            pending_pastes: vec![("[Pasted Content 1]".to_string(), "payload".to_string())],
 +            source: UserMessageSource::Prompt,
 +        });
@@ -2089,6 +2090,11 @@ index 0000000000000000000000000000000000000000..d56ab9c12525c5867a8010ab6ddeb7d9
 +    let queued_command = restored.input_queue.queued_user_messages.back().unwrap();
 +    assert_eq!(queued_command.action, QueuedInputAction::ParseSlash);
 +    assert_eq!(
++        queued_command.delivery,
++        MessageDelivery::Unconfirmed(Some("queued-input".to_string()))
++    );
++    assert!(restored.input_queue.has_unconfirmed_messages());
++    assert_eq!(
 +        queued_command.pending_pastes,
 +        vec![("[Pasted Content 1]".to_string(), "payload".to_string())]
 +    );
@@ -2132,7 +2138,7 @@ index 0000000000000000000000000000000000000000..d56ab9c12525c5867a8010ab6ddeb7d9
 +    );
 +}
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index bad721b9ca6cb098ccf5be0893d5a978404396f8..ffafea3060549aba03c63e3b5d720ef2b7cb2a9e 100644
+index 137220567c123e8a1c87617333e02945e464a3ab..dcfdb9ea8142b29d975e2f87aaa882d4f0fa49d5 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
 @@ -124,6 +124,7 @@ impl ChatWidget {
@@ -2152,7 +2158,7 @@ index bad721b9ca6cb098ccf5be0893d5a978404396f8..ffafea3060549aba03c63e3b5d720ef2
          // Drop preview-only stream tail content on any termination path before
          // failed-cell finalization, so transient tail cells are never persisted.
 diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
-index 533e0eaf0293ac483504d2aea19892e8fae3af3e..3db3bbb4ad1c1a682ddec9bce5c10e5a3fb64525 100644
+index ed997253bc7e63e72f4e2f2601213effaf588879..f63a1f51bd7bb168289eca686bed0a22f8702803 100644
 --- a/codex-rs/tui/src/chatwidget/user_messages.rs
 +++ b/codex-rs/tui/src/chatwidget/user_messages.rs
 @@ -28,7 +28,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
@@ -2181,7 +2187,7 @@ index 533e0eaf0293ac483504d2aea19892e8fae3af3e..3db3bbb4ad1c1a682ddec9bce5c10e5a
  pub(super) struct UserMessageHistoryOverride {
      pub(super) text: String,
      pub(super) text_elements: Vec<TextElement>,
-@@ -60,13 +61,13 @@ pub(super) enum ShellEscapePolicy {
+@@ -60,20 +61,20 @@ pub(super) enum ShellEscapePolicy {
      Disallow,
  }
  
@@ -2192,12 +2198,20 @@ index 533e0eaf0293ac483504d2aea19892e8fae3af3e..3db3bbb4ad1c1a682ddec9bce5c10e5a
      QuestionAnswer,
  }
  
+ /// Whether a recovered message can be submitted without risking a duplicate.
+-#[derive(Debug, Clone, PartialEq)]
++#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+ pub(super) enum MessageDelivery {
+     Unsent,
+     Unconfirmed(Option<String>),
+ }
+ 
 -#[derive(Debug, Clone, PartialEq)]
 +#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
  pub(super) struct QueuedUserMessage {
      pub(super) user_message: UserMessage,
      pub(super) action: QueuedInputAction,
-@@ -109,7 +110,7 @@ pub(super) enum QueueDrain {
+@@ -118,7 +119,7 @@ pub(super) enum QueueDrain {
      Stop,
  }
  
@@ -2245,7 +2259,7 @@ index cfa2d862332b2f03a90280cb993100e5dac291a4..427609b7cd5397eec7aa7b7f9d3da478
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index a08ccd859c21aaa0f17dd06eef7742a1651a7145..d53ddab213fca8924ebd97f3e523df2124641cf5 100644
+index d1c672d9acf476013b43306b467fb900d636aa71..3e3f4dcff305eb4d5f64dbeb68cb1968769f3be8 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
 @@ -26,6 +26,9 @@ pub use app::AppExitInfo;
@@ -2258,7 +2272,7 @@ index a08ccd859c21aaa0f17dd06eef7742a1651a7145..d53ddab213fca8924ebd97f3e523df21
  use app_server_session::AppServerSession;
  use app_server_session::ThreadParamsMode;
  use codex_app_server_client::AppServerClient;
-@@ -1955,9 +1958,12 @@ async fn run_ratatui_app(
+@@ -1961,9 +1964,12 @@ async fn run_ratatui_app(
      let should_prompt_windows_sandbox_nux_at_startup = false;
  
      let Cli {
@@ -2271,14 +2285,14 @@ index a08ccd859c21aaa0f17dd06eef7742a1651a7145..d53ddab213fca8924ebd97f3e523df21
          ..
      } = cli;
      let images = shared.into_inner().images;
-@@ -2035,11 +2041,14 @@ async fn run_ratatui_app(
+@@ -2041,11 +2047,14 @@ async fn run_ratatui_app(
          cloud_config_bundle,
          prompt,
          images,
 +        exit_on_quota_exceeded,
          session_selection,
          feedback,
-         should_show_trust_screen, // Proxy to: is it a first run in this directory?
+         is_first_run,
          should_prompt_windows_sandbox_nux_at_startup,
          app_server_target,
 +        start_immediately,

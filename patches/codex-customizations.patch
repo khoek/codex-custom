@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index ac80e2ffe8b617e993d46f686ce5adec10ca6add..ff855b687a7de910da9fc29679a2380cdb98b95d 100644
+index a8246dbcb1e8859fae6d76c308833b658c2023dc..535d74d264104fd7ab63cd48ecd2e07a910c6bc2 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -154,7 +154,7 @@ members = [
+@@ -158,7 +158,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
@@ -12,10 +12,10 @@ index ac80e2ffe8b617e993d46f686ce5adec10ca6add..ff855b687a7de910da9fc29679a2380c
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index b977bb16f6dc9413e63252e2e423c016f4964724..7e3f129344de9cfda81a050527e9b860af8baa29 100644
+index e08a0fa5a8d55c89bfdb0476fd0831d0b6079fe2..7f05e4f33ee84f25258ac5c0927f961da36911b4 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4921,14 +4921,19 @@ impl Session {
+@@ -5028,14 +5028,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -40,10 +40,10 @@ index b977bb16f6dc9413e63252e2e423c016f4964724..7e3f129344de9cfda81a050527e9b860
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 9cb401f29fbbde8f18e933301a9b5e11c4964389..1b303dea62702b66644e426d2fd01e2edf4eaf8d 100644
+index d0dad844bd548505d0bd9109dec3d0c0019d93a3..f2971383adb28463358851aafcb051cee9cc7e61 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -405,13 +405,13 @@ impl CodexErr {
+@@ -410,7 +410,6 @@ impl CodexErr {
              | CodexErrorDetails::Spawn
              | CodexErrorDetails::SessionConfiguredNotFirstEvent
              | CodexErrorDetails::UsageLimitReached(_)
@@ -51,8 +51,9 @@ index 9cb401f29fbbde8f18e933301a9b5e11c4964389..1b303dea62702b66644e426d2fd01e2e
              | CodexErrorDetails::FlexUnavailable
              | CodexErrorDetails::CyberPolicy { .. }
              | CodexErrorDetails::BioPolicy { .. }
-             | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
+@@ -418,6 +417,7 @@ impl CodexErr {
              CodexErrorDetails::Stream(..)
+             | CodexErrorDetails::ContentFilter
              | CodexErrorDetails::RateLimitExceeded(_)
 +            | CodexErrorDetails::ServerOverloaded
              | CodexErrorDetails::Timeout
@@ -91,10 +92,10 @@ index dacfbc5db082d731c0a08dc1ac958c1e0a3aef9d..cec1f79b1e7d1787b28d2c0dbb2ba0b8
  
      pub(crate) fn confirm_safety_buffered_retry(
 diff --git a/codex-rs/tui/src/app/background_requests.rs b/codex-rs/tui/src/app/background_requests.rs
-index bfa33203da5025c3de954e7a796cc8dff11d3bb9..d4cc38e3623627a791738337cb6f318008a24b2f 100644
+index 8b29753b3ccf60979875cbf6b0d8ca729b19c352..abcf5a7b29584ce7368a8be44947e5c73c68ab83 100644
 --- a/codex-rs/tui/src/app/background_requests.rs
 +++ b/codex-rs/tui/src/app/background_requests.rs
-@@ -789,27 +789,45 @@ pub(super) async fn fetch_account_rate_limits(
+@@ -793,27 +793,45 @@ pub(super) async fn fetch_account_rate_limits(
          .request_typed(ClientRequest::GetAccountRateLimits {
              request_id: request_id.clone(),
              params: Some(GetAccountRateLimitsParams {

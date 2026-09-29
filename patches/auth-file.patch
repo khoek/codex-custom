@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index 9af76ee9cb5125e411859442fd91acfe7eef2c39..113964be980a8bdf12e8eb644185e4df0a2519fd 100644
+index 19885ae975045bffffbae13dcaa78e003b815d40..1955e417c3988c17f5d4da4719f9dee96d4d0f53 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -3746,6 +3746,7 @@ dependencies = [
+@@ -3808,6 +3808,7 @@ dependencies = [
   "http 1.4.0",
   "jsonwebtoken",
   "keyring",
@@ -11,7 +11,7 @@ index 9af76ee9cb5125e411859442fd91acfe7eef2c39..113964be980a8bdf12e8eb644185e4df
   "os_info",
   "pretty_assertions",
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
-index 6cc337a8815ff85c0963f8f9662a164a77686720..b61939fb95fc559b84468cbb3956dcfb4c1a92f1 100644
+index 3dc3d07b835f0272b1e91342afa63072a3a635ed..c02277a6fbaaeda90a4ed958b88855b1f23e2219 100644
 --- a/codex-rs/cli/src/doctor.rs
 +++ b/codex-rs/cli/src/doctor.rs
 @@ -54,6 +54,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
@@ -32,7 +32,7 @@ index 6cc337a8815ff85c0963f8f9662a164a77686720..b61939fb95fc559b84468cbb3956dcfb
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 0a28adaad5b81eae69b54a02aa5f26e6ee4b9118..354c4c93ca1f30e7c721d7a072d092f7a3fcd7d2 100644
+index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a681237040 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -128,6 +128,91 @@ struct MultitoolCli {
@@ -388,10 +388,17 @@ index 0a28adaad5b81eae69b54a02aa5f26e6ee4b9118..354c4c93ca1f30e7c721d7a072d092f7
      fn approve_for_me_defaults_propagate_from_root_to_exec() {
          let exec = finalize_exec_from_args(&["codex", "--approve-for-me", "exec", "summarize"]);
 diff --git a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
-index 44fb6b581effa12894868893b417fcd8f009b7c0..edb9f7c650a06dc112831dfeb3dc7d72ea6fd444 100644
+index 2010b1e0c584f5efd7e9cbc0e718214af6b8e214..9a5ebd87a2422cf6c819f9759f980b8ec0e202a2 100644
 --- a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
 +++ b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
-@@ -22,17 +22,10 @@ Options:
+@@ -1,5 +1,6 @@
+ ---
+ source: cli/src/exec_server_args_tests.rs
++assertion_line: 41
+ expression: help_text
+ ---
+ [EXPERIMENTAL] Run the standalone exec-server service
+@@ -21,17 +22,10 @@ Options:
            'sandbox_permissions=["disk-full-read-access"]'` - `-c
            shell_environment_policy.inherit=all`
  
@@ -409,28 +416,28 @@ index 44fb6b581effa12894868893b417fcd8f009b7c0..edb9f7c650a06dc112831dfeb3dc7d72
        --linux-sandbox-pid-namespace <MODE>
            Linux PID namespace: isolate (default) or inherit. Inherit allows
            signals to other same-UID processes; enable only when provisioning a
-@@ -60,9 +53,16 @@ Options:
-       --ws-token-sha256 <HEX>
-           Hex-encoded SHA-256 digest of the capability token
+@@ -64,9 +58,16 @@ Options:
+       --ws-token-file <PATH>
+           Absolute path to the capability-token file
  
 +      --enable <FEATURE>
 +          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
 +
-       --ws-shared-secret-file <PATH>
-           Absolute path to the shared secret file for signed JWT bearer tokens
+       --ws-token-sha256 <HEX>
+           Hex-encoded SHA-256 digest of the capability token
  
 +      --disable <FEATURE>
 +          Disable a feature (repeatable). Equivalent to `-c
 +          features.<name>=false`
 +
-       --ws-issuer <ISSUER>
-           Expected issuer for signed JWT bearer tokens
+       --ws-shared-secret-file <PATH>
+           Absolute path to the shared secret file for signed JWT bearer tokens
  
 diff --git a/codex-rs/login/Cargo.toml b/codex-rs/login/Cargo.toml
-index 2971dec6c1a81cb80379477333371bba6e8fbece..ac8621bf6cbc79078704de52919adc29cc66dd90 100644
+index 8772f46b58677773d23769d50d1f4e8efb6a9ca5..42c4e01a4e3631a9dba8e682320c2643ef84c37a 100644
 --- a/codex-rs/login/Cargo.toml
 +++ b/codex-rs/login/Cargo.toml
-@@ -22,12 +22,14 @@ codex-terminal-detection = { workspace = true }
+@@ -23,12 +23,14 @@ codex-terminal-detection = { workspace = true }
  codex-utils-template = { workspace = true }
  codex-workload-identity = { workspace = true }
  http = { workspace = true }
@@ -445,7 +452,7 @@ index 2971dec6c1a81cb80379477333371bba6e8fbece..ac8621bf6cbc79078704de52919adc29
  thiserror = { workspace = true }
  tiny_http = { workspace = true }
  tokio = { workspace = true, features = [
-@@ -50,7 +52,6 @@ keyring = { workspace = true }
+@@ -51,7 +53,6 @@ keyring = { workspace = true }
  pretty_assertions = { workspace = true }
  regex-lite = { workspace = true }
  serial_test = { workspace = true }

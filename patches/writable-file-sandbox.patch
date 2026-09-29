@@ -1,8 +1,8 @@
 diff --git a/codex-rs/linux-sandbox/src/bwrap.rs b/codex-rs/linux-sandbox/src/bwrap.rs
-index bcc7dcbaa33fe65e67ffc2ff6265cf047e0acfc2..3da40ef460f79dba6eac38187f7bedb7d3ba762f 100644
+index 319b6af419b91f84610e5f484ce090848a913f1f..83dd18d22d031bc5debf1fe27cbaab6117591eb6 100644
 --- a/codex-rs/linux-sandbox/src/bwrap.rs
 +++ b/codex-rs/linux-sandbox/src/bwrap.rs
-@@ -664,7 +664,13 @@ fn create_filesystem_args(
+@@ -694,7 +694,13 @@ fn create_filesystem_args(
              })
              .cloned()
              .collect();
@@ -17,11 +17,11 @@ index bcc7dcbaa33fe65e67ffc2ff6265cf047e0acfc2..3da40ef460f79dba6eac38187f7bedb7
          append_metadata_path_masks_for_writable_root(
              &mut read_only_subpaths,
              root,
-@@ -2617,6 +2623,18 @@ mod tests {
+@@ -2744,6 +2750,18 @@ mod tests {
              "expected unreadable parent mask before rebinding writable file child: {:#?}",
              args.args
          );
-+        for name in [".git", ".agents", ".codex"] {
++        for name in [".git", ".agents", ".codex", ".aws"] {
 +            let impossible_child = allowed_file.as_path().join(name);
 +            assert!(
 +                !args

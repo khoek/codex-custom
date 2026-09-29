@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `4b1c0c30dabd08fed7d6523844f9156d982eb297`
+repository as a submodule at commit `c248f6d48b97eb4a2aa56147a0b11b7d763278b9`
 from upstream `main`. The custom version is `0.158.0-k.4b1c0c30`. It carries a
 small, ordered patch series:
 
@@ -103,10 +103,10 @@ is ordinary output.
 The sidecar is written atomically with mode `0600` beside the rollout (or in the
 persistent sessions directory if that path cannot be resolved). It contains the
 exact model/config recovery arguments, each rejected steer, pending steer, and
-queued follow-up as a separate message, plus unsent composer text, attachments,
-mention bindings, and pending paste contents. A supervisor validates the
-sidecar, performs any out-of-process recovery required by its own policy, and
-passes the path to the hidden
+queued follow-up as a separate message, including its delivery status, plus unsent
+composer text, attachments, mention bindings, and pending paste contents. A
+supervisor validates the sidecar, performs any out-of-process recovery required
+by its own policy, and passes the path to the hidden
 `codex resume ... --start-immediately --restore-input-handoff PATH` option. Codex
 restores each saved message into the normal queue independently, starts the first
 one, and puts the unfinished draft back in the composer. The sidecar is retained
