@@ -817,7 +817,7 @@ index 1efba0f415d3a388d6c89e4b393d32b29f7de23e..217d68560f9feb6fbadcf49d0a084014
          (
              CodexErr::new(CodexErrorDetails::RateLimitExceeded("retry later".into())),
 diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
-index 8aa1bca71b37199ea5aa9956871c68de2b0c1dc5..3f57a7d228c92d3dad1d7f201e3482b817d000d7 100644
+index 8aa1bca71b37199ea5aa9956871c68de2b0c1dc5..6b27f35c775326e2fcfcaaf20c52b3ec3e8f708a 100644
 --- a/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
 +++ b/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
 @@ -4,7 +4,7 @@ assertion_line: 6513
@@ -825,7 +825,7 @@ index 8aa1bca71b37199ea5aa9956871c68de2b0c1dc5..3f57a7d228c92d3dad1d7f201e3482b8
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       <thread cwd>
  
  
@@ -916,7 +916,7 @@ index ca516eda0f9bf7ac5f06ba93a977fa460f413b32..7feb181d5284d7a2e796c2dfbdd860b1
          let AppCommand::UserTurn { items, .. } = &second_retry.turn else {
              panic!("second safety-buffering retry should retain the user turn");
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
-index ab3a8c84c9889e61267bb7d72e9963311b8e434f..6e00f90613a81850c268c1033fed05e543f9c924 100644
+index ab3a8c84c9889e61267bb7d72e9963311b8e434f..f4f9ff3a9dc1a092929a2bfc56ea79e9db3ba29f 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
 @@ -4,7 +4,7 @@ assertion_line: 889
@@ -924,12 +924,12 @@ index ab3a8c84c9889e61267bb7d72e9963311b8e434f..6e00f90613a81850c268c1033fed05e5
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
-index 2ecde209a27287959623a364d840c412cc3b3022..002bc758bb6f7d1fe93291aeddc43224ff93ec58 100644
+index 2ecde209a27287959623a364d840c412cc3b3022..9683359a9fb7ca48f9463524fa1c95eb8b886857 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
 @@ -4,7 +4,7 @@ assertion_line: 1093
@@ -937,12 +937,12 @@ index 2ecde209a27287959623a364d840c412cc3b3022..002bc758bb6f7d1fe93291aeddc43224
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap
-index 5c3a9d2bce171ebb52a583b9ed126bf204163735..f0338fa5ae6459d3615dc5a0a9491a79c4099381 100644
+index 5c3a9d2bce171ebb52a583b9ed126bf204163735..b737bab0a312305091b6680bd029d84a41a6f5b7 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap
 @@ -15,7 +15,7 @@ Restored owner:
@@ -950,12 +950,12 @@ index 5c3a9d2bce171ebb52a583b9ed126bf204163735..f0338fa5ae6459d3615dc5a0a9491a79
    gpt-test default · /tmp/project
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap
-index 0dfd7333b6acd684d1881dd432fc4f137126b7b0..fdc0babead8f4500b562ec2d850c7f8605ef2988 100644
+index 0dfd7333b6acd684d1881dd432fc4f137126b7b0..f7a70a1a827fbb672b3eb97505ad6a50b0a8df36 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap
 @@ -4,7 +4,7 @@ assertion_line: 716
@@ -963,7 +963,7 @@ index 0dfd7333b6acd684d1881dd432fc4f137126b7b0..fdc0babead8f4500b562ec2d850c7f86
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
@@ -1393,7 +1393,7 @@ index abe4b6667fb3859f680d6fc0bf01d27085bfe68b..4bb68f2cf4e1ca0be2e536c56503a972
  
  #[tokio::test]
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
-index a9dd9cac784bd0993eb09bc518071a1e253f0ae2..8853750fbb014cbcfa53bac4eb90854c6c916940 100644
+index a9dd9cac784bd0993eb09bc518071a1e253f0ae2..10d3c2757dad647c9834596285f6e207dad799bf 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
 @@ -2,10 +2,10 @@
@@ -1408,14 +1408,14 @@ index a9dd9cac784bd0993eb09bc518071a1e253f0ae2..8853750fbb014cbcfa53bac4eb90854c
 -│ https://github.com/openai/codex/releases/latest │
 -╰─────────────────────────────────────────────────╯
 +╭──────────────────────────────────────────────────╮
-+│ ✨ Update available! 0.158.0-k.4b1c0c30 -> 9.9.9 │
++│ ✨ Update available! 0.159.0-k.c248f6d4 -> 9.9.9 │
 +│ Run pnpm add -g @openai/codex to update.         │
 +│                                                  │
 +│ See full release notes:                          │
 +│ https://github.com/openai/codex/releases/latest  │
 +╰──────────────────────────────────────────────────╯
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
-index e5cc9a0cecf082a98967e33e8019e28a39af5f2a..3e3657a0bbbaa8488bfb1a87c5d40dbdfd001733 100644
+index e5cc9a0cecf082a98967e33e8019e28a39af5f2a..24e518636db176419b1dbbee6f22b5c3906ee80d 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
 @@ -4,7 +4,7 @@ assertion_line: 778
@@ -1423,12 +1423,12 @@ index e5cc9a0cecf082a98967e33e8019e28a39af5f2a..3e3657a0bbbaa8488bfb1a87c5d40dbd
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    Tip: Model just became available
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
-index c8f352dbb49ceafe78df86e841e95824c4e6f469..b367a9eaea668378663760cabe2c926de4b6f4a7 100644
+index c8f352dbb49ceafe78df86e841e95824c4e6f469..c2e83bcdfc48f3184448f15e84fe3f9d128b7efa 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
 @@ -3,7 +3,7 @@ source: tui/src/history_cell/tests.rs
@@ -1436,12 +1436,12 @@ index c8f352dbb49ceafe78df86e841e95824c4e6f469..b367a9eaea668378663760cabe2c926d
  ---
  ╭─────────────────────────────────────────────────────────────────────────────────────────────────────╮
 -│ ✨ Update available! 0.0.0 -> 9.9.9                                                                 │
-+│ ✨ Update available! 0.158.0-k.4b1c0c30 -> 9.9.9                                                    │
++│ ✨ Update available! 0.159.0-k.c248f6d4 -> 9.9.9                                                    │
  │ Run sh -c 'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh' to update. │
  │                                                                                                     │
  │ See full release notes:                                                                             │
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
-index fb15a05775d4063e2780ba29d0ae15e9ad5297c8..8a7b63a3514b421f01f07350e0638a13882355a8 100644
+index fb15a05775d4063e2780ba29d0ae15e9ad5297c8..07c5cd129e275b52ab3539f56720acf1f4ddc163 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
 @@ -3,7 +3,7 @@ source: tui/src/history_cell/tests.rs
@@ -1449,12 +1449,12 @@ index fb15a05775d4063e2780ba29d0ae15e9ad5297c8..8a7b63a3514b421f01f07350e0638a13
  ---
  ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 -│ ✨ Update available! 0.0.0 -> 9.9.9                                                                        │
-+│ ✨ Update available! 0.158.0-k.4b1c0c30 -> 9.9.9                                                           │
++│ ✨ Update available! 0.159.0-k.c248f6d4 -> 9.9.9                                                           │
  │ Run powershell -ExecutionPolicy Bypass -c '$env:CODEX_NON_INTERACTIVE=1; irm                               │
  │ https://chatgpt.com/codex/install.ps1 | iex' to update.                                                    │
  │                                                                                                            │
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__vite_plus_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__vite_plus_update_available_history_cell_snapshot.snap
-index 1a2df82a9dd866436660629a9fede7e1e8894899..b9d6ab25f37ac42cc365c61918b8d8307d2e1e0f 100644
+index 1a2df82a9dd866436660629a9fede7e1e8894899..4c80ab84b5cea6d18d4f312d68108aa48762a451 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__vite_plus_update_available_history_cell_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__vite_plus_update_available_history_cell_snapshot.snap
 @@ -2,10 +2,10 @@
@@ -1469,14 +1469,14 @@ index 1a2df82a9dd866436660629a9fede7e1e8894899..b9d6ab25f37ac42cc365c61918b8d830
 -│ https://github.com/openai/codex/releases/latest │
 -╰─────────────────────────────────────────────────╯
 +╭──────────────────────────────────────────────────╮
-+│ ✨ Update available! 0.158.0-k.4b1c0c30 -> 9.9.9 │
++│ ✨ Update available! 0.159.0-k.c248f6d4 -> 9.9.9 │
 +│ Run vp install -g @openai/codex to update.       │
 +│                                                  │
 +│ See full release notes:                          │
 +│ https://github.com/openai/codex/releases/latest  │
 +╰──────────────────────────────────────────────────╯
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap
-index a00c3ae09ef24810d068f1ca93ae1eee6beb0815..4a740a55feea3cb9a9cd1d6f0432ba44337ede0c 100644
+index a00c3ae09ef24810d068f1ca93ae1eee6beb0815..59e9e298a85d95bc2cc0850a5ef582d334a93275 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap
 @@ -4,7 +4,7 @@ expression: rendered
@@ -1484,12 +1484,12 @@ index a00c3ae09ef24810d068f1ca93ae1eee6beb0815..4a740a55feea3cb9a9cd1d6f0432ba44
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Model:           gpt-5.6-sol (reasoning none, summaries auto)
    Model provider:  server-ollama
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap
-index 6c856d50a4fe89068c13adb44fec46065db1ba97..96a2a5007f34da09b03d58d194c250bcf692e6ed 100644
+index 6c856d50a4fe89068c13adb44fec46065db1ba97..85d59dce08b927736c346a589adf2bb5d541d798 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap
 @@ -4,7 +4,7 @@ expression: rendered
@@ -1497,12 +1497,12 @@ index 6c856d50a4fe89068c13adb44fec46065db1ba97..96a2a5007f34da09b03d58d194c250bc
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
-index 4f55f6a7639380f819231775e9c837d8ec8866c7..3c20cef5f4fbfc233de8d8196b2141d647c16867 100644
+index 4f55f6a7639380f819231775e9c837d8ec8866c7..b1cefd32f96949ea8e5fdce4cbe5bdbd5cfd5d89 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1510,12 +1510,12 @@ index 4f55f6a7639380f819231775e9c837d8ec8866c7..3c20cef5f4fbfc233de8d8196b2141d6
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
-index 9d8fba759f5cb614e4dc357f1bb705dd4a9c6a6f..f4f8fbe9b7a4f350e3ad52ca3e4ca6aa32bb3052 100644
+index 9d8fba759f5cb614e4dc357f1bb705dd4a9c6a6f..9b9eb66fcd3d86f0a088c6e5a8b2f425fd458ddd 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1523,12 +1523,12 @@ index 9d8fba759f5cb614e4dc357f1bb705dd4a9c6a6f..f4f8fbe9b7a4f350e3ad52ca3e4ca6aa
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
-index be84d82de59a73b0ca03f99f293e1f1eb67db25a..77c4425d64c2b9e6c12d3e5fec40b2fbe8570abf 100644
+index be84d82de59a73b0ca03f99f293e1f1eb67db25a..9e9436df2a60c86ee74078b4176bf95951cf45af 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1536,12 +1536,12 @@ index be84d82de59a73b0ca03f99f293e1f1eb67db25a..77c4425d64c2b9e6c12d3e5fec40b2fb
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
-index a32113539f2895af5efd5f776af13d66a3bfebe5..866ea6e921b95b1ca0aa9cc0ef86506696b44740 100644
+index a32113539f2895af5efd5f776af13d66a3bfebe5..21ed3326b23481725a64848edbcf8673f4ef0d06 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1549,12 +1549,12 @@ index a32113539f2895af5efd5f776af13d66a3bfebe5..866ea6e921b95b1ca0aa9cc0ef865066
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
-index f2cc2fbe1c52c2ce5af6184b3fd5cc1e9cd3afbc..0024387c41764b2cbe6cd5e1b400c39427bafb2a 100644
+index f2cc2fbe1c52c2ce5af6184b3fd5cc1e9cd3afbc..819c0a0c2f4dbff726c33ebc4dacee55a39214f6 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1562,12 +1562,12 @@ index f2cc2fbe1c52c2ce5af6184b3fd5cc1e9cd3afbc..0024387c41764b2cbe6cd5e1b400c394
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
-index 06866b52e7e530fde1deb8af51186e78a42082a1..e98c06748161bedd4171dc99a6b5487bf013aa44 100644
+index 06866b52e7e530fde1deb8af51186e78a42082a1..6c98db1d64170ab3828a260031d0cb1050ab79c3 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1575,12 +1575,12 @@ index 06866b52e7e530fde1deb8af51186e78a42082a1..e98c06748161bedd4171dc99a6b5487b
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
-index 01134f2221be8265cd224a8816007470109d6fb4..d08263f6ff537a190c12c7856ea0e3b44da5921b 100644
+index 01134f2221be8265cd224a8816007470109d6fb4..bdab3fbdec58bfb3518916c53cce0419c9c52464 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1588,12 +1588,12 @@ index 01134f2221be8265cd224a8816007470109d6fb4..d08263f6ff537a190c12c7856ea0e3b4
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
-index 7173c997ec3cb39d00fa653b22796afc086498bb..a3b55bbdf5c9dca4efc3c6dbc065c820439463e6 100644
+index 7173c997ec3cb39d00fa653b22796afc086498bb..aa61fa52a011825dae507817ef7088ec2546542f 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1601,12 +1601,12 @@ index 7173c997ec3cb39d00fa653b22796afc086498bb..a3b55bbdf5c9dca4efc3c6dbc065c820
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
-index e3b9bae320f2e979ba8047b349f81a04253e9e90..d9ec832a1ef5d3228a626f8a6b18d28c7abdbafe 100644
+index e3b9bae320f2e979ba8047b349f81a04253e9e90..9b2df938d2b467dfcc9844ffdeb5a2e20f3eb097 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1614,12 +1614,12 @@ index e3b9bae320f2e979ba8047b349f81a04253e9e90..d9ec832a1ef5d3228a626f8a6b18d28c
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
-index 9a948fe13090374a8a156edca4a4260fb45eb533..078a2ade702b974e3feb8911d7b33efe8a98d2ee 100644
+index 9a948fe13090374a8a156edca4a4260fb45eb533..6b5ac69b595c29d68d49c7d21bc5d4abfd482634 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1627,12 +1627,12 @@ index 9a948fe13090374a8a156edca4a4260fb45eb533..078a2ade702b974e3feb8911d7b33efe
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
-index 49ac38b2f54dd55fba6261c7450c93c81b5c27e6..10b69c3e8428a1a9bd554d7a229cea13fc3a9ea9 100644
+index 49ac38b2f54dd55fba6261c7450c93c81b5c27e6..4ab95aba3201ea3b13cf03fb1108165b9b137f32 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1640,12 +1640,12 @@ index 49ac38b2f54dd55fba6261c7450c93c81b5c27e6..10b69c3e8428a1a9bd554d7a229cea13
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
-index 247465654a71772ba632ee1d8f1e8799e51c2532..4201e516d1df5520420590d505d385884dcfe22f 100644
+index 247465654a71772ba632ee1d8f1e8799e51c2532..f84b33becc5fd75bf7d23ba1c18ff7b19308af8d 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1653,12 +1653,12 @@ index 247465654a71772ba632ee1d8f1e8799e51c2532..4201e516d1df5520420590d505d38588
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
-index 7d4340538c5a6033557a806e4df4958dd441fa1b..e3450833cd6bd3ff6b1b66d49f990b480ca1883d 100644
+index 7d4340538c5a6033557a806e4df4958dd441fa1b..1a90a3a6773e037178c95f21684c3190530b806d 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1666,12 +1666,12 @@ index 7d4340538c5a6033557a806e4df4958dd441fa1b..e3450833cd6bd3ff6b1b66d49f990b48
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap
-index 7d4340538c5a6033557a806e4df4958dd441fa1b..e3450833cd6bd3ff6b1b66d49f990b480ca1883d 100644
+index 7d4340538c5a6033557a806e4df4958dd441fa1b..1a90a3a6773e037178c95f21684c3190530b806d 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_treats_refreshing_empty_limits_as_unavailable.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1679,12 +1679,12 @@ index 7d4340538c5a6033557a806e4df4958dd441fa1b..e3450833cd6bd3ff6b1b66d49f990b48
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
-index 23496e49f8aeb072ef087999aa3145b8dfc197d5..d625e26233fb9301c43b68fda8b211e8394b0769 100644
+index 23496e49f8aeb072ef087999aa3145b8dfc197d5..5825aa3223cf5a81b2fb15c4d1b3298c9064b9e3 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1692,12 +1692,12 @@ index 23496e49f8aeb072ef087999aa3145b8dfc197d5..d625e26233fb9301c43b68fda8b211e8
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit
    https://chatgpt.com/codex/settings/usage
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
-index ac591385926fb9c8d4bde7c6c297021f219cfa3b..4fe8220ec474d8c671fb3d07ef38687aa1cd2ebb 100644
+index ac591385926fb9c8d4bde7c6c297021f219cfa3b..fa5835279cd926274118aa74884ec79cf9d4128b 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1705,12 +1705,12 @@ index ac591385926fb9c8d4bde7c6c297021f219cfa3b..4fe8220ec474d8c671fb3d07ef38687a
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
-index bf5bb867e34f06967e64bd33d1723be32deb2f89..ac7b6d08cd7ce612bfeb9293d6553b46a9846607 100644
+index bf5bb867e34f06967e64bd33d1723be32deb2f89..cd3214213eb8bdff8ca49c5bd0aefbebcc69bc62 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1718,12 +1718,12 @@ index bf5bb867e34f06967e64bd33d1723be32deb2f89..ac7b6d08cd7ce612bfeb9293d6553b46
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
-index a1430ac31d78cc41e275055eec8e5c4684fd5a2c..4735ab992513ac3d7feb2ecf91d539397e0096e6 100644
+index a1430ac31d78cc41e275055eec8e5c4684fd5a2c..07ecc7d179ab4d2e10382d4458c4f07d3fc93992 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1731,12 +1731,12 @@ index a1430ac31d78cc41e275055eec8e5c4684fd5a2c..4735ab992513ac3d7feb2ecf91d53939
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
-index 950a3d4d38b89864cf748f612a06a803d696cd21..09b6be2e9ea7ecccb68c6a8117ee9d49052165ad 100644
+index 950a3d4d38b89864cf748f612a06a803d696cd21..b5a50af91a0783f29f16d84438c7fe5df6f08b08 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -1744,12 +1744,12 @@ index 950a3d4d38b89864cf748f612a06a803d696cd21..09b6be2e9ea7ecccb68c6a8117ee9d49
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit
    https://chatgpt.com/codex/settings/usage for
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
-index f7871d8a3884da9fc32dc461de7183384c4b8754..980e0b279b9acbc27e72949daf0093253b4f9480 100644
+index f7871d8a3884da9fc32dc461de7183384c4b8754..375dfce012f8a94bf72e70dbaf42bd32ffd6356b 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
 @@ -6,7 +6,7 @@ before:
@@ -1757,7 +1757,7 @@ index f7871d8a3884da9fc32dc461de7183384c4b8754..980e0b279b9acbc27e72949daf009325
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
@@ -1766,7 +1766,7 @@ index f7871d8a3884da9fc32dc461de7183384c4b8754..980e0b279b9acbc27e72949daf009325
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
@@ -2022,7 +2022,7 @@ index 0000000000000000000000000000000000000000..561c61914514f37a94c87a65f6aa11d1
 +
 +  GPT-6-Astra xhigh · /tmp/project
 diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap
-index 4de9db012c42bf1a80a6dd7e1a15328db723c4de..2bb721991050f637dcc2e9a92c21fa3f77b2e961 100644
+index 4de9db012c42bf1a80a6dd7e1a15328db723c4de..a76cf1e3a3477396b55a33a2f91ad40a6ad46859 100644
 --- a/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap
 +++ b/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap
 @@ -3,8 +3,8 @@ source: tui/src/app/daemon_menu_tests.rs
@@ -2031,13 +2031,13 @@ index 4de9db012c42bf1a80a6dd7e1a15328db723c4de..2bb721991050f637dcc2e9a92c21fa3f
    Update daemon and exit Codex?
 -  Use this CLI package v0.0.0 from /x/cli-build/bin/codex. Copy the complete package and pin it
 -  against automatic updates.
-+  Use this CLI package v0.158.0-k.4b1c0c30 from /x/cli-build/bin/codex. Copy the complete package
++  Use this CLI package v0.159.0-k.c248f6d4 from /x/cli-build/bin/codex. Copy the complete package
 +  and pin it against automatic updates.
    This may restart the daemon and interrupt active or queued work.
    Codex exits to update in this terminal. Relaunch it afterward.
  
 diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap
-index 1261499117df37ea394572ff39ee4f9e95a1a1c4..e3911f69c73b57ae93ceabce879248ba77dc09f0 100644
+index 1261499117df37ea394572ff39ee4f9e95a1a1c4..b58b9d78d863d781ccffaf8c00451debaed76650 100644
 --- a/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap
 +++ b/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap
 @@ -4,7 +4,7 @@ expression: "format!(\"enabled:\\n{}\\n---\\ndisabled:\\n{}\", text(after), text
@@ -2045,7 +2045,7 @@ index 1261499117df37ea394572ff39ee4f9e95a1a1c4..e3911f69c73b57ae93ceabce879248ba
  enabled:
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    Pull up a prompt.
@@ -2054,12 +2054,12 @@ index 1261499117df37ea394572ff39ee4f9e95a1a1c4..e3911f69c73b57ae93ceabce879248ba
  disabled:
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    Pull up a prompt.
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap
-index 335071a07742e41b50ce0eb62805f740d019b586..9f7e541dbaf7ad8b1dcbc1fb121148748299cf09 100644
+index 335071a07742e41b50ce0eb62805f740d019b586..15078181f545ae090db47f507e3e84237fa6458e 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap
 @@ -4,7 +4,7 @@ expression: "format!(\"{history}\\n{}\",\nrender_bottom_popup(&app.chat_widget,\
@@ -2067,12 +2067,12 @@ index 335071a07742e41b50ce0eb62805f740d019b586..9f7e541dbaf7ad8b1dcbc1fb12114874
  • This conversation is unavailable. Its cached transcript and draft remain here; input is paused. Open the agent picker or return to the parent to continue.
  ⚠ A background Codex service is running v2.0.0, different from your Codex CLI
 -  v0.0.0.
-+  v0.158.0-k.4b1c0c30.
++  v0.159.0-k.c248f6d4.
  › unavailable draft
  
    gpt-test default · /tmp/project
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap
-index 9ccef21baba0ee74c4ae5b96182d94cc287e4ac5..bb0108786c464700018a135abdd60baaea75279b 100644
+index 9ccef21baba0ee74c4ae5b96182d94cc287e4ac5..6110904475818d9acb00a1db25f87ad7222370b7 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap
 @@ -25,4 +25,4 @@ expression: "render_bottom_popup(&app.chat_widget, 100)"
@@ -2080,7 +2080,7 @@ index 9ccef21baba0ee74c4ae5b96182d94cc287e4ac5..bb0108786c464700018a135abdd60baa
                                                            │
                                                            │
 -  Service v2.0.0 ≠ Codex CLI v0.0.0 · /daemon
-+  Service v2.0.0 ≠ Codex CLI v0.158.0-k.4b1c0c30 · /daemon
++  Service v2.0.0 ≠ Codex CLI v0.159.0-k.c248f6d4 · /daemon
 diff --git a/codex-rs/tui/src/snapshots/codex_tui__startup_draft__layout__tests__owned_startup_layout.snap b/codex-rs/tui/src/snapshots/codex_tui__startup_draft__layout__tests__owned_startup_layout.snap
 index 957e7539d5fad7bb971289eb5157e984dac5786b..a75cf7e85daeacf7fa47fbc629249b949dfe8c09 100644
 --- a/codex-rs/tui/src/snapshots/codex_tui__startup_draft__layout__tests__owned_startup_layout.snap
@@ -2099,7 +2099,7 @@ index 957e7539d5fad7bb971289eb5157e984dac5786b..a75cf7e85daeacf7fa47fbc629249b94
                                                  
    Pull up a prompt.                             
 diff --git a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap
-index 53c8053051ed137cd64a19611d6f7dee8ca284a1..9cf88832b9842bef48ff25b271af17074e827ee1 100644
+index 53c8053051ed137cd64a19611d6f7dee8ca284a1..650b00b63561a215714317650fbcdb8e0d1ec98f 100644
 --- a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap
 +++ b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap
 @@ -3,11 +3,11 @@ source: tui/src/update_prompt.rs
@@ -2109,7 +2109,7 @@ index 53c8053051ed137cd64a19611d6f7dee8ca284a1..9cf88832b9842bef48ff25b271af1707
 -  Update available · 0.0.0
 -  → 9.9.9
 +  Update available ·
-+  0.158.0-k.4b1c0c30 →
++  0.159.0-k.c248f6d4 →
 +  9.9.9
    Release notes:
    https://github.com/opena
@@ -2118,7 +2118,7 @@ index 53c8053051ed137cd64a19611d6f7dee8ca284a1..9cf88832b9842bef48ff25b271af1707
  › 3. Skip until next version
  
 diff --git a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap
-index b547642270e9b9c612d1b62ccedf6d305b9b84d0..6aa6626458cbce4326575e42078ff49615683619 100644
+index b547642270e9b9c612d1b62ccedf6d305b9b84d0..7e8b9eb0a8dab29efc1486e5928f37b72b8c4c9e 100644
 --- a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap
 +++ b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap
 @@ -3,7 +3,7 @@ source: tui/src/update_prompt.rs
@@ -2126,12 +2126,12 @@ index b547642270e9b9c612d1b62ccedf6d305b9b84d0..6aa6626458cbce4326575e42078ff496
  ---
  
 -  Update available · 0.0.0 → 9.9.9
-+  Update available · 0.158.0-k.4b1c0c30 → 9.9.9
++  Update available · 0.159.0-k.c248f6d4 → 9.9.9
    Release notes: https://github.com/openai/codex/releases/latest
  
  › 1. Update now (runs `npm install -g @openai/codex`)                           
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap
-index 6cc0ff032c7df226bfde987685d415cb8150eefe..e888c981348500659da29fda6537a13237be44af 100644
+index 6cc0ff032c7df226bfde987685d415cb8150eefe..5e9cfee179caef7ad5980d54fdd7d523b62a0850 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2139,12 +2139,12 @@ index 6cc0ff032c7df226bfde987685d415cb8150eefe..e888c981348500659da29fda6537a132
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
-index 8ed7c18cff6d9c09d099b2b0b082b3c3b3fa843b..19ffa08d9e201896385ae2abc996ab9e09008e68 100644
+index 8ed7c18cff6d9c09d099b2b0b082b3c3b3fa843b..cde6cab1243d9e0a2b493ffd51a13c884bced699 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
 @@ -1,11 +1,11 @@
@@ -2157,7 +2157,7 @@ index 8ed7c18cff6d9c09d099b2b0b082b3c3b3fa843b..19ffa08d9e201896385ae2abc996ab9e
  80 columns
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
       /tmp/project
  
    Pull up a prompt.
@@ -2166,12 +2166,12 @@ index 8ed7c18cff6d9c09d099b2b0b082b3c3b3fa843b..19ffa08d9e201896385ae2abc996ab9e
  32 columns
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4…
++  >_ OpenAI Codex (v0.159.0-k.c…
       /tmp/project
  
    Pull up a prompt.
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap
-index 8478305e3e6a12c8554bdfd3da12a970b847e8aa..1f94a11d49ce8d20048b4d92ee1e5e50b175275d 100644
+index 8478305e3e6a12c8554bdfd3da12a970b847e8aa..e137a4fbe32bc5fb9f0915450241baaced3b64f5 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap
 @@ -1,10 +1,11 @@
@@ -2183,7 +2183,7 @@ index 8478305e3e6a12c8554bdfd3da12a970b847e8aa..1f94a11d49ce8d20048b4d92ee1e5e50
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.158.0-k.4b1c0c30)
++  >_ OpenAI Codex (v0.159.0-k.c248f6d4)
  
    Visit https://chatgpt.com/codex/settings/usage for up-to-date
    information on rate limits and credits
