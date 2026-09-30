@@ -1,5 +1,5 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 1a508b94a460f62f119e8e6ed91302ab7530c70f..a79667584c33dd2dab9dd115bb7985c7060e9ab9 100644
+index 01c9626029b6c9c009a680351659380fbd8644dd..5ae5a554d92b1b047b1113dac8f358ddd26a464a 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
 @@ -401,6 +401,9 @@ impl App {
@@ -13,10 +13,10 @@ index 1a508b94a460f62f119e8e6ed91302ab7530c70f..a79667584c33dd2dab9dd115bb7985c7
                  if self.reject_pending_permission_root_switch() {
                      self.chat_widget.restore_user_message_to_composer(text.into());
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index 6381d91a2d1972d8f89b7762d1b62fab307f9d36..8725ac116cd2ee9ec796937c463b2184d345a5ac 100644
+index dfedc797338421bdba2dd741d0894f2f6d0cc23a..211b76cb7b91bbca4482676070b1d7d4ac610e0f 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -568,6 +568,9 @@ pub(crate) enum AppEvent {
+@@ -569,6 +569,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  

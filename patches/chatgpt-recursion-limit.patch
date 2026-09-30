@@ -1,0 +1,12 @@
+diff --git a/codex-rs/chatgpt/src/lib.rs b/codex-rs/chatgpt/src/lib.rs
+index 057478db1856c84a88eff8353d652be7280b8ae3..a4a454ebc17cfbc043cd122f1eefa84bb7e0f8f1 100644
+--- a/codex-rs/chatgpt/src/lib.rs
++++ b/codex-rs/chatgpt/src/lib.rs
+@@ -1,3 +1,7 @@
++// Connector discovery embeds cross-crate async futures whose layout queries can
++// exceed rustc's default depth on macOS, as in the app-server, exec, and TUI crates.
++#![recursion_limit = "256"]
++
+ pub mod apply_command;
+ mod chatgpt_client;
+ pub mod connectors;

@@ -1,15 +1,15 @@
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index 19885ae975045bffffbae13dcaa78e003b815d40..1955e417c3988c17f5d4da4719f9dee96d4d0f53 100644
+index ea897239537da5b7bbc3106eb5c1a8593f34895c..4b6e10d622dc37a1f75829d60216d0e7a6a68e90 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -3808,6 +3808,7 @@ dependencies = [
+@@ -3817,6 +3817,7 @@ dependencies = [
   "http 1.4.0",
   "jsonwebtoken",
   "keyring",
 + "libc",
   "once_cell",
+  "opentelemetry_sdk",
   "os_info",
-  "pretty_assertions",
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
 index 3dc3d07b835f0272b1e91342afa63072a3a635ed..c02277a6fbaaeda90a4ed958b88855b1f23e2219 100644
 --- a/codex-rs/cli/src/doctor.rs
@@ -434,10 +434,10 @@ index 2010b1e0c584f5efd7e9cbc0e718214af6b8e214..9a5ebd87a2422cf6c819f9759f980b8e
            Absolute path to the shared secret file for signed JWT bearer tokens
  
 diff --git a/codex-rs/login/Cargo.toml b/codex-rs/login/Cargo.toml
-index 8772f46b58677773d23769d50d1f4e8efb6a9ca5..42c4e01a4e3631a9dba8e682320c2643ef84c37a 100644
+index 7762770be8c9f651dcff12cf3de2f7100c52462f..6f53573e3b348d7139b99d345c467f02a86ce9ab 100644
 --- a/codex-rs/login/Cargo.toml
 +++ b/codex-rs/login/Cargo.toml
-@@ -23,12 +23,14 @@ codex-terminal-detection = { workspace = true }
+@@ -24,12 +24,14 @@ codex-terminal-detection = { workspace = true }
  codex-utils-template = { workspace = true }
  codex-workload-identity = { workspace = true }
  http = { workspace = true }
@@ -452,7 +452,7 @@ index 8772f46b58677773d23769d50d1f4e8efb6a9ca5..42c4e01a4e3631a9dba8e682320c2643
  thiserror = { workspace = true }
  tiny_http = { workspace = true }
  tokio = { workspace = true, features = [
-@@ -51,7 +53,6 @@ keyring = { workspace = true }
+@@ -52,7 +54,6 @@ keyring = { workspace = true }
  pretty_assertions = { workspace = true }
  regex-lite = { workspace = true }
  serial_test = { workspace = true }
@@ -1212,7 +1212,7 @@ index 0000000000000000000000000000000000000000..6e01c393e876d0da7928511bb8bcc0a4
 +    assert!(status.success(), "lock helper failed with {status}");
 +}
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf73eedf7b9 100644
+index cdc9c8d3560359aca41ebf28b1b313e1a1793304..5079e0a1cc0205fd68af8987930aa358a4098680 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
 @@ -41,6 +41,7 @@ use super::agent_identity::require_agent_identity_authapi_base_url;
@@ -1239,7 +1239,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
      let storage = create_auth_storage(
          codex_home.to_path_buf(),
          auth_credentials_store_mode,
-@@ -1152,6 +1155,7 @@ pub fn save_auth(
+@@ -1153,6 +1156,7 @@ pub fn save_auth(
      auth_credentials_store_mode: AuthCredentialsStoreMode,
      keyring_backend_kind: AuthKeyringBackendKind,
  ) -> std::io::Result<()> {
@@ -1247,7 +1247,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
      let storage = create_auth_storage(
          codex_home.to_path_buf(),
          auth_credentials_store_mode,
-@@ -1653,19 +1657,29 @@ async fn request_chatgpt_token_refresh(
+@@ -1654,19 +1658,29 @@ async fn request_chatgpt_token_refresh(
              }
              let status = rejection.status;
              let detail = &rejection.detail;
@@ -1280,7 +1280,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
                  )))
              }
          }
-@@ -1676,12 +1690,8 @@ async fn request_chatgpt_token_refresh(
+@@ -1677,12 +1691,8 @@ async fn request_chatgpt_token_refresh(
      }
  }
  
@@ -1295,7 +1295,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
      let reason = match normalized_code.as_deref() {
          Some("refresh_token_expired") => RefreshTokenFailedReason::Expired,
          Some("refresh_token_reused") => RefreshTokenFailedReason::Exhausted,
-@@ -1689,13 +1699,6 @@ fn classify_refresh_token_failure(
+@@ -1690,13 +1700,6 @@ fn classify_refresh_token_failure(
          _ => RefreshTokenFailedReason::Other,
      };
  
@@ -1309,7 +1309,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
      let message = match reason {
          RefreshTokenFailedReason::Expired => REFRESH_TOKEN_EXPIRED_MESSAGE.to_string(),
          RefreshTokenFailedReason::Exhausted => REFRESH_TOKEN_REUSED_MESSAGE.to_string(),
-@@ -1706,6 +1709,21 @@ fn classify_refresh_token_failure(
+@@ -1707,6 +1710,21 @@ fn classify_refresh_token_failure(
      RefreshTokenFailedError::new(reason, message)
  }
  
@@ -1331,7 +1331,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
  #[derive(Deserialize, Clone)]
  struct RefreshResponse {
      id_token: Option<String>,
-@@ -2739,6 +2757,12 @@ impl AuthManager {
+@@ -2736,6 +2754,12 @@ impl AuthManager {
          self.external_auth_provider().is_some()
      }
  
@@ -1344,7 +1344,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
      pub fn is_workload_identity_selected(&self) -> bool {
          self.workload_identity_selected
      }
-@@ -2859,6 +2883,16 @@ impl AuthManager {
+@@ -2856,6 +2880,16 @@ impl AuthManager {
          {
              return Ok(());
          }
@@ -1361,7 +1361,7 @@ index 14cfee92212f83f2a9b17aa2d3fe6492e018c4e2..9b4505829444456ad9d39590df5a3cf7
          let expected_account_id = auth_before_reload
              .as_ref()
              .and_then(CodexAuth::get_account_id);
-@@ -2891,6 +2925,41 @@ impl AuthManager {
+@@ -2888,6 +2922,41 @@ impl AuthManager {
                  REFRESH_TOKEN_UNKNOWN_MESSAGE.to_string(),
              ))
          })?;
@@ -1457,18 +1457,18 @@ index 226255f39e25763c88110cb7481a116dcdd09a0c..0b69a11000446253b706552384788082
  pub use bedrock_access_keys::BedrockAccessKeysAuth;
  pub use bedrock_access_keys::login_with_bedrock_access_keys;
 diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
-index 8a9d75f4487631b39faf057b39e23bbeb98aec04..751aeee1271d79413bf047c7d320231d23a98341 100644
+index 4dccbc9138e83c5989ff130c8748941236f70401..f259c65a37b6a621ca164ff1acfaa4b76bce8e22 100644
 --- a/codex-rs/login/src/auth/storage.rs
 +++ b/codex-rs/login/src/auth/storage.rs
-@@ -16,6 +16,7 @@ use std::path::Path;
+@@ -18,6 +18,7 @@ use std::path::Path;
  use std::path::PathBuf;
  use std::sync::Arc;
  use std::sync::Mutex;
 +use std::sync::OnceLock;
  use tracing::warn;
  
- use super::BedrockAccessKeysAuth;
-@@ -151,8 +152,27 @@ impl From<AgentIdentityJwtClaims> for AgentIdentityAuthRecord {
+ #[path = "storage_error.rs"]
+@@ -159,8 +160,27 @@ impl From<AgentIdentityJwtClaims> for AgentIdentityAuthRecord {
      }
  }
  
@@ -1497,7 +1497,7 @@ index 8a9d75f4487631b39faf057b39e23bbeb98aec04..751aeee1271d79413bf047c7d320231d
  }
  
  pub(super) fn delete_file_if_exists(codex_home: &Path) -> std::io::Result<bool> {
-@@ -210,6 +230,23 @@ impl AuthStorageBackend for FileAuthStorage {
+@@ -218,6 +238,23 @@ impl AuthStorageBackend for FileAuthStorage {
              std::fs::create_dir_all(parent)?;
          }
          let json_data = serde_json::to_string_pretty(auth_dot_json)?;
@@ -1521,18 +1521,20 @@ index 8a9d75f4487631b39faf057b39e23bbeb98aec04..751aeee1271d79413bf047c7d320231d
          let mut options = OpenOptions::new();
          options.truncate(true).write(true).create(true);
          #[cfg(unix)]
-@@ -514,6 +551,9 @@ fn create_auth_storage_with_store(
+@@ -598,6 +635,11 @@ fn create_auth_storage_with_store(
      keyring_store: Arc<dyn KeyringStore>,
      keyring_backend_kind: AuthKeyringBackendKind,
  ) -> Arc<dyn AuthStorageBackend> {
-+    if super::credential_lock::is_configured() {
-+        return Arc::new(FileAuthStorage::new(codex_home));
-+    }
-     match mode {
++    let mode = if super::credential_lock::is_configured() {
++        AuthCredentialsStoreMode::File
++    } else {
++        mode
++    };
+     let storage: Arc<dyn AuthStorageBackend> = match mode {
          AuthCredentialsStoreMode::File => Arc::new(FileAuthStorage::new(codex_home)),
          AuthCredentialsStoreMode::Keyring => {
 diff --git a/codex-rs/login/src/auth/storage_tests.rs b/codex-rs/login/src/auth/storage_tests.rs
-index 79c51c871e7d7d84aa20ee3f2ad57d0d714cafbf..fa94056b62eab923e42912de6f95be3b2b0caa7c 100644
+index 01c2e6f575e1aebabc5dc73714eee12f4a16155c..60780f1d48763286cf0f5335291a4e6367f8d2b1 100644
 --- a/codex-rs/login/src/auth/storage_tests.rs
 +++ b/codex-rs/login/src/auth/storage_tests.rs
 @@ -65,6 +65,25 @@ async fn file_storage_save_persists_auth_dot_json() -> anyhow::Result<()> {

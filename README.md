@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `c248f6d48b97eb4a2aa56147a0b11b7d763278b9`
+repository as a submodule at commit `15fd656ddb55bd82a208fb9f00681880523f5260`
 from upstream `main`. The custom version is `0.159.0-k.c248f6d4`. It carries a
 small, ordered patch series:
 
@@ -22,6 +22,10 @@ small, ordered patch series:
 6. [`patches/writable-file-sandbox.patch`](patches/writable-file-sandbox.patch)
    keeps exact regular-file write grants usable on Linux without attempting to mount
    repository metadata beneath a file. Directory metadata protections remain unchanged.
+7. [`patches/chatgpt-recursion-limit.patch`](patches/chatgpt-recursion-limit.patch)
+   gives `codex-chatgpt` the same compiler recursion limit of 256 as upstream's
+   app-server, exec, and TUI crates. This permits layout calculation for nested
+   connector-discovery futures in macOS release builds; it changes no runtime behavior.
 
 The original code patch sets the custom release version, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -58,10 +62,10 @@ an existing Reserve session must be switched back manually. Other backend banner
 types and non-Reserve fallback candidates are unchanged.
 
 Typed `ServerOverloaded` model-capacity errors use the same bounded stream
-retry budget, exponential backoff, and transport fallback as `RateLimitExceeded`
-for sampling and streaming remote compaction. The retry budget is shared with
-other retryable stream errors, not reset by switching error types. Retries remain
-interruptible. With
+retry budget, server retry advice, exponential backoff, and transport fallback as
+`RateLimitExceeded` for sampling and streaming remote compaction. The retry budget
+is shared with other retryable stream errors, not reset by switching error types.
+Retries remain interruptible. With
 `--exit-on-quota-exceeded`, only a terminal capacity error after retries are
 exhausted requests a supervised restart; retry notifications from either the
 main thread or a subagent do not stop the instance. The final error retains its
@@ -240,7 +244,8 @@ cat \
     patches/exit-on-quota-exceeded.patch \
     patches/auth-file.patch \
     patches/cybersecurity-abort-bell.patch \
-    patches/writable-file-sandbox.patch >"$patch_bundle"
+    patches/writable-file-sandbox.patch \
+    patches/chatgpt-recursion-limit.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
 git -C codex apply "$patch_bundle"
 rm -f -- "$patch_bundle"
@@ -256,6 +261,7 @@ cargo build --release --bin codex --bin codex-code-mode-host
 To return the submodule to its pinned clean state:
 
 ```sh
+git -C codex apply --reverse ../patches/chatgpt-recursion-limit.patch
 git -C codex apply --reverse ../patches/writable-file-sandbox.patch
 git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
 git -C codex apply --reverse ../patches/auth-file.patch
