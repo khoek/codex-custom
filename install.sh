@@ -10,6 +10,7 @@ quota_patch_file="$repo_dir/patches/exit-on-quota-exceeded.patch"
 auth_patch_file="$repo_dir/patches/auth-file.patch"
 bell_patch_file="$repo_dir/patches/cybersecurity-abort-bell.patch"
 file_sandbox_patch_file="$repo_dir/patches/writable-file-sandbox.patch"
+openssl_patch_file="$repo_dir/patches/openssl-4.patch"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
 launcher_dir="$HOME/.local/bin"
 launcher="$launcher_dir/codex"
@@ -168,6 +169,7 @@ done
 [ -f "$auth_patch_file" ] || die "missing patch: $auth_patch_file"
 [ -f "$bell_patch_file" ] || die "missing patch: $bell_patch_file"
 [ -f "$file_sandbox_patch_file" ] || die "missing patch: $file_sandbox_patch_file"
+[ -f "$openssl_patch_file" ] || die "missing patch: $openssl_patch_file"
 
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
     die "codex submodule has local changes; restore it to the pinned clean state before installing"
@@ -180,7 +182,8 @@ patch_digest=$(sha256_files \
     "$quota_patch_file" \
     "$auth_patch_file" \
     "$bell_patch_file" \
-    "$file_sandbox_patch_file")
+    "$file_sandbox_patch_file" \
+    "$openssl_patch_file")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
 patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
 commit_display=$(printf '%s' "$commit" | cut -c1-8)
@@ -205,7 +208,8 @@ cat \
     "$quota_patch_file" \
     "$auth_patch_file" \
     "$bell_patch_file" \
-    "$file_sandbox_patch_file" >"$patch_bundle"
+    "$file_sandbox_patch_file" \
+    "$openssl_patch_file" >"$patch_bundle"
 git -C "$codex_dir" apply --check "$patch_bundle" ||
     die "the customization patch series no longer applies to the pinned codex revision"
 
