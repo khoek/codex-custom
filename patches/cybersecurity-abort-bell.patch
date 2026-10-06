@@ -50,7 +50,7 @@ index 4bb68f2cf4e1ca0be2e536c56503a9720e21b374..2bfe665ca160098c8d03ed6570135418
      let rendered = lines_to_single_string(&cells[0]);
      assert!(rendered.contains("This content can’t be shown"));
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index dcfdb9ea8142b29d975e2f87aaa882d4f0fa49d5..eaf7b62ffb905ae08d8ac2faedc6648c9be66c48 100644
+index 24ed354ca6198af4dc41ec5a5d96aa9a48324214..15e1628ca7a7829ac5b4d6470afd0f698ad43659 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
 @@ -394,6 +394,7 @@ impl ChatWidget {
@@ -58,9 +58,9 @@ index dcfdb9ea8142b29d975e2f87aaa882d4f0fa49d5..eaf7b62ffb905ae08d8ac2faedc6648c
  
      pub(super) fn on_cyber_policy_error(&mut self) {
 +        self.app_event_tx.send(AppEvent::RingTerminalBell);
-         self.input_queue.submit_pending_steers_after_interrupt = false;
-         self.finalize_turn();
-         let notice = if self.config.model_provider_id == "openai" {
+         let can_enable_daybreak =
+             self.daybreak_account_eligible() && !self.side_conversation_active();
+         let notice = crate::daybreak::notice_for_setting(
 diff --git a/codex-rs/tui/src/notifications/mod.rs b/codex-rs/tui/src/notifications/mod.rs
 index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83626fad0c 100644
 --- a/codex-rs/tui/src/notifications/mod.rs

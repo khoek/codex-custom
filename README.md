@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `15fd656ddb55bd82a208fb9f00681880523f5260`
+repository as a submodule at commit `4d15794336668d6098c0e36eb8e96cbbbfdb1d2d`
 from upstream `main`. The custom version is `0.160.0-k.15fd656d`. It carries a
 small, ordered patch series:
 
@@ -22,10 +22,6 @@ small, ordered patch series:
 6. [`patches/writable-file-sandbox.patch`](patches/writable-file-sandbox.patch)
    keeps exact regular-file write grants usable on Linux without attempting to mount
    repository metadata beneath a file. Directory metadata protections remain unchanged.
-7. [`patches/chatgpt-recursion-limit.patch`](patches/chatgpt-recursion-limit.patch)
-   gives `codex-chatgpt` the same compiler recursion limit of 256 as upstream's
-   app-server, exec, and TUI crates. This permits layout calculation for nested
-   connector-discovery futures in macOS release builds; it changes no runtime behavior.
 
 The original code patch sets the custom release version, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -244,8 +240,7 @@ cat \
     patches/exit-on-quota-exceeded.patch \
     patches/auth-file.patch \
     patches/cybersecurity-abort-bell.patch \
-    patches/writable-file-sandbox.patch \
-    patches/chatgpt-recursion-limit.patch >"$patch_bundle"
+    patches/writable-file-sandbox.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
 git -C codex apply "$patch_bundle"
 rm -f -- "$patch_bundle"
@@ -261,7 +256,6 @@ cargo build --release --bin codex --bin codex-code-mode-host
 To return the submodule to its pinned clean state:
 
 ```sh
-git -C codex apply --reverse ../patches/chatgpt-recursion-limit.patch
 git -C codex apply --reverse ../patches/writable-file-sandbox.patch
 git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
 git -C codex apply --reverse ../patches/auth-file.patch
