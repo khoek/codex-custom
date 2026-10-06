@@ -1,13 +1,13 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index fc1becc762f6c50104a84e34d0e5524203a682e0..ec48f3f1642b3d66950ae1a2d865a9d716c3a815 100644
+index ce7ed1f34d2a11bb0e65b87265cac15b9a228fa9..d9ba3f4de82721b09f410cecf2e895914f4028ab 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -159,7 +159,7 @@ members = [
+@@ -160,7 +160,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
 -version = "0.0.0"
-+version = "0.160.0-k.15fd656d"
++version = "0.161.0-k.4d157943"
  # Track the edition for all workspace crates in one place. Individual
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
