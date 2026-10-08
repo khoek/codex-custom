@@ -397,7 +397,7 @@ index 76032f34efb953dd22c3f47517937743a68173ce..ab7e3293ed22ae2e0862c0e22a1fb3e1
  async fn remote_compact_v2_retries_failures_with_stream_retry_budget() -> Result<()> {
      skip_if_no_network!(Ok(()));
 diff --git a/codex-rs/core/tests/suite/retry_after.rs b/codex-rs/core/tests/suite/retry_after.rs
-index bd15f5ac76b05ffaede2e8794d2f2cbdd9c36c74..bd077178f8011607e0b4c9eb4f160c99f143ce2c 100644
+index bceca6f5b40df9c4e1282b6fed7dd4dcb57ec1c8..8f54b80a1c48b1d941e35e9d5697a0d28bfb82d5 100644
 --- a/codex-rs/core/tests/suite/retry_after.rs
 +++ b/codex-rs/core/tests/suite/retry_after.rs
 @@ -500,7 +500,7 @@ async fn exhausted_http_retries_preserve_deadline_through_error_mapping() {
@@ -606,65 +606,70 @@ index bd15f5ac76b05ffaede2e8794d2f2cbdd9c36c74..bd077178f8011607e0b4c9eb4f160c99
      assert_eq!(
          telemetry.events.try_recv(),
          Err(mpsc::error::TryRecvError::Empty)
-@@ -1983,27 +2023,33 @@ async fn websocket_rate_limit_without_retry_after_is_terminal() -> Result<()> {
+@@ -2018,10 +2058,9 @@ async fn websocket_rate_limit_without_retry_after_is_terminal() -> Result<()> {
+     Ok(())
  }
  
- // TODO(anp) respect Retry-After
--/// Websocket overloads remain terminal despite a nested retry header.
-+/// Websocket overloads reconnect with local backoff despite a nested retry header.
+-/// When an overload stops giving advice, it is terminal even if the retry limit
+-/// has been reached. The transport must not switch after that terminal error.
++/// Websocket overloads honor nested retry advice and recover within the retry budget.
  #[tokio::test(flavor = "current_thread")]
--async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()> {
+-async fn websocket_overload_retries_only_while_it_has_retry_after() -> Result<()> {
 +async fn websocket_overload_with_nested_retry_after_recovers() -> Result<()> {
      skip_if_no_network!(Ok(()));
  
      let mut telemetry = RetryTelemetryCapture::install();
--    let server = responses::start_websocket_server(vec![vec![
-+    let server = responses::start_websocket_server(vec![
-         vec![
--            responses::ev_response_created("prewarm"),
--            responses::ev_completed("prewarm"),
-+            vec![
-+                responses::ev_response_created("prewarm"),
-+                responses::ev_completed("prewarm"),
-+            ],
-+            vec![json!({
-+                "type": "error",
-+                "status": 503,
-+                "error": {
-+                    "code": "server_is_overloaded",
-+                    "message": "This model is disabled.",
-+                    "headers": { "Retry-After": "1" }
-+                }
-+            })],
+@@ -2041,21 +2080,10 @@ async fn websocket_overload_retries_only_while_it_has_retry_after() -> Result<()
+                 }
+             })],
          ],
--        vec![json!({
+-        vec![vec![json!({
 -            "type": "error",
 -            "status": 503,
--            "error": {
--                "code": "server_is_overloaded",
--                "message": "This model is disabled.",
--                "headers": { "Retry-After": "1" }
--            }
--        })],
--    ]])
+-            "error": {"code": "server_is_overloaded", "headers": {"Retry-After": "1"}}
+-        })]],
+-        vec![vec![json!({
+-            "type": "error",
+-            "status": 503,
+-            "error": {"code": "server_is_overloaded", "headers": {"Retry-After": "1"}}
+-        })]],
+-        vec![vec![json!({
+-            "type": "error",
+-            "status": 503,
+-            "error": {"code": "server_is_overloaded", "message": "This model is disabled."}
+-        })]],
 +        vec![vec![
 +            responses::ev_response_created("recovered"),
 +            responses::ev_completed("recovered"),
 +        ]],
-+    ])
+     ])
      .await;
      let test = test_codex()
-         .with_config(|config| {
-@@ -2020,7 +2066,7 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
+@@ -2064,7 +2092,7 @@ async fn websocket_overload_retries_only_while_it_has_retry_after() -> Result<()
+             config.model_catalog =
+                 Some(bundled_models_response().expect("bundled models.json should parse"));
+             config.model_provider.request_max_retries = Some(2);
+-            config.model_provider.stream_max_retries = Some(3);
++            config.model_provider.stream_max_retries = Some(2);
+         })
+         .build_with_websocket_server(&server)
+         .await?;
+@@ -2073,13 +2101,7 @@ async fn websocket_overload_retries_only_while_it_has_retry_after() -> Result<()
          .wait_for_request(/*connection_index*/ 0, /*request_index*/ 0)
          .await;
      assert_eq!(warmup.body_json()["generate"].as_bool(), Some(false));
--    submit_user_input(&test, "reject the websocket overload despite retry advice").await?;
+-    submit_user_input(&test, "retry the websocket overload only when advised").await?;
+-    for attempt in 1..=3 {
+-        let retry = telemetry.next_retry().await;
+-        assert_eq!(retry.attempt, attempt);
+-        assert!(retry.delay <= Duration::from_secs(1));
+-        assert!(wait_for_retry(&mut telemetry, &retry).await >= Duration::from_secs(1));
+-    }
 +    submit_user_input(&test, "retry the websocket overload").await?;
  
      let mut error_events = 0;
      let mut stream_error_events = 0;
-@@ -2045,24 +2091,32 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
+@@ -2104,26 +2126,32 @@ async fn websocket_overload_retries_only_while_it_has_retry_after() -> Result<()
                  fallback_warning_events += 1;
              }
              EventMsg::TurnComplete(event) => {
@@ -680,7 +685,7 @@ index bd15f5ac76b05ffaede2e8794d2f2cbdd9c36c74..bd077178f8011607e0b4c9eb4f160c99
      }
  
 -    assert_eq!(error_events, 1);
--    assert_eq!(stream_error_events, 0);
+-    assert_eq!(stream_error_events, 2 + usize::from(cfg!(debug_assertions)));
 +    assert_eq!(error_events, 0);
 +    assert_eq!(stream_error_events, 1);
      assert_eq!(
@@ -688,11 +693,13 @@ index bd15f5ac76b05ffaede2e8794d2f2cbdd9c36c74..bd077178f8011607e0b4c9eb4f160c99
          "websocket must not fall back to HTTP"
      );
      let request_count: usize = server.connections().iter().map(Vec::len).sum();
--    assert_eq!(request_count, 2, "expected only prewarm and terminal error");
 +    assert_eq!(request_count, 3, "expected prewarm, overload, and recovery");
 +    let retry = telemetry.next_retry().await;
-+    assert!((FIRST_RETRY_MIN_DELAY..FIRST_RETRY_MAX_DELAY).contains(&retry.delay));
-+    assert_eq!(
++    assert!(retry.delay <= Duration::from_secs(1));
++    assert!(wait_for_retry(&mut telemetry, &retry).await >= Duration::from_secs(1));
+     assert_eq!(
+-        request_count, 5,
+-        "expected prewarm, three advised errors, and a terminal error"
 +        retry,
 +        RetryTelemetryEvent {
 +            attempt: 1,
@@ -700,11 +707,10 @@ index bd15f5ac76b05ffaede2e8794d2f2cbdd9c36c74..bd077178f8011607e0b4c9eb4f160c99
 +            layer: "stream".into(),
 +            operation: "sampling".into(),
 +        }
-+    );
+     );
      assert_eq!(
          telemetry.events.try_recv(),
-         Err(mpsc::error::TryRecvError::Empty)
-@@ -2072,26 +2126,32 @@ async fn websocket_overload_with_nested_retry_after_is_terminal() -> Result<()>
+@@ -2134,26 +2162,32 @@ async fn websocket_overload_retries_only_while_it_has_retry_after() -> Result<()
      Ok(())
  }
  
@@ -751,7 +757,7 @@ index bd15f5ac76b05ffaede2e8794d2f2cbdd9c36c74..bd077178f8011607e0b4c9eb4f160c99
      .await;
      let test = test_codex()
          .with_config(|config| {
-@@ -2108,7 +2168,7 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
+@@ -2170,7 +2204,7 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
          .wait_for_request(/*connection_index*/ 0, /*request_index*/ 0)
          .await;
      assert_eq!(warmup.body_json()["generate"].as_bool(), Some(false));
@@ -760,7 +766,7 @@ index bd15f5ac76b05ffaede2e8794d2f2cbdd9c36c74..bd077178f8011607e0b4c9eb4f160c99
  
      let mut error_events = 0;
      let mut stream_error_events = 0;
-@@ -2133,24 +2193,32 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
+@@ -2195,24 +2229,32 @@ async fn websocket_overload_without_retry_after_is_terminal() -> Result<()> {
                  fallback_warning_events += 1;
              }
              EventMsg::TurnComplete(event) => {

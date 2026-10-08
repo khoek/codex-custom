@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `4d15794336668d6098c0e36eb8e96cbbbfdb1d2d`
+repository as a submodule at commit `14c8b7771ab2b617a131f5d8e55e98d18e56ed09`
 from upstream `main`. The custom version is `0.161.0-k.4d157943`. It carries a
 small, ordered patch series:
 

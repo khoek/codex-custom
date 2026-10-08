@@ -1453,19 +1453,19 @@ index e1a798b522b62c05c1d0007ec5a668b12154e70f..971bef51c5ec3f7fe159979a562b3cfb
              preserve_in_flight_turn && input_state.as_ref().is_some_and(|state| state.task_running);
          if let Some(input_state) = input_state {
 diff --git a/codex-rs/tui/src/chatwidget/input_submission.rs b/codex-rs/tui/src/chatwidget/input_submission.rs
-index 5184f1c6ffef97f069beb0eeb0e347042bf2d8f6..24f97c3205902c46be54ede39f424fe544c0ea35 100644
+index 9998e77583d40fe12e0026c7028332c109c4c8ea..7470f17d3fa30ed320cfe036a15b9e74bae98a27 100644
 --- a/codex-rs/tui/src/chatwidget/input_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/input_submission.rs
-@@ -3,6 +3,8 @@
- use super::*;
+@@ -4,6 +4,8 @@ use super::*;
  use codex_app_server_protocol::ImageReference;
+ use codex_utils_path_uri::LegacyAppPathString;
  
 +const START_IMMEDIATELY_PROMPT: &str = "You were interrupted, continue work";
 +
  impl ChatWidget {
      pub(crate) fn set_task_mentions_enabled(&mut self, enabled: bool) {
          self.bottom_pane.set_task_mentions_enabled(enabled);
-@@ -82,6 +84,23 @@ impl ChatWidget {
+@@ -83,6 +85,23 @@ impl ChatWidget {
          );
      }
  
