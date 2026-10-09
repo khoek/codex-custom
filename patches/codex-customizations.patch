@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index ce7ed1f34d2a11bb0e65b87265cac15b9a228fa9..d9ba3f4de82721b09f410cecf2e895914f4028ab 100644
+index 4703a04f6d..f99d73f5eb 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -160,7 +160,7 @@ members = [
+@@ -159,7 +159,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
@@ -12,10 +12,10 @@ index ce7ed1f34d2a11bb0e65b87265cac15b9a228fa9..d9ba3f4de82721b09f410cecf2e89591
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index b87697684690c0d29e382e762986ddb3c51813ba..7a677c09e8f4dd579c1fe49448e009bbbc1aa975 100644
+index cfc78caabb..b7fecf715c 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -4951,14 +4951,19 @@ impl Session {
+@@ -5087,14 +5087,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -40,10 +40,10 @@ index b87697684690c0d29e382e762986ddb3c51813ba..7a677c09e8f4dd579c1fe49448e009bb
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 19134d6f3e59b178786c6d02ea9b6451aeb425d4..703f09cdc5d0e52bbbede4eefa6a3e5cd187cd22 100644
+index 9e44430d6f..7f374c4cdd 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -413,12 +413,11 @@ impl CodexErr {
+@@ -421,12 +421,11 @@ impl CodexErr {
              | CodexErrorDetails::CyberPolicy { .. }
              | CodexErrorDetails::BioPolicy { .. }
              | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
@@ -58,40 +58,8 @@ index 19134d6f3e59b178786c6d02ea9b6451aeb425d4..703f09cdc5d0e52bbbede4eefa6a3e5c
              | CodexErrorDetails::Timeout
              | CodexErrorDetails::RequestTimeout
              | CodexErrorDetails::UnexpectedStatus(_)
-diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
-index 36f72ed722f80e4ae0573cc84b7411b6be05611a..383a058ce45cf0fd79a830925e730c7f58236e26 100644
---- a/codex-rs/tui/src/chatwidget/rate_limits.rs
-+++ b/codex-rs/tui/src/chatwidget/rate_limits.rs
-@@ -535,6 +535,13 @@ impl ChatWidget {
-             items,
-             ..SelectionViewParams::picker()
-         });
-+        // Match "Keep current model (never show again)": preserve the model and persist the opt-out.
-+        self.app_event_tx
-+            .send(AppEvent::UpdateRateLimitSwitchPromptHidden(true));
-+        self.app_event_tx
-+            .send(AppEvent::PersistRateLimitSwitchPromptHidden);
-+        self.bottom_pane
-+            .dismiss_view_by_id(RATE_LIMIT_SWITCH_PROMPT_VIEW_ID);
-     }
- 
-     pub(super) fn open_workspace_owner_nudge_prompt(
-diff --git a/codex-rs/tui/src/chatwidget/safety_buffering.rs b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-index dacfbc5db082d731c0a08dc1ac958c1e0a3aef9d..cec1f79b1e7d1787b28d2c0dbb2ba0b8a8da7e74 100644
---- a/codex-rs/tui/src/chatwidget/safety_buffering.rs
-+++ b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-@@ -234,6 +234,9 @@ impl ChatWidget {
-             items,
-             ..SelectionViewParams::picker()
-         });
-+        // Match "Dismiss and keep waiting": close only the modal while the turn continues.
-+        self.bottom_pane
-+            .dismiss_view_by_id(SAFETY_BUFFERING_PROMPT_VIEW_ID);
-     }
- 
-     pub(crate) fn confirm_safety_buffered_retry(
 diff --git a/codex-rs/tui/src/app/background_requests.rs b/codex-rs/tui/src/app/background_requests.rs
-index 69f2aeb458f2c8860898802a326cf2d2a5c752be..9c37c929a5721de70956ebf46676790cf853fe9f 100644
+index 69f2aeb458..9c37c929a5 100644
 --- a/codex-rs/tui/src/app/background_requests.rs
 +++ b/codex-rs/tui/src/app/background_requests.rs
 @@ -821,27 +821,45 @@ pub(super) async fn fetch_account_rate_limits(
@@ -145,3 +113,35 @@ index 69f2aeb458f2c8860898802a326cf2d2a5c752be..9c37c929a5721de70956ebf46676790c
  }
  
  pub(super) async fn fetch_thread_usage(
+diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
+index 0e4852767d..550596623a 100644
+--- a/codex-rs/tui/src/chatwidget/rate_limits.rs
++++ b/codex-rs/tui/src/chatwidget/rate_limits.rs
+@@ -534,6 +534,13 @@ impl ChatWidget {
+             items,
+             ..SelectionViewParams::picker()
+         });
++        // Match "Keep current model (never show again)": preserve the model and persist the opt-out.
++        self.app_event_tx
++            .send(AppEvent::UpdateRateLimitSwitchPromptHidden(true));
++        self.app_event_tx
++            .send(AppEvent::PersistRateLimitSwitchPromptHidden);
++        self.bottom_pane
++            .dismiss_view_by_id(RATE_LIMIT_SWITCH_PROMPT_VIEW_ID);
+     }
+ 
+     pub(super) fn open_workspace_owner_nudge_prompt(
+diff --git a/codex-rs/tui/src/chatwidget/safety_buffering.rs b/codex-rs/tui/src/chatwidget/safety_buffering.rs
+index dc3fb0b805..c64e040772 100644
+--- a/codex-rs/tui/src/chatwidget/safety_buffering.rs
++++ b/codex-rs/tui/src/chatwidget/safety_buffering.rs
+@@ -234,6 +234,9 @@ impl ChatWidget {
+             items,
+             ..SelectionViewParams::picker()
+         });
++        // Match "Dismiss and keep waiting": close only the modal while the turn continues.
++        self.bottom_pane
++            .dismiss_view_by_id(SAFETY_BUFFERING_PROMPT_VIEW_ID);
+     }
+ 
+     pub(crate) fn confirm_safety_buffered_retry(

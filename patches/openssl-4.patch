@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index 295d1f826b19efa6e781761ca0c3d8bba6dd0d8a..5687a3e1317c73832fbad7ff21c0ae554d7f48f3 100644
+index 4a7bb08ae3..e960204d5d 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -11076,15 +11076,14 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+@@ -11038,15 +11038,14 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
  
  [[package]]
  name = "openssl"
@@ -20,7 +20,7 @@ index 295d1f826b19efa6e781761ca0c3d8bba6dd0d8a..5687a3e1317c73832fbad7ff21c0ae55
   "openssl-macros",
   "openssl-sys",
  ]
-@@ -11123,9 +11122,9 @@ dependencies = [
+@@ -11085,9 +11084,9 @@ dependencies = [
  
  [[package]]
  name = "openssl-sys"

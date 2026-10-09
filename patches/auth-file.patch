@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
-index ea897239537da5b7bbc3106eb5c1a8593f34895c..4b6e10d622dc37a1f75829d60216d0e7a6a68e90 100644
+index bda1b4ecdd..4a7bb08ae3 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -3817,6 +3817,7 @@ dependencies = [
+@@ -3842,6 +3842,7 @@ dependencies = [
   "http 1.4.0",
   "jsonwebtoken",
   "keyring",
@@ -11,7 +11,7 @@ index ea897239537da5b7bbc3106eb5c1a8593f34895c..4b6e10d622dc37a1f75829d60216d0e7
   "opentelemetry_sdk",
   "os_info",
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
-index 3dc3d07b835f0272b1e91342afa63072a3a635ed..c02277a6fbaaeda90a4ed958b88855b1f23e2219 100644
+index 859fad9f69..20822f3cd4 100644
 --- a/codex-rs/cli/src/doctor.rs
 +++ b/codex-rs/cli/src/doctor.rs
 @@ -54,6 +54,7 @@ use codex_login::CODEX_ACCESS_TOKEN_ENV_VAR;
@@ -22,7 +22,7 @@ index 3dc3d07b835f0272b1e91342afa63072a3a635ed..c02277a6fbaaeda90a4ed958b88855b1
  use codex_login::default_client::create_client_without_request_logging;
  use codex_login::default_client::default_headers;
  use codex_login::load_auth_dot_json;
-@@ -1202,7 +1203,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
+@@ -1209,7 +1210,7 @@ fn config_toml_details(config: &Config, details: &mut Vec<String>) {
  
  fn auth_check(config: &Config) -> DoctorCheck {
      let mut details = Vec::new();
@@ -32,10 +32,10 @@ index 3dc3d07b835f0272b1e91342afa63072a3a635ed..c02277a6fbaaeda90a4ed958b88855b1
          "auth storage mode: {:?}",
          config.cli_auth_credentials_store_mode
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a681237040 100644
+index ccd9e74299..4c24b0bab0 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -128,6 +128,91 @@ struct MultitoolCli {
+@@ -132,6 +132,91 @@ struct MultitoolCli {
      #[clap(flatten)]
      pub config_overrides: CliConfigOverrides,
  
@@ -127,7 +127,7 @@ index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a6
      #[clap(flatten)]
      pub feature_toggles: FeatureToggles,
  
-@@ -1043,6 +1128,13 @@ async fn cli_main(
+@@ -1061,6 +1146,13 @@ async fn cli_main(
  ) -> anyhow::Result<ExitCode> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
@@ -141,7 +141,7 @@ index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a6
          feature_toggles,
          remote,
          mut interactive,
-@@ -1057,6 +1149,53 @@ async fn cli_main(
+@@ -1075,6 +1167,53 @@ async fn cli_main(
          .clone()
          .and_then(|path| AbsolutePathBuf::from_absolute_path(path).ok());
      reject_unsupported_worktree_for_subcommand(interactive.shared.worktree, &subcommand)?;
@@ -195,7 +195,7 @@ index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a6
      // Fold --enable/--disable into config overrides so they flow to all subcommands.
      let toggle_overrides = feature_toggles.to_overrides()?;
      root_config_overrides.raw_overrides.extend(toggle_overrides);
-@@ -2883,6 +3022,13 @@ mod tests {
+@@ -2951,6 +3090,13 @@ enabled = true
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -209,7 +209,7 @@ index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a6
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -2925,6 +3071,13 @@ mod tests {
+@@ -2993,6 +3139,13 @@ enabled = true
          let MultitoolCli {
              mut interactive,
              config_overrides: mut root_overrides,
@@ -223,7 +223,7 @@ index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a6
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -2969,6 +3122,13 @@ mod tests {
+@@ -3037,6 +3190,13 @@ enabled = true
          let MultitoolCli {
              interactive,
              config_overrides: root_overrides,
@@ -237,7 +237,7 @@ index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a6
              subcommand,
              feature_toggles: _,
              remote: _,
-@@ -3230,6 +3390,149 @@ mod tests {
+@@ -3298,6 +3458,149 @@ enabled = true
          }
      }
  
@@ -388,7 +388,7 @@ index e5819d8e4b54d433a2ddec25663bd90fe8ce4a3e..3843a6f2150328550b622061ecc994a6
      fn approve_for_me_defaults_propagate_from_root_to_exec() {
          let exec = finalize_exec_from_args(&["codex", "--approve-for-me", "exec", "summarize"]);
 diff --git a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
-index 2010b1e0c584f5efd7e9cbc0e718214af6b8e214..9a5ebd87a2422cf6c819f9759f980b8ec0e202a2 100644
+index 2010b1e0c5..9a5ebd87a2 100644
 --- a/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
 +++ b/codex-rs/cli/src/snapshots/codex__exec_server_args_tests__exec_server_help_documents_remote_options.snap
 @@ -1,5 +1,6 @@
@@ -434,7 +434,7 @@ index 2010b1e0c584f5efd7e9cbc0e718214af6b8e214..9a5ebd87a2422cf6c819f9759f980b8e
            Absolute path to the shared secret file for signed JWT bearer tokens
  
 diff --git a/codex-rs/login/Cargo.toml b/codex-rs/login/Cargo.toml
-index 7762770be8c9f651dcff12cf3de2f7100c52462f..6f53573e3b348d7139b99d345c467f02a86ce9ab 100644
+index 50de4dc83a..36f8c93187 100644
 --- a/codex-rs/login/Cargo.toml
 +++ b/codex-rs/login/Cargo.toml
 @@ -24,12 +24,14 @@ codex-terminal-detection = { workspace = true }
@@ -452,7 +452,7 @@ index 7762770be8c9f651dcff12cf3de2f7100c52462f..6f53573e3b348d7139b99d345c467f02
  thiserror = { workspace = true }
  tiny_http = { workspace = true }
  tokio = { workspace = true, features = [
-@@ -52,7 +54,6 @@ keyring = { workspace = true }
+@@ -53,7 +55,6 @@ keyring = { workspace = true }
  pretty_assertions = { workspace = true }
  regex-lite = { workspace = true }
  serial_test = { workspace = true }
@@ -462,7 +462,7 @@ index 7762770be8c9f651dcff12cf3de2f7100c52462f..6f53573e3b348d7139b99d345c467f02
  
 diff --git a/codex-rs/login/src/auth/credential_lock.rs b/codex-rs/login/src/auth/credential_lock.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..e1ccfe230655fe522153b6de6936dbb5139d6211
+index 0000000000..e1ccfe2306
 --- /dev/null
 +++ b/codex-rs/login/src/auth/credential_lock.rs
 @@ -0,0 +1,370 @@
@@ -838,7 +838,7 @@ index 0000000000000000000000000000000000000000..e1ccfe230655fe522153b6de6936dbb5
 +mod tests;
 diff --git a/codex-rs/login/src/auth/credential_lock_tests.rs b/codex-rs/login/src/auth/credential_lock_tests.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..6e01c393e876d0da7928511bb8bcc0a40fbf87b1
+index 0000000000..6e01c393e8
 --- /dev/null
 +++ b/codex-rs/login/src/auth/credential_lock_tests.rs
 @@ -0,0 +1,369 @@
@@ -1212,7 +1212,7 @@ index 0000000000000000000000000000000000000000..6e01c393e876d0da7928511bb8bcc0a4
 +    assert!(status.success(), "lock helper failed with {status}");
 +}
 diff --git a/codex-rs/login/src/auth/manager.rs b/codex-rs/login/src/auth/manager.rs
-index cdc9c8d3560359aca41ebf28b1b313e1a1793304..5079e0a1cc0205fd68af8987930aa358a4098680 100644
+index cdc9c8d356..5079e0a1cc 100644
 --- a/codex-rs/login/src/auth/manager.rs
 +++ b/codex-rs/login/src/auth/manager.rs
 @@ -41,6 +41,7 @@ use super::agent_identity::require_agent_identity_authapi_base_url;
@@ -1404,7 +1404,7 @@ index cdc9c8d3560359aca41ebf28b1b313e1a1793304..5079e0a1cc0205fd68af8987930aa358
      }
  
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index 226255f39e25763c88110cb7481a116dcdd09a0c..0b69a11000446253b7065523847880823d573bb7 100644
+index 226255f39e..0b69a11000 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
 @@ -11,10 +11,48 @@ mod storage;
@@ -1457,7 +1457,7 @@ index 226255f39e25763c88110cb7481a116dcdd09a0c..0b69a11000446253b706552384788082
  pub use bedrock_access_keys::BedrockAccessKeysAuth;
  pub use bedrock_access_keys::login_with_bedrock_access_keys;
 diff --git a/codex-rs/login/src/auth/storage.rs b/codex-rs/login/src/auth/storage.rs
-index 4dccbc9138e83c5989ff130c8748941236f70401..f259c65a37b6a621ca164ff1acfaa4b76bce8e22 100644
+index 4dccbc9138..f259c65a37 100644
 --- a/codex-rs/login/src/auth/storage.rs
 +++ b/codex-rs/login/src/auth/storage.rs
 @@ -18,6 +18,7 @@ use std::path::Path;
@@ -1534,7 +1534,7 @@ index 4dccbc9138e83c5989ff130c8748941236f70401..f259c65a37b6a621ca164ff1acfaa4b7
          AuthCredentialsStoreMode::File => Arc::new(FileAuthStorage::new(codex_home)),
          AuthCredentialsStoreMode::Keyring => {
 diff --git a/codex-rs/login/src/auth/storage_tests.rs b/codex-rs/login/src/auth/storage_tests.rs
-index 01c2e6f575e1aebabc5dc73714eee12f4a16155c..60780f1d48763286cf0f5335291a4e6367f8d2b1 100644
+index 01c2e6f575..60780f1d48 100644
 --- a/codex-rs/login/src/auth/storage_tests.rs
 +++ b/codex-rs/login/src/auth/storage_tests.rs
 @@ -65,6 +65,25 @@ async fn file_storage_save_persists_auth_dot_json() -> anyhow::Result<()> {
@@ -1564,7 +1564,7 @@ index 01c2e6f575e1aebabc5dc73714eee12f4a16155c..60780f1d48763286cf0f5335291a4e63
  async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
      let codex_home = tempdir()?;
 diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
-index abbbf1d8977e4efe31cf17e561a76a9e1bd76e0d..792d7f3e2a4b565ebfb3b902f14c47c740f734c9 100644
+index abbbf1d897..792d7f3e2a 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
 @@ -47,6 +47,7 @@ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
@@ -1598,7 +1598,7 @@ index abbbf1d8977e4efe31cf17e561a76a9e1bd76e0d..792d7f3e2a4b565ebfb3b902f14c47c7
  pub use auth_env_telemetry::collect_auth_env_telemetry;
  pub use outbound_proxy::AuthRouteConfig;
 diff --git a/codex-rs/login/tests/suite/auth_refresh.rs b/codex-rs/login/tests/suite/auth_refresh.rs
-index 5e353de173c859142879d5a59db9ce237448a47f..6e524657e11fd784017db134ed5424a24d2ebed7 100644
+index 5e353de173..6e524657e1 100644
 --- a/codex-rs/login/tests/suite/auth_refresh.rs
 +++ b/codex-rs/login/tests/suite/auth_refresh.rs
 @@ -258,6 +258,116 @@ async fn refresh_token_succeeds_updates_storage() -> Result<()> {

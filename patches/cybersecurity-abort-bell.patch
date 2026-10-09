@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 01c9626029b6c9c009a680351659380fbd8644dd..5ae5a554d92b1b047b1113dac8f358ddd26a464a 100644
+index 659e67a6ea..6acb359357 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -401,6 +401,9 @@ impl App {
+@@ -428,6 +428,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -13,10 +13,10 @@ index 01c9626029b6c9c009a680351659380fbd8644dd..5ae5a554d92b1b047b1113dac8f358dd
                  if self.reject_pending_permission_root_switch() {
                      self.chat_widget.restore_user_message_to_composer(text.into());
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index dfedc797338421bdba2dd741d0894f2f6d0cc23a..211b76cb7b91bbca4482676070b1d7d4ac610e0f 100644
+index 7a388a223f..55c8ec1ff5 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -569,6 +569,9 @@ pub(crate) enum AppEvent {
+@@ -618,6 +618,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -27,10 +27,10 @@ index dfedc797338421bdba2dd741d0894f2f6d0cc23a..211b76cb7b91bbca4482676070b1d7d4
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 4bb68f2cf4e1ca0be2e536c56503a9720e21b374..2bfe665ca160098c8d03ed65701354182a042223 100644
+index 5a1888891f..8b284bc96d 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-@@ -133,7 +133,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
+@@ -130,7 +130,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
          Some(CodexErrorInfo::CyberPolicy),
      );
  
@@ -50,7 +50,7 @@ index 4bb68f2cf4e1ca0be2e536c56503a9720e21b374..2bfe665ca160098c8d03ed6570135418
      let rendered = lines_to_single_string(&cells[0]);
      assert!(rendered.contains("This content can’t be shown"));
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index 24ed354ca6198af4dc41ec5a5d96aa9a48324214..15e1628ca7a7829ac5b4d6470afd0f698ad43659 100644
+index 24ed354ca6..15e1628ca7 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
 @@ -394,6 +394,7 @@ impl ChatWidget {
@@ -62,7 +62,7 @@ index 24ed354ca6198af4dc41ec5a5d96aa9a48324214..15e1628ca7a7829ac5b4d6470afd0f69
              self.daybreak_account_eligible() && !self.side_conversation_active();
          let notice = crate::daybreak::notice_for_setting(
 diff --git a/codex-rs/tui/src/notifications/mod.rs b/codex-rs/tui/src/notifications/mod.rs
-index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83626fad0c 100644
+index ee6694b357..f009606f4c 100644
 --- a/codex-rs/tui/src/notifications/mod.rs
 +++ b/codex-rs/tui/src/notifications/mod.rs
 @@ -50,6 +50,10 @@ pub fn detect_backend(method: NotificationMethod) -> DesktopNotificationBackend
@@ -77,10 +77,10 @@ index ee6694b357da3e4ad93ad9b7b547f1d9885c1062..f009606f4c938f294fdb114648dfbe83
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 50b4e80e76addeba6b8f5eaa3dba471177b258be..ce27b830fd34c36060f9e4d26143b2ed92124ec5 100644
+index 3ce906fc18..371dd59d1d 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
-@@ -1027,6 +1027,13 @@ impl Tui {
+@@ -1033,6 +1033,13 @@ impl Tui {
          }
      }
  
