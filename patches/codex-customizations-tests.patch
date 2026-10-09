@@ -832,7 +832,7 @@ index 4a94611994..ee7b81f82a 100644
                  Update daemon and exit Codex?
 -                Use this CLI package v0.0.0 from /x/cli-build/bin/codex. Copy the
 -                complete package and pin it against automatic updates.
-+                Use this CLI package v0.162.0-k.14c8b777 from /x/cli-build/bin/
++                Use this CLI package v0.163.0-k.82883da2 from /x/cli-build/bin/
 +                codex. Copy the complete package and pin it against automatic
 +                updates.
                  This may restart the daemon and interrupt active or queued work.
@@ -847,7 +847,7 @@ index 789d6e4bda..591c39ea0e 100644
  enabled:
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
  
@@ -856,7 +856,7 @@ index 789d6e4bda..591c39ea0e 100644
  disabled:
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
  
@@ -869,7 +869,7 @@ index 8aa1bca71b..0fb7c58eb7 100644
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       <thread cwd>
  
  
@@ -1206,7 +1206,7 @@ index 335071a077..91bb38aee5 100644
  • This conversation is unavailable. Its cached transcript and draft remain here; input is paused. Open the agent picker or return to the parent to continue.
  ⚠ A background Codex service is running v2.0.0, different from your Codex CLI
 -  v0.0.0.
-+  v0.162.0-k.14c8b777.
++  v0.163.0-k.82883da2.
  › unavailable draft
  
    gpt-test default · /tmp/project
@@ -1219,7 +1219,7 @@ index a8997b370e..f22db80afc 100644
                                                            │
                                                            │
 -  Service v2.0.0 ≠ Codex CLI v0.0.0 · /daemon
-+  Service v2.0.0 ≠ Codex CLI v0.162.0-k.14c8b777 · /daemon
++  Service v2.0.0 ≠ Codex CLI v0.163.0-k.82883da2 · /daemon
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
 index ab3a8c84c9..cabe256a57 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
@@ -1229,7 +1229,7 @@ index ab3a8c84c9..cabe256a57 100644
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
@@ -1242,7 +1242,7 @@ index 2ecde209a2..f9c6a5e379 100644
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
@@ -1255,7 +1255,7 @@ index bfd8b46a63..e83a1f9d31 100644
    gpt-test default · /tmp/project
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
@@ -1268,7 +1268,7 @@ index 0dfd7333b6..0fb61f255f 100644
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
    To get started, describe a task or try one of these commands:
@@ -1294,7 +1294,7 @@ index d45000ee78..401d1d3b12 100644
  80 columns
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
  • Conversation continues here.
@@ -1748,7 +1748,7 @@ index a9dd9cac78..074fc6825a 100644
 -│ https://github.com/openai/codex/releases/latest │
 -╰─────────────────────────────────────────────────╯
 +╭──────────────────────────────────────────────────╮
-+│ ✨ Update available! 0.162.0-k.14c8b777 -> 9.9.9 │
++│ ✨ Update available! 0.163.0-k.82883da2 -> 9.9.9 │
 +│ Run pnpm add -g @openai/codex to update.         │
 +│                                                  │
 +│ See full release notes:                          │
@@ -1763,7 +1763,7 @@ index e5cc9a0cec..1b384b5284 100644
  ---
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
       /tmp/project
  
    Tip: Model just became available
@@ -1776,7 +1776,7 @@ index c8f352dbb4..a9aa294321 100644
  ---
  ╭─────────────────────────────────────────────────────────────────────────────────────────────────────╮
 -│ ✨ Update available! 0.0.0 -> 9.9.9                                                                 │
-+│ ✨ Update available! 0.162.0-k.14c8b777 -> 9.9.9                                                    │
++│ ✨ Update available! 0.163.0-k.82883da2 -> 9.9.9                                                    │
  │ Run sh -c 'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh' to update. │
  │                                                                                                     │
  │ See full release notes:                                                                             │
@@ -1789,7 +1789,7 @@ index fb15a05775..061af24a63 100644
  ---
  ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 -│ ✨ Update available! 0.0.0 -> 9.9.9                                                                        │
-+│ ✨ Update available! 0.162.0-k.14c8b777 -> 9.9.9                                                           │
++│ ✨ Update available! 0.163.0-k.82883da2 -> 9.9.9                                                           │
  │ Run powershell -ExecutionPolicy Bypass -c '$env:CODEX_NON_INTERACTIVE=1; irm                               │
  │ https://chatgpt.com/codex/install.ps1 | iex' to update.                                                    │
  │                                                                                                            │
@@ -1817,7 +1817,7 @@ index 53c8053051..db06095bf6 100644
 -  Update available · 0.0.0
 -  → 9.9.9
 +  Update available ·
-+  0.162.0-k.14c8b777 →
++  0.163.0-k.82883da2 →
 +  9.9.9
    Release notes:
    https://github.com/opena
@@ -1834,7 +1834,7 @@ index b547642270..3ad8f05918 100644
  ---
  
 -  Update available · 0.0.0 → 9.9.9
-+  Update available · 0.162.0-k.14c8b777 → 9.9.9
++  Update available · 0.163.0-k.82883da2 → 9.9.9
    Release notes: https://github.com/openai/codex/releases/latest
  
  › 1. Update now (runs `npm install -g @openai/codex`)                           
@@ -1847,7 +1847,7 @@ index a00c3ae09e..95825f2de7 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Model:           gpt-5.6-sol (reasoning none, summaries auto)
    Model provider:  server-ollama
@@ -1860,7 +1860,7 @@ index f7be0da370..722d2ae09f 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1873,7 +1873,7 @@ index 0f7605b353..3a7a220b6b 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1886,7 +1886,7 @@ index 6783811c53..07b1816169 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1899,7 +1899,7 @@ index 92686ae341..e4b20a860b 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1912,7 +1912,7 @@ index 9e2dde9901..6a4dcb3a70 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1925,7 +1925,7 @@ index bdf79abd5e..b22e2ccc7e 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1938,7 +1938,7 @@ index db8ba4caef..2654942f17 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1951,7 +1951,7 @@ index c20a53281a..065acb0deb 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1964,7 +1964,7 @@ index 57c04829f5..d2749cc7f7 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1977,7 +1977,7 @@ index e21309d2f8..2d649c9829 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -1990,7 +1990,7 @@ index a5c7c21c01..17061c11f5 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2003,7 +2003,7 @@ index 51b58ecdec..781dce5fb1 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2016,7 +2016,7 @@ index 8899e4ee37..021080a9fc 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2029,7 +2029,7 @@ index af4953d845..cf7d5479f4 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2042,7 +2042,7 @@ index 2ec2677aac..289d460186 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2055,7 +2055,7 @@ index d83ee6f2d0..6908ae6524 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2068,7 +2068,7 @@ index 593ffd201e..1a0dd2af11 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage
    for up-to-date
@@ -2081,7 +2081,7 @@ index be5c100eec..3300f1106f 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2094,7 +2094,7 @@ index 8661643e2e..78e0f356d8 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2107,7 +2107,7 @@ index 1ba1146d2c..3a8198fcc5 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2120,7 +2120,7 @@ index 29cf7973ff..f4ce44d769 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for
    up-to-date
@@ -2133,7 +2133,7 @@ index 51fbff67df..a9c0d64aca 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
@@ -2142,7 +2142,7 @@ index 51fbff67df..a9c0d64aca 100644
  /status
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.14c8b777)
++  >_ OpenAI Codex (v0.163.0-k.82883da2)
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
