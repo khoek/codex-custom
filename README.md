@@ -111,11 +111,12 @@ composer text, attachments, mention bindings, and pending paste contents. A
 supervisor validates the sidecar, performs any out-of-process recovery required
 by its own policy, and passes the path to the hidden
 `codex resume ... --start-immediately --restore-input-handoff PATH` option. Codex
-restores each saved message into the normal queue independently, starts the first
-one, and puts the unfinished draft back in the composer. The sidecar is retained
-after restore for at-least-once delivery if the restarted process exits again
-before all queued input is delivered. Other retryable errors and runs without
-the flag retain their existing behavior. The flag can be
+restores each saved message into the normal queue independently, submits
+`You were interrupted, continue work` ahead of them, and puts the unfinished
+draft back in the composer. Saved messages follow in their original order, one
+per turn. The sidecar is retained after restore for at-least-once delivery if the
+restarted process exits again before all queued input is delivered. Other retryable
+errors and runs without the flag retain their existing behavior. The flag can be
 supplied to a fresh interactive run or to `codex resume` and `codex fork`.
 
 Supervised interactive runs and runs using managed credential slots use the
@@ -124,7 +125,8 @@ lock ownership, and shutdown within the supervised process. Input awaiting image
 preparation is returned to the queue before the handoff is saved.
 
 The start-immediately continuation reactivates a paused, blocked, or usage-limited goal,
-then submits `You were interrupted, continue work`. If the resumed turn is still
+then places `You were interrupted, continue work` first in the queue and submits
+it as soon as startup quota recovery permits. If the resumed turn is still
 running, Codex orders its interruption before the locally queued continuation;
 even if the old turn completes concurrently, the interrupt cannot land on the
 new turn.

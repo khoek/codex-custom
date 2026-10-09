@@ -794,7 +794,7 @@ index f9932ced06..71f4168077 100644
              lines.push(message.to_string());
              let mut resume_command = disconnect.command.clone();
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 69a4ff5f3e..e83963bc85 100644
+index 69a4ff5f3e..e29638aacb 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -225,11 +225,14 @@ impl App {
@@ -825,19 +825,16 @@ index 69a4ff5f3e..e83963bc85 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState {
                  prompt_after_trust: should_prompt_windows_sandbox_nux_at_startup
-@@ -1030,7 +1039,42 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1030,7 +1039,35 @@ See the Codex keymap documentation for supported actions and examples."
                          .add_info_message(notice.to_string(), /*hint*/ None);
                  }
              }
 -            if !read_only_thread
-+            let restored_handoff_messages = if let Some(path) = restore_input_handoff.as_deref() {
-+                match app.chat_widget.restore_quota_handoff_file(path, thread_id) {
-+                    Ok(count) => count,
-+                    Err(err) => return shutdown_on_startup_error(app_server, err).await,
-+                }
-+            } else {
-+                0
-+            };
++            if let Some(path) = restore_input_handoff.as_deref()
++                && let Err(err) = app.chat_widget.restore_quota_handoff_file(path, thread_id)
++            {
++                return shutdown_on_startup_error(app_server, err).await;
++            }
 +            if read_only_thread && start_immediately {
 +                return shutdown_on_startup_error(
 +                    app_server,
@@ -859,17 +856,13 @@ index 69a4ff5f3e..e83963bc85 100644
 +                    Err(err) => return shutdown_on_startup_error(app_server, err).await,
 +                };
 +                if resumed {
-+                    let restored_input_started = restored_handoff_messages > 0
-+                        && app.chat_widget.maybe_send_next_queued_input();
-+                    if !restored_input_started {
-+                        app.chat_widget.submit_start_immediately_prompt();
-+                    }
++                    app.chat_widget.submit_start_immediately_prompt();
 +                }
 +            } else if !read_only_thread
                  && should_prompt_for_paused_goal_after_startup_resume
                  && let Err(err) = startup_draft
                      .run_until(
-@@ -1044,6 +1088,15 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1044,6 +1081,15 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, err).await;
              }
@@ -885,7 +878,7 @@ index 69a4ff5f3e..e83963bc85 100644
          }
          if !start_in_agents_overview
              && !pending_startup_thread_start
-@@ -1443,6 +1496,27 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1443,6 +1489,27 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -1224,10 +1217,18 @@ index 4af071c81e..3eff71415c 100644
  async fn backend_banner_state_survives_widget_replacement() -> Result<()> {
      for dismiss in [false, true] {
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index 6f0fd8bdb4..1f112e8914 100644
+index 6f0fd8bdb4..32972382ff 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-@@ -34,11 +34,14 @@ async fn run_startup_for_test(
+@@ -22,6 +22,7 @@ async fn run_startup_for_test(
+     bootstrap: AppServerBootstrap,
+     selection: SessionSelection,
+     app_server_target: AppServerTarget,
++    restore_input_handoff: Option<PathBuf>,
+ ) -> Result<AppExitInfo> {
+     App::run(
+         tui,
+@@ -34,11 +35,14 @@ async fn run_startup_for_test(
          CloudConfigBundleLoader::default(),
          /*initial_prompt*/ None,
          Vec::new(),
@@ -1237,11 +1238,151 @@ index 6f0fd8bdb4..1f112e8914 100644
          /*is_first_run*/ false,
          /*should_prompt_windows_sandbox_nux_at_startup*/ false,
          app_server_target,
-+        /*start_immediately*/ false,
-+        /*restore_input_handoff*/ None,
++        /*start_immediately*/ restore_input_handoff.is_some(),
++        restore_input_handoff,
          /*state_db*/ None,
          Arc::new(EnvironmentManager::default_for_tests()),
          Duration::ZERO,
+@@ -52,6 +56,107 @@ async fn run_startup_for_test(
+     .await
+ }
+ 
++#[tokio::test]
++async fn start_immediately_submits_continuation_before_restored_handoff_messages() -> Result<()> {
++    let home = tempdir()?;
++    let backend = wiremock::MockServer::start().await;
++    std::fs::write(
++        home.path().join("config.toml"),
++        format!(
++            r#"
++model_provider = "test"
++[model_providers.test]
++name = "test"
++base_url = "{}"
++requires_openai_auth = false
++wire_api = "responses"
++"#,
++            backend.uri(),
++        ),
++    )?;
++    let config = ConfigBuilder::default()
++        .codex_home(home.path().to_path_buf())
++        .loader_overrides(LoaderOverrides::without_managed_config_for_tests())
++        .build()
++        .await?;
++    let thread_id = ThreadId::from_string(
++        &app_test_support::create_fake_rollout(
++            home.path(),
++            "2026-01-01T00-00-00",
++            "2026-01-01T00:00:00Z",
++            "interrupted work",
++            Some(config.model_provider_id.as_str()),
++            /*git_info*/ None,
++        )
++        .expect("create interrupted rollout"),
++    )?;
++    let mut previous = make_test_app().await;
++    previous
++        .chat_widget
++        .set_queue_autosend_suppressed(/*suppressed*/ true);
++    for text in ["first queued message", "second queued message"] {
++        assert!(previous.chat_widget.queue_user_message_with_options(
++            crate::chatwidget::UserMessage::from(text),
++            crate::bottom_pane::QueuedInputAction::Plain,
++            Vec::new(),
++        ));
++    }
++    let handoff = previous.chat_widget.persist_quota_handoff(
++        thread_id,
++        vec!["--model".into(), "gpt-5.5".into()],
++        home.path(),
++    )?;
++    drop(previous);
++
++    let (mut server, requests, proxy) = start_recording_remote_app_server(&config).await?;
++    let bootstrap = server.bootstrap(&config).await?;
++    let mut tui = crate::tui::test_support::make_test_tui()?;
++    tui.pause_events();
++    let mut run = Box::pin(run_startup_for_test(
++        &mut tui,
++        server,
++        config,
++        bootstrap,
++        SessionSelection::Resume(crate::resume_picker::SessionTarget {
++            path: None,
++            thread_id,
++            cwd: None,
++            history_mode: None,
++        }),
++        AppServerTarget::Embedded,
++        Some(handoff),
++    ));
++    tokio::time::timeout(Duration::from_secs(15), async {
++        loop {
++            if !recorded_params(&requests, "turn/start").is_empty() {
++                return Ok::<(), color_eyre::eyre::Report>(());
++            }
++            tokio::select! {
++                result = &mut run => {
++                    result?;
++                    return Err(color_eyre::eyre::eyre!("startup exited before turn/start"));
++                }
++                () = tokio::time::sleep(Duration::from_millis(20)) => {}
++            }
++        }
++    })
++    .await??;
++    drop(run);
++    proxy.abort();
++
++    let turns = recorded_params(&requests, "turn/start");
++    assert_eq!(turns.len(), 1);
++    assert_eq!(
++        turns[0]["input"],
++        serde_json::json!([{
++            "type": "text",
++            "text": "You were interrupted, continue work",
++            "text_elements": [],
++        }]),
++    );
++    Ok(())
++}
++
+ #[tokio::test]
+ async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
+     let home = tempdir()?;
+@@ -79,6 +184,7 @@ async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
+             allow_embedded_fallback: true,
+             endpoint,
+         },
++        /*restore_input_handoff*/ None,
+     ));
+     tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
+         loop {
+@@ -187,6 +293,7 @@ async fn cli_fork_omits_implicit_model_and_effort() -> Result<()> {
+             history_mode: None,
+         }),
+         AppServerTarget::Embedded,
++        /*restore_input_handoff*/ None,
+     ));
+     tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
+         loop {
+@@ -229,6 +336,7 @@ async fn run_until_thread_start(
+         bootstrap,
+         SessionSelection::StartFresh,
+         AppServerTarget::Embedded,
++        /*restore_input_handoff*/ None,
+     ));
+     tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
+         loop {
+@@ -708,6 +816,7 @@ async fn startup_read_failure_exits_before_thread_creation() -> Result<()> {
+         bootstrap,
+         SessionSelection::StartFresh,
+         AppServerTarget::Embedded,
++        /*restore_input_handoff*/ None,
+     )
+     .await;
+     insta::assert_snapshot!(result.expect_err("startup read must fail").to_string(), @"config/read failed in TUI");
 diff --git a/codex-rs/tui/src/app/thread_goal_actions.rs b/codex-rs/tui/src/app/thread_goal_actions.rs
 index 166e090109..abf3d2a313 100644
 --- a/codex-rs/tui/src/app/thread_goal_actions.rs
@@ -1470,7 +1611,7 @@ index e1a798b522..971bef51c5 100644
              preserve_in_flight_turn && input_state.as_ref().is_some_and(|state| state.task_running);
          if let Some(input_state) = input_state {
 diff --git a/codex-rs/tui/src/chatwidget/input_submission.rs b/codex-rs/tui/src/chatwidget/input_submission.rs
-index 9998e77583..fe9e749ad5 100644
+index 9998e77583..4017c9d13d 100644
 --- a/codex-rs/tui/src/chatwidget/input_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/input_submission.rs
 @@ -4,6 +4,8 @@ use super::*;
@@ -1482,7 +1623,7 @@ index 9998e77583..fe9e749ad5 100644
  impl ChatWidget {
      pub(crate) fn set_task_mentions_enabled(&mut self, enabled: bool) {
          self.bottom_pane.set_task_mentions_enabled(enabled);
-@@ -83,6 +85,27 @@ impl ChatWidget {
+@@ -83,6 +85,26 @@ impl ChatWidget {
          );
      }
  
@@ -1490,17 +1631,16 @@ index 9998e77583..fe9e749ad5 100644
 +        if self.blocks_direct_input {
 +            return;
 +        }
-+        let user_message = UserMessage::from(START_IMMEDIATELY_PROMPT);
-+        if !self.turn_lifecycle.agent_turn_running {
-+            self.submit_user_message(user_message);
-+            return;
-+        }
-+
 +        self.input_queue.prepend_queued_user_message(
-+            user_message.into(),
++            UserMessage::from(START_IMMEDIATELY_PROMPT).into(),
 +            UserMessageHistoryRecord::UserMessageText,
 +        );
 +        self.refresh_pending_input_preview();
++        if !self.turn_lifecycle.agent_turn_running {
++            self.maybe_send_next_queued_input();
++            return;
++        }
++
 +        self.input_queue.submit_queued_after_interrupt = true;
 +        if !self.submit_op(AppCommand::interrupt()) {
 +            self.input_queue.submit_queued_after_interrupt = false;
@@ -1867,10 +2007,10 @@ index 2928d3cfe6..958b543f65 100644
  mod rate_limit_recovery_tests;
  #[path = "tests/reasoning_status_tests.rs"]
 diff --git a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-index 6ef2db01fb..ef8f28b87f 100644
+index 6ef2db01fb..7131b96a34 100644
 --- a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-@@ -383,6 +383,118 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
+@@ -383,6 +383,159 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
      assert_no_submit_op(&mut op_rx);
  }
  
@@ -1895,6 +2035,47 @@ index 6ef2db01fb..ef8f28b87f 100644
 +    assert!(!chat.input_queue.submit_pending_steers_after_interrupt);
 +    assert!(!chat.input_queue.submit_queued_after_interrupt);
 +    assert!(op_rx.try_recv().is_err());
++}
++
++#[tokio::test]
++async fn start_immediately_precedes_queued_messages_during_quota_recovery() {
++    let (mut chat, _events, mut ops) = make_chatwidget_manual(None).await;
++    chat.thread_id = Some(ThreadId::new());
++    set_chatgpt_auth(&mut chat);
++    handle_turn_started(&mut chat, "quota-limited-turn");
++    chat.queue_user_message(UserMessage::from("first queued message"));
++    chat.queue_user_message(UserMessage::from("second queued message"));
++    chat.apply_external_edit("unfinished draft".into());
++    chat.on_rate_limit_error(RateLimitErrorKind::UsageLimit, "Usage exhausted".into());
++
++    chat.submit_start_immediately_prompt();
++
++    assert_no_submit_op(&mut ops);
++    assert_eq!(
++        chat.queued_user_message_texts(),
++        vec![
++            "You were interrupted, continue work",
++            "first queued message",
++            "second queued message",
++        ]
++    );
++    chat.finish_rate_limit_recovery();
++    for (turn_id, expected, remaining) in [
++        ("continuation", "You were interrupted, continue work", 2),
++        ("first", "first queued message", 1),
++        ("second", "second queued message", 0),
++    ] {
++        let Op::UserTurn { items, .. } = next_submit_op(&mut ops) else {
++            panic!("expected a separate user turn for {expected}");
++        };
++        assert!(matches!(items.as_slice(), [UserInput::Text { text, .. }] if text == expected));
++        assert_eq!(chat.queued_user_message_texts().len(), remaining);
++        assert_eq!(chat.composer_text_with_pending(), "unfinished draft");
++        assert_no_submit_op(&mut ops);
++        handle_turn_started(&mut chat, turn_id);
++        handle_turn_completed(&mut chat, turn_id, /*duration_ms*/ None);
++    }
++    assert_no_submit_op(&mut ops);
 +}
 +
 +#[tokio::test]

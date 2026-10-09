@@ -1286,7 +1286,7 @@ index 0000000000..561c619145
 +
 +  GPT-6-Astra xhigh · /tmp/project
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
-index d45000ee78..401d1d3b12 100644
+index d45000ee78..54af4acb34 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
 @@ -4,7 +4,7 @@ expression: "normalize_snapshot_paths(normalize_agent_center_snapshot(snapshots.
@@ -1303,7 +1303,7 @@ index d45000ee78..401d1d3b12 100644
  32 columns
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.162.0-k.1…
++  >_ OpenAI Codex (v0.163.0-k.8…
       /tmp/project
  
  • Conversation continues here.
