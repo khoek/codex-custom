@@ -1,0 +1,395 @@
+diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
+index acd8ddbd3a..79a3c14a37 100644
+--- a/codex-rs/Cargo.toml
++++ b/codex-rs/Cargo.toml
+@@ -640,7 +640,7 @@ opt-level = 0
+ [patch.crates-io]
+ # Uncomment to debug local changes.
+ # ratatui = { path = "../../ratatui" }
+-crossterm = { git = "https://github.com/openai-oss-forks/crossterm", rev = "ed1cdab335221515706178d68495bba2aed1924f" }
++crossterm = { path = "../.cache/crossterm" }
+ tokio-tungstenite = { git = "https://github.com/openai-oss-forks/tokio-tungstenite", rev = "0e5b2d73aa18dd9f0a50ee9ff199d5aef7594186" }
+ tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev = "4fffad30fe373adbdcffab9545e9e9bf4f2fc19f" }
+
+diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
+index c722cfdb09..e9801fd560 100644
+--- a/codex-rs/tui/src/app.rs
++++ b/codex-rs/tui/src/app.rs
+@@ -884,6 +884,11 @@ impl App {
+         app_server: &mut AppServerSession,
+         event: TuiEvent,
+     ) -> Result<AppRunControl> {
++        if tui.take_terminal_palette_change() {
++            self.refresh_status_line();
++            tui.terminal.invalidate_viewport();
++            self.backtrack_render_pending = !tui.is_owned_screen();
++        }
+         tui.link_hover.observe(&event);
+         self.refresh_link_hover(tui)?;
+         self.invalidate_right_click_paste(&event);
+diff --git a/codex-rs/tui/src/app/config_persistence.rs b/codex-rs/tui/src/app/config_persistence.rs
+index 76d0111f4a..497f2845c2 100644
+--- a/codex-rs/tui/src/app/config_persistence.rs
++++ b/codex-rs/tui/src/app/config_persistence.rs
+@@ -1190,13 +1190,7 @@ impl App {
+             return;
+         }
+
+-        let auto_theme_name = crate::render::highlight::adaptive_default_theme_name();
+-        if let Some(theme) = crate::render::highlight::resolve_theme_by_name(
+-            auto_theme_name,
+-            Some(&self.local_settings.codex_home),
+-        ) {
+-            crate::render::highlight::set_syntax_theme(theme);
+-        }
++        crate::render::highlight::restore_adaptive_theme();
+     }
+
+     fn sync_feature_state_from_effective_config(
+diff --git a/codex-rs/tui/src/render/highlight.rs b/codex-rs/tui/src/render/highlight.rs
+index 41b1d239c1..42bd629c51 100644
+--- a/codex-rs/tui/src/render/highlight.rs
++++ b/codex-rs/tui/src/render/highlight.rs
+@@ -66,6 +66,8 @@ static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
+ static THEME: OnceLock<RwLock<Theme>> = OnceLock::new();
+ #[cfg(not(test))]
+ static THEME_REVISION: AtomicU64 = AtomicU64::new(0);
++#[cfg(not(test))]
++static ADAPTIVE_THEME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+ static THEME_OVERRIDE: OnceLock<Option<String>> = OnceLock::new();
+ static CODEX_HOME: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+@@ -73,6 +75,7 @@ static CODEX_HOME: OnceLock<Option<PathBuf>> = OnceLock::new();
+ thread_local! {
+     static TEST_THEME: std::cell::OnceCell<std::sync::Arc<RwLock<Theme>>> = const { std::cell::OnceCell::new() };
+     static TEST_THEME_REVISION: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
++    static TEST_ADAPTIVE_THEME: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+ }
+
+ // Syntect/bat encode ANSI palette semantics in alpha:
+@@ -120,6 +123,10 @@ pub(crate) fn set_theme_override(
+             codex_home.as_deref(),
+         ));
+     }
++    set_adaptive_theme(
++        name.as_deref()
++            .is_none_or(|name| resolve_theme_by_name(name, codex_home.as_deref()).is_none()),
++    );
+     if !override_set_ok || !codex_home_set_ok {
+         // This should never happen in practice — set_theme_override is only
+         // called once at startup.  Keep as a debug breadcrumb in case a second
+@@ -266,6 +273,7 @@ fn theme_lock() -> impl std::ops::Deref<Target = RwLock<Theme>> {
+
+ /// Swap the active syntax theme at runtime and invalidate rendered-content caches.
+ pub(crate) fn set_syntax_theme(theme: Theme) {
++    set_adaptive_theme(false);
+     let active_theme = theme_lock();
+     let mut guard = match active_theme.write() {
+         Ok(guard) => guard,
+@@ -278,6 +286,40 @@ pub(crate) fn set_syntax_theme(theme: Theme) {
+     TEST_THEME_REVISION.with(|revision| revision.set(revision.get().wrapping_add(1)));
+ }
+
++fn set_adaptive_theme(adaptive: bool) {
++    #[cfg(not(test))]
++    ADAPTIVE_THEME.store(adaptive, Ordering::Release);
++    #[cfg(test)]
++    TEST_ADAPTIVE_THEME.with(|value| value.set(adaptive));
++}
++
++pub(crate) fn uses_adaptive_theme() -> bool {
++    #[cfg(not(test))]
++    let adaptive = ADAPTIVE_THEME.load(Ordering::Acquire);
++    #[cfg(test)]
++    let adaptive = TEST_ADAPTIVE_THEME.with(std::cell::Cell::get);
++    adaptive
++}
++
++pub(crate) fn restore_adaptive_theme() {
++    set_adaptive_theme(true);
++    refresh_terminal_colors();
++}
++
++/// Re-select automatic themes and invalidate styled content even when an explicit theme is kept.
++pub(crate) fn refresh_terminal_colors() {
++    let adaptive = uses_adaptive_theme();
++    let theme = if adaptive {
++        two_face::theme::extra()
++            .get(adaptive_default_embedded_theme_name())
++            .clone()
++    } else {
++        current_syntax_theme()
++    };
++    set_syntax_theme(theme);
++    set_adaptive_theme(adaptive);
++}
++
+ /// Return the revision of the active syntax theme for rendered-content caches.
+ pub(crate) fn syntax_theme_revision() -> u64 {
+     #[cfg(not(test))]
+diff --git a/codex-rs/tui/src/terminal_palette.rs b/codex-rs/tui/src/terminal_palette.rs
+index 7ff9b968f9..233b78007e 100644
+--- a/codex-rs/tui/src/terminal_palette.rs
++++ b/codex-rs/tui/src/terminal_palette.rs
+@@ -135,6 +135,23 @@ pub fn default_bg() -> Option<(u8, u8, u8)> {
+     default_colors().map(|c| c.bg)
+ }
+
++/// Publish a complete runtime reply pair, retaining the last palette on missing replies.
++#[cfg(unix)]
++pub(crate) fn update_default_colors(colors: crate::terminal_probe::DefaultColors) -> bool {
++    if default_fg() == Some(colors.fg) && default_bg() == Some(colors.bg) {
++        return false;
++    }
++    set_default_colors_from_startup_probe(Some(colors));
++    #[cfg(test)]
++    TEST_DEFAULT_COLORS.with(|current| {
++        current.set(Some(DefaultColors {
++            fg: colors.fg,
++            bg: colors.bg,
++        }))
++    });
++    true
++}
++
+ #[cfg(any(unix, windows))]
+ pub(crate) fn set_default_colors_from_startup_probe(
+     colors: Option<crate::terminal_probe::DefaultColors>,
+diff --git a/codex-rs/tui/src/theme_picker.rs b/codex-rs/tui/src/theme_picker.rs
+index 50dec0b9f0..b177e26f15 100644
+--- a/codex-rs/tui/src/theme_picker.rs
++++ b/codex-rs/tui/src/theme_picker.rs
+@@ -316,6 +316,7 @@ pub(crate) fn build_theme_picker_params(
+ ) -> SelectionViewParams {
+     // Snapshot the current theme so we can restore on cancel.
+     let original_theme = highlight::current_syntax_theme();
++    let original_adaptive = highlight::uses_adaptive_theme();
+
+     let entries = highlight::list_available_themes(codex_home);
+     let codex_home_owned = codex_home.map(Path::to_path_buf);
+@@ -383,7 +384,11 @@ pub(crate) fn build_theme_picker_params(
+     // Restore original theme on cancel.
+     let on_cancel = Some(
+         Box::new(move |tx: &crate::app_event_sender::AppEventSender| {
+-            highlight::set_syntax_theme(original_theme.clone());
++            if original_adaptive {
++                highlight::restore_adaptive_theme();
++            } else {
++                highlight::set_syntax_theme(original_theme.clone());
++            }
+             tx.send(AppEvent::SyntaxThemePreviewed);
+         }) as Box<dyn Fn(&crate::app_event_sender::AppEventSender) + Send + Sync>,
+     );
+diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
+index 01a22efdb3..12fdbe1180 100644
+--- a/codex-rs/tui/src/tui.rs
++++ b/codex-rs/tui/src/tui.rs
+@@ -85,6 +85,8 @@ mod size_monitor;
+ #[cfg(all(test, unix))]
+ #[path = "tui_startup_tests.rs"]
+ mod startup_tests;
++#[cfg(unix)]
++mod terminal_colors;
+ mod terminal_stderr;
+ #[cfg(test)]
+ pub(crate) mod test_support;
+@@ -710,6 +712,12 @@ where
+ }
+
+ impl Tui {
++    pub(crate) fn take_terminal_palette_change(&self) -> bool {
++        self.event_broker
++            .palette_changed
++            .swap(false, Ordering::Relaxed)
++    }
++
+     pub(crate) fn is_alt_screen_enabled(&self) -> bool {
+         self.alt_screen_enabled
+     }
+diff --git a/codex-rs/tui/src/tui/event_stream.rs b/codex-rs/tui/src/tui/event_stream.rs
+index 3ed439eec6..b2c6cacabb 100644
+--- a/codex-rs/tui/src/tui/event_stream.rs
++++ b/codex-rs/tui/src/tui/event_stream.rs
+@@ -54,6 +54,9 @@ pub struct EventBroker<S: EventSource = CrosstermEventSource> {
+     state: Mutex<EventBrokerState<S>>,
+     resume_events_tx: watch::Sender<()>,
+     pub(super) size_monitor: Option<SizeMonitor>,
++    pub(super) palette_changed: AtomicBool,
++    #[cfg(unix)]
++    palette_refresh: Mutex<super::terminal_colors::PaletteRefresh>,
+ }
+
+ /// Tracks state of underlying [`EventSource`].
+@@ -87,11 +90,19 @@ impl<S: EventSource + Default> EventBroker<S> {
+             state: Mutex::new(EventBrokerState::Start),
+             resume_events_tx,
+             size_monitor: None,
++            palette_changed: AtomicBool::new(false),
++            #[cfg(unix)]
++            palette_refresh: Mutex::new(super::terminal_colors::PaletteRefresh::default()),
+         }
+     }
+
+     /// Drop the underlying event source
+     pub fn pause_events(&self) {
++        #[cfg(unix)]
++        self.palette_refresh
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner)
++            .cancel();
+         if let Some(monitor) = &self.size_monitor {
+             monitor.set_active(/*active*/ false);
+         }
+@@ -134,6 +145,14 @@ pub struct CrosstermEventSource {
+
+ impl Default for CrosstermEventSource {
+     fn default() -> Self {
++        #[cfg(unix)]
++        let events = {
++            let events = crossterm::event::EventStream::with_color_events();
++            // The reply uses the same input reader as keys and bracketed paste.
++            super::terminal_colors::subscribe();
++            events
++        };
++        #[cfg(not(unix))]
+         let events = crossterm::event::EventStream::new();
+         Self {
+             #[cfg(not(windows))]
+@@ -144,6 +163,13 @@ impl Default for CrosstermEventSource {
+     }
+ }
+
++impl Drop for CrosstermEventSource {
++    fn drop(&mut self) {
++        #[cfg(unix)]
++        super::terminal_colors::unsubscribe();
++    }
++}
++
+ impl EventSource for CrosstermEventSource {
+     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<EventResult>> {
+         // Crossterm's Windows backend expects Win32 input records. If VT input is inherited or
+@@ -277,6 +303,33 @@ impl<S: EventSource + Default + Unpin> TuiEventStream<S> {
+     /// Map a crossterm event to a [`TuiEvent`], preserving mouse coordinates and modifiers.
+     fn map_crossterm_event(&mut self, event: Event) -> Option<TuiEvent> {
+         match event {
++            Event::ColorSchemeChanged(_) => {
++                #[cfg(unix)]
++                self.broker
++                    .palette_refresh
++                    .lock()
++                    .unwrap_or_else(std::sync::PoisonError::into_inner)
++                    .request();
++                None
++            }
++            Event::TerminalColor { slot, rgb } => {
++                #[cfg(unix)]
++                if let Some(colors) = self
++                    .broker
++                    .palette_refresh
++                    .lock()
++                    .unwrap_or_else(std::sync::PoisonError::into_inner)
++                    .observe(slot, rgb)
++                    && crate::terminal_palette::update_default_colors(colors)
++                {
++                    crate::render::highlight::refresh_terminal_colors();
++                    self.broker.palette_changed.store(true, Ordering::Relaxed);
++                    return Some(TuiEvent::Draw);
++                }
++                #[cfg(not(unix))]
++                let _ = (slot, rgb);
++                None
++            }
+             Event::Key(key_event) => {
+                 #[cfg(unix)]
+                 if crate::tui::job_control::SUSPEND_KEY.is_press(key_event) {
+@@ -304,8 +357,12 @@ impl<S: EventSource + Default + Unpin> TuiEventStream<S> {
+             Event::Paste(pasted) => Some(TuiEvent::Paste(pasted)),
+             Event::FocusGained => {
+                 self.terminal_focused.store(true, Ordering::Relaxed);
+-                // Keep the startup-cached palette: querying terminal colors here blocks the
+-                // input loop, and a direct probe would discard keys typed during the refresh.
++                #[cfg(unix)]
++                self.broker
++                    .palette_refresh
++                    .lock()
++                    .unwrap_or_else(std::sync::PoisonError::into_inner)
++                    .request();
+                 Some(TuiEvent::FocusGained)
+             }
+             Event::FocusLost => {
+diff --git a/codex-rs/tui/src/tui/terminal_colors.rs b/codex-rs/tui/src/tui/terminal_colors.rs
+new file mode 100644
+index 0000000000..49c903c2e8
+--- /dev/null
++++ b/codex-rs/tui/src/tui/terminal_colors.rs
+@@ -0,0 +1,69 @@
++//! Refresh terminal defaults through the ordinary event stream, without another stdin reader.
++
++use crate::terminal_probe::DefaultColors;
++use std::io::Write;
++use std::time::Duration;
++use std::time::Instant;
++
++const REPLY_TIMEOUT: Duration = Duration::from_secs(1);
++
++pub(super) fn subscribe() {
++    write_sequence(b"\x1b[?2031h\x1b[?996n");
++}
++
++pub(super) fn unsubscribe() {
++    write_sequence(b"\x1b[?2031l");
++}
++
++fn write_sequence(sequence: &[u8]) -> bool {
++    let mut stdout = std::io::stdout().lock();
++    stdout
++        .write_all(sequence)
++        .and_then(|()| stdout.flush())
++        .is_ok()
++}
++
++#[derive(Default)]
++pub(super) struct PaletteRefresh {
++    deadline: Option<Instant>,
++    foreground: Option<(u8, u8, u8)>,
++    background: Option<(u8, u8, u8)>,
++}
++
++impl PaletteRefresh {
++    pub(super) fn request(&mut self) {
++        self.cancel();
++        self.deadline = write_sequence(b"\x1b]10;?\x1b\\\x1b]11;?\x1b\\")
++            .then(|| Instant::now() + REPLY_TIMEOUT);
++    }
++
++    pub(super) fn cancel(&mut self) {
++        *self = Self::default();
++    }
++
++    pub(super) fn observe(&mut self, slot: u8, rgb: Option<(u8, u8, u8)>) -> Option<DefaultColors> {
++        // A late reply must not complete a stale, partially answered query.
++        if Instant::now() >= self.deadline? {
++            self.cancel();
++            return None;
++        }
++        if !matches!(slot, 10 | 11) {
++            return None;
++        }
++        let Some(rgb) = rgb else {
++            self.cancel();
++            return None;
++        };
++        match slot {
++            10 => self.foreground = Some(rgb),
++            11 => self.background = Some(rgb),
++            _ => unreachable!(),
++        }
++        let colors = DefaultColors {
++            fg: self.foreground?,
++            bg: self.background?,
++        };
++        self.cancel();
++        Some(colors)
++    }
++}
