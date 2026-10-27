@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `a96fa4f220700544a1202ec7ae411e432715151f`
+repository as a submodule at commit `2cab11ca40aad193382348a7bda46da2fc47596a`
 from upstream `main`. The custom version is `0.165.1-k.a96fa4f2`. It carries a
 small, ordered patch series:
 
@@ -231,7 +231,8 @@ The installer supports native arm64 and x86_64 builds on macOS and Linux. It:
    keeping the pinned submodule clean even when Cargo refreshes a release
    lockfile;
 3. uses Codex's canonical package builder to include `codex-code-mode-host`,
-   `rg`, `zsh`, and, on Linux, `bwrap`;
+   `rg`, `zsh`, and, on Linux, `bwrap`, with verified Codex-published V8 sandbox
+   archives and bindings;
 4. strips release debug information from the two locally built binaries;
 5. restores the submodule to its clean pinned state, including after failures;
 6. installs a timestamped package under
@@ -276,11 +277,16 @@ git -C codex apply "$patch_bundle"
 rm -f -- "$patch_bundle"
 ```
 
-Build directly from the upstream Cargo workspace:
+Build a native package with the canonical builder, which downloads and verifies
+the matching V8 sandbox archive and bindings before building both binaries:
 
 ```sh
-cd codex/codex-rs
-cargo build --release --bin codex --bin codex-code-mode-host
+CODEX_REPO_ROOT="$PWD/codex" \
+python3 codex/scripts/build_codex_package.py \
+    --target "$(rustc -vV | sed -n 's/^host: //p')" \
+    --variant codex \
+    --cargo-profile release \
+    --package-dir "$PWD/codex-package"
 ```
 
 To return the submodule to its pinned clean state:
@@ -319,8 +325,8 @@ and testing.
 5. Apply the remaining patches and run `just fmt` from `codex/codex-rs`. Run every
    focused test plus the `codex-tui` and `codex-cli` crate suites, including CLI
    binary and integration tests (`cargo test -p codex-cli`, without `--lib`).
-   Build both installer binaries with
-   `cargo build --release --bin codex --bin codex-code-mode-host`; library-only
+   Build both installer binaries with the canonical package command above so
+   the code-mode host receives the pinned V8 sandbox artifacts. Library-only
    checks do not cover CLI subcommand exit paths. Auth-file
    selection is process-local, so upstream auth tests cannot inherit it from a
    supervising Codex process. Unset `CODEX_SQLITE_HOME` and `NO_COLOR` for test

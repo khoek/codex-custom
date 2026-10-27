@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index aa7fa3ce89..571348029e 100644
+index 830308f07e..b6ee26c1d5 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -165,7 +165,7 @@ members = [
+@@ -168,7 +168,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
@@ -12,10 +12,10 @@ index aa7fa3ce89..571348029e 100644
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/core/src/client.rs b/codex-rs/core/src/client.rs
-index 99550cb20c..70192789ac 100644
+index a3a1429ee0..bc4ca35bc1 100644
 --- a/codex-rs/core/src/client.rs
 +++ b/codex-rs/core/src/client.rs
-@@ -1040,11 +1040,9 @@ impl ModelClient {
+@@ -1094,11 +1094,9 @@ impl ModelClient {
              prefix.push(instructions);
          }
          input.splice(0..0, prefix);
@@ -31,10 +31,10 @@ index 99550cb20c..70192789ac 100644
          if !is_openai {
              for item in &mut input {
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 073e7a19ee..63c6845fc9 100644
+index d156184403..8a14f7d6ab 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -5455,14 +5455,19 @@ impl Session {
+@@ -5532,14 +5532,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -59,10 +59,10 @@ index 073e7a19ee..63c6845fc9 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 50c32e3e64..7479e724b3 100644
+index 445fd560dd..dd4b644ef0 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -439,12 +439,11 @@ impl CodexErr {
+@@ -445,12 +445,11 @@ impl CodexErr {
              | CodexErrorDetails::CyberPolicy { .. }
              | CodexErrorDetails::BioPolicy { .. }
              | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
@@ -78,10 +78,10 @@ index 50c32e3e64..7479e724b3 100644
              | CodexErrorDetails::RequestTimeout
              | CodexErrorDetails::UnexpectedStatus(_)
 diff --git a/codex-rs/tui/src/app/background_requests.rs b/codex-rs/tui/src/app/background_requests.rs
-index 13daf6a761..c93203ebda 100644
+index ad5f6e3d7b..3c05b297f9 100644
 --- a/codex-rs/tui/src/app/background_requests.rs
 +++ b/codex-rs/tui/src/app/background_requests.rs
-@@ -821,27 +821,45 @@ pub(super) async fn fetch_account_rate_limits(
+@@ -826,27 +826,45 @@ pub(super) async fn fetch_account_rate_limits(
          .request_typed(ClientRequest::GetAccountRateLimits {
              request_id: request_id.clone(),
              params: Some(GetAccountRateLimitsParams {
@@ -132,6 +132,28 @@ index 13daf6a761..c93203ebda 100644
  }
  
  pub(super) async fn fetch_thread_usage(
+diff --git a/codex-rs/tui/src/app/input.rs b/codex-rs/tui/src/app/input.rs
+index ccf99df963..b3d3c5709d 100644
+--- a/codex-rs/tui/src/app/input.rs
++++ b/codex-rs/tui/src/app/input.rs
+@@ -465,12 +465,11 @@ impl App {
+                 return;
+             }
+         }
+-        // Some terminals, especially on macOS, encode Option+Left/Right as Option+b/f unless
+-        // enhanced keyboard reporting is available. We only treat those word-motion fallbacks as
+-        // agent-switch shortcuts when the composer is empty so we never steal the expected
+-        // editing behavior for moving across words inside a draft.
+-        let allow_agent_word_motion_fallback = !self.enhanced_keys_supported
+-            && self.chat_widget.composer_text_with_pending().is_empty();
++        // Some SSH and multiplexer transports encode Alt+Left/Right as Meta+b/f even when they
++        // advertise enhanced keyboard support. The fallback is safe whenever the composer is
++        // empty: there is no draft word motion to preserve, regardless of the capability probe.
++        let allow_agent_word_motion_fallback =
++            self.chat_widget.composer_text_with_pending().is_empty();
+         if self.overlay.is_none()
+             && self.chat_widget.no_modal_or_popup_active()
+             // Alt+Left/Right are also natural word-motion keys in the composer. Keep agent
 diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
 index 0e4852767d..550596623a 100644
 --- a/codex-rs/tui/src/chatwidget/rate_limits.rs
@@ -151,10 +173,10 @@ index 0e4852767d..550596623a 100644
  
      pub(super) fn open_workspace_owner_nudge_prompt(
 diff --git a/codex-rs/tui/src/chatwidget/safety_buffering.rs b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-index dc3fb0b805..c64e040772 100644
+index 4b7d512f49..86e90e40d4 100644
 --- a/codex-rs/tui/src/chatwidget/safety_buffering.rs
 +++ b/codex-rs/tui/src/chatwidget/safety_buffering.rs
-@@ -234,6 +234,9 @@ impl ChatWidget {
+@@ -235,6 +235,9 @@ impl ChatWidget {
              items,
              ..SelectionViewParams::picker()
          });
@@ -164,33 +186,21 @@ index dc3fb0b805..c64e040772 100644
      }
  
      pub(crate) fn confirm_safety_buffered_retry(
-diff --git a/codex-rs/tui/src/app/input.rs b/codex-rs/tui/src/app/input.rs
-index 2ceb510c23..2f9b5b0dfe 100644
---- a/codex-rs/tui/src/app/input.rs
-+++ b/codex-rs/tui/src/app/input.rs
-@@ -452,12 +452,11 @@ impl App {
-                 return;
-             }
-         }
--        // Some terminals, especially on macOS, encode Option+Left/Right as Option+b/f unless
--        // enhanced keyboard reporting is available. We only treat those word-motion fallbacks as
--        // agent-switch shortcuts when the composer is empty so we never steal the expected
--        // editing behavior for moving across words inside a draft.
--        let allow_agent_word_motion_fallback = !self.enhanced_keys_supported
--            && self.chat_widget.composer_text_with_pending().is_empty();
-+        // Some SSH and multiplexer transports encode Alt+Left/Right as Meta+b/f even when they
-+        // advertise enhanced keyboard support. The fallback is safe whenever the composer is
-+        // empty: there is no draft word motion to preserve, regardless of the capability probe.
-+        let allow_agent_word_motion_fallback =
-+            self.chat_widget.composer_text_with_pending().is_empty();
-         if self.overlay.is_none()
-             && self.chat_widget.no_modal_or_popup_active()
-             // Alt+Left/Right are also natural word-motion keys in the composer. Keep agent
 diff --git a/codex-rs/tui/src/multi_agents.rs b/codex-rs/tui/src/multi_agents.rs
-index 8210270580..6c049ae29d 100644
+index e7f3d38951..d76fb55b86 100644
 --- a/codex-rs/tui/src/multi_agents.rs
 +++ b/codex-rs/tui/src/multi_agents.rs
-@@ -111,8 +111,8 @@ pub(crate) fn next_agent_shortcut() -> crate::key_hint::KeyBinding {
+@@ -18,9 +18,7 @@ use codex_protocol::ThreadId;
+ use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
+ use crossterm::event::KeyCode;
+ use crossterm::event::KeyEvent;
+-#[cfg(target_os = "macos")]
+ use crossterm::event::KeyEventKind;
+-#[cfg(target_os = "macos")]
+ use crossterm::event::KeyModifiers;
+ use ratatui::style::Stylize;
+ use ratatui::text::Line;
+@@ -111,8 +109,8 @@ pub(crate) fn next_agent_shortcut() -> crate::key_hint::KeyBinding {
      crate::key_hint::alt(KeyCode::Right)
  }
  
@@ -201,7 +211,7 @@ index 8210270580..6c049ae29d 100644
  pub(crate) fn previous_agent_shortcut_matches(
      key_event: KeyEvent,
      allow_word_motion_fallback: bool,
-@@ -121,8 +121,8 @@ pub(crate) fn previous_agent_shortcut_matches(
+@@ -121,8 +119,8 @@ pub(crate) fn previous_agent_shortcut_matches(
          || previous_agent_word_motion_fallback(key_event, allow_word_motion_fallback)
  }
  
@@ -212,7 +222,7 @@ index 8210270580..6c049ae29d 100644
  pub(crate) fn next_agent_shortcut_matches(
      key_event: KeyEvent,
      allow_word_motion_fallback: bool,
-@@ -131,15 +131,12 @@ pub(crate) fn next_agent_shortcut_matches(
+@@ -131,15 +129,12 @@ pub(crate) fn next_agent_shortcut_matches(
          || next_agent_word_motion_fallback(key_event, allow_word_motion_fallback)
  }
  
@@ -230,7 +240,7 @@ index 8210270580..6c049ae29d 100644
      allow_word_motion_fallback
          && matches!(
              key_event,
-@@ -152,20 +149,9 @@ fn previous_agent_word_motion_fallback(
+@@ -152,20 +147,9 @@ fn previous_agent_word_motion_fallback(
          )
  }
  
@@ -253,7 +263,7 @@ index 8210270580..6c049ae29d 100644
      allow_word_motion_fallback
          && matches!(
              key_event,
-@@ -178,14 +164,6 @@ fn next_agent_word_motion_fallback(key_event: KeyEvent, allow_word_motion_fallba
+@@ -178,14 +162,6 @@ fn next_agent_word_motion_fallback(key_event: KeyEvent, allow_word_motion_fallba
          )
  }
  
@@ -265,20 +275,6 @@ index 8210270580..6c049ae29d 100644
 -    false
 -}
 -
- pub(crate) fn spawn_request_summary(item: &ThreadItem) -> Option<SpawnRequestSummary> {
+ pub(crate) fn spawn_request_summary(item: &ThreadItemPayload) -> Option<SpawnRequestSummary> {
      match item {
-         ThreadItem::CollabAgentToolCall {
-diff --git a/codex-rs/tui/src/multi_agents.rs b/codex-rs/tui/src/multi_agents.rs
-index 5a5156e2fe..1087599e2e 100644
---- a/codex-rs/tui/src/multi_agents.rs
-+++ b/codex-rs/tui/src/multi_agents.rs
-@@ -18,9 +18,7 @@ use codex_protocol::ThreadId;
- use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
- use crossterm::event::KeyCode;
- use crossterm::event::KeyEvent;
--#[cfg(target_os = "macos")]
- use crossterm::event::KeyEventKind;
--#[cfg(target_os = "macos")]
- use crossterm::event::KeyModifiers;
- use ratatui::style::Stylize;
- use ratatui::text::Line;
+         ThreadItemPayload::CollabAgentToolCall {

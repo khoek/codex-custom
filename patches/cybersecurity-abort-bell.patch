@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 6687d053b4..a4e2162614 100644
+index 3d31b745e9..216d0b4d7a 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -466,6 +466,9 @@ impl App {
+@@ -467,6 +467,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -13,10 +13,10 @@ index 6687d053b4..a4e2162614 100644
                  if self.reject_pending_permission_root_switch() {
                      self.chat_widget.restore_user_message_to_composer(text.into());
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index e2b86c9c1e..94c7913a1e 100644
+index 2adc3036ae..431a6d9fbf 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -627,6 +627,9 @@ pub(crate) enum AppEvent {
+@@ -635,6 +635,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -27,7 +27,7 @@ index e2b86c9c1e..94c7913a1e 100644
      ///
      /// This is the Plan Mode handoff path: the previous thread remains resumable, but the model
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 4d3fa7bc99..7d60ab3e51 100644
+index 702c43a63a..8ba321f44e 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 @@ -130,7 +130,17 @@ async fn app_server_cyber_policy_error_renders_dedicated_notice() {
@@ -50,17 +50,17 @@ index 4d3fa7bc99..7d60ab3e51 100644
      let rendered = lines_to_single_string(&cells[0]);
      assert!(rendered.contains("This content can’t be shown"));
 diff --git a/codex-rs/tui/src/chatwidget/turn_runtime.rs b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-index d9726d2fc4..58c1c28644 100644
+index ef5954a853..1823440fe4 100644
 --- a/codex-rs/tui/src/chatwidget/turn_runtime.rs
 +++ b/codex-rs/tui/src/chatwidget/turn_runtime.rs
-@@ -415,6 +415,7 @@ impl ChatWidget {
+@@ -438,6 +438,7 @@ impl ChatWidget {
      }
  
      pub(super) fn on_cyber_policy_error(&mut self) {
 +        self.app_event_tx.send(AppEvent::RingTerminalBell);
-         let can_enable_daybreak =
-             self.daybreak_account_eligible() && !self.side_conversation_active();
-         let notice = crate::daybreak::notice_for_setting(
+         let notice = self.cyber_policy_notice();
+         self.input_queue.submit_pending_steers_after_interrupt = false;
+         self.finalize_turn();
 diff --git a/codex-rs/tui/src/notifications/mod.rs b/codex-rs/tui/src/notifications/mod.rs
 index ee6694b357..f009606f4c 100644
 --- a/codex-rs/tui/src/notifications/mod.rs
@@ -77,10 +77,10 @@ index ee6694b357..f009606f4c 100644
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 2a573f1e97..1ec816df53 100644
+index 48b5b14fd3..7aef4d25d8 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
-@@ -1047,6 +1047,13 @@ impl Tui {
+@@ -1051,6 +1051,13 @@ impl Tui {
          }
      }
  
