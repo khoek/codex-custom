@@ -7,7 +7,7 @@ index b13c02bb5a..ef2b65ec35 100644
  
  [workspace.package]
 -version = "0.0.0"
-+version = "0.165.0-k.2cab11ca"
++version = "0.166.0-k.23934d31"
  # Track the edition for all workspace crates in one place. Individual
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
@@ -20,7 +20,7 @@ index 90a4d4bfc3..f3090e7cd5 100644
  expression: "render_human_report(&report, detailed_no_color_unicode_options())"
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Notes
     ↑ desktop      build 123 available (ready to install)
@@ -33,7 +33,7 @@ index 6077a182c1..f46eff7900 100644
  expression: "render_human_report(&report, detailed_all_no_color_unicode_options())"
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Notes
     ⚠ mcp          missing inputs
@@ -46,7 +46,7 @@ index 4974e49533..ee6119a782 100644
  expression: "render_human_report(&report, HumanOutputOptions\n{ show_details: true, show_all: true, ascii: true, color_enabled: false, })"
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Notes
     [!!] terminal     TERM=dumb - colors and cursor control are disabled in this non-interactive run
@@ -59,7 +59,7 @@ index 3e21aaa6be..a1339d29c3 100644
  expression: "render_human_report(&DoctorReport\n{\n    schema_version: 1, generated_at: \"0s since unix epoch\".to_string(),\n    overall_status: check.status, codex_version: \"0.0.0\".to_string(), checks:\n    vec![check],\n}, HumanOutputOptions\n{ show_details: false, show_all: false, ascii: true, color_enabled: false, })"
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Notes
     [XX] terminal     3 issues - TERMINFO unreadable - terminal capabilities are unknown; TERM=dumb - colors and cursor control are disabled in this non-interactive run
@@ -72,7 +72,7 @@ index 06b5cae1b6..e32931241a 100644
  ---
  successful handshake
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Connectivity
    [ok] network      network environment is readable
@@ -81,7 +81,7 @@ index 06b5cae1b6..e32931241a 100644
  
  immediate close
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Notes
     [!!] websocket    Responses WebSocket closed immediately after handshake - Check proxy, VPN, firewall, DNS, custom CA, and WebSocket policy support.
@@ -90,7 +90,7 @@ index 06b5cae1b6..e32931241a 100644
  
  stream failure
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Notes
     [!!] websocket    Responses WebSocket failed; HTTPS fallback may still work - Check proxy, VPN, firewall, DNS, custom CA, and WebSocket policy support.
@@ -103,7 +103,7 @@ index f2a7e97d2b..6db2989523 100644
  expression: stdout
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Notes
     [XX] config       config could not be loaded - Fix the reported config error, then rerun codex doctor.
@@ -116,7 +116,7 @@ index 996f43b992..7ac47a7dc7 100644
  expression: stdout
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.165.0-k.2cab11ca
++Codex Doctor v0.166.0-k.23934d31
  
  Configuration
    [ok] config       loaded
