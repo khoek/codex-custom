@@ -44,6 +44,7 @@ current_install_matches() {
 
     [ -x "$install_root/current/bin/codex" ] &&
         [ -x "$install_root/current/bin/codex-code-mode-host" ] &&
+        [ -x "$install_root/current/bin/codex-exec-server" ] &&
         [ -x "$install_root/current/codex-path/rg" ] &&
         [ -L "$launcher" ] &&
         [ "$(readlink "$launcher")" = "$install_root/current/bin/codex" ] &&
@@ -284,17 +285,20 @@ case "$strip_style" in
     darwin)
         strip -S -x \
             "$package_dir/bin/codex" \
-            "$package_dir/bin/codex-code-mode-host"
+            "$package_dir/bin/codex-code-mode-host" \
+            "$package_dir/bin/codex-exec-server"
         ;;
     linux)
         strip --strip-unneeded \
             "$package_dir/bin/codex" \
-            "$package_dir/bin/codex-code-mode-host"
+            "$package_dir/bin/codex-code-mode-host" \
+            "$package_dir/bin/codex-exec-server"
         ;;
 esac
 chmod 0755 \
     "$package_dir/bin/codex" \
     "$package_dir/bin/codex-code-mode-host" \
+    "$package_dir/bin/codex-exec-server" \
     "$package_dir/codex-path/rg"
 if [ -f "$package_dir/codex-resources/bwrap" ]; then
     chmod 0755 "$package_dir/codex-resources/bwrap"
@@ -306,6 +310,8 @@ fi
 [ -x "$package_dir/bin/codex" ] || die "package builder did not produce bin/codex"
 [ -x "$package_dir/bin/codex-code-mode-host" ] ||
     die "package builder did not produce bin/codex-code-mode-host"
+[ -x "$package_dir/bin/codex-exec-server" ] ||
+    die "package builder did not produce bin/codex-exec-server"
 [ -x "$package_dir/codex-path/rg" ] ||
     die "package builder did not produce codex-path/rg"
 

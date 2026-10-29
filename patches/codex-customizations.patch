@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index 830308f07e..b6ee26c1d5 100644
+index b13c02bb5a..ef2b65ec35 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -168,7 +168,7 @@ members = [
+@@ -169,7 +169,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
@@ -11,6 +11,115 @@ index 830308f07e..b6ee26c1d5 100644
  # Track the edition for all workspace crates in one place. Individual
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
+diff --git a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
+index 90a4d4bfc3..f3090e7cd5 100644
+--- a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
++++ b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
+@@ -2,7 +2,7 @@
+ source: cli/src/doctor/output.rs
+ expression: "render_human_report(&report, detailed_no_color_unicode_options())"
+ ---
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Notes
+    ↑ desktop      build 123 available (ready to install)
+diff --git a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
+index 6077a182c1..f46eff7900 100644
+--- a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
++++ b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
+@@ -2,7 +2,7 @@
+ source: cli/src/doctor/output.rs
+ expression: "render_human_report(&report, detailed_all_no_color_unicode_options())"
+ ---
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Notes
+    ⚠ mcp          missing inputs
+diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
+index 4974e49533..ee6119a782 100644
+--- a/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
++++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
+@@ -2,7 +2,7 @@
+ source: cli/src/doctor.rs
+ expression: "render_human_report(&report, HumanOutputOptions\n{ show_details: true, show_all: true, ascii: true, color_enabled: false, })"
+ ---
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Notes
+    [!!] terminal     TERM=dumb - colors and cursor control are disabled in this non-interactive run
+diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
+index 3e21aaa6be..a1339d29c3 100644
+--- a/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
++++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
+@@ -2,7 +2,7 @@
+ source: cli/src/doctor.rs
+ expression: "render_human_report(&DoctorReport\n{\n    schema_version: 1, generated_at: \"0s since unix epoch\".to_string(),\n    overall_status: check.status, codex_version: \"0.0.0\".to_string(), checks:\n    vec![check],\n}, HumanOutputOptions\n{ show_details: false, show_all: false, ascii: true, color_enabled: false, })"
+ ---
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Notes
+    [XX] terminal     3 issues - TERMINFO unreadable - terminal capabilities are unknown; TERM=dumb - colors and cursor control are disabled in this non-interactive run
+diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
+index 06b5cae1b6..e32931241a 100644
+--- a/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
++++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
+@@ -3,7 +3,7 @@ source: cli/src/doctor.rs
+ expression: rendered
+ ---
+ successful handshake
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Connectivity
+   [ok] network      network environment is readable
+@@ -22,7 +22,7 @@ Connectivity
+ --json redacted report
+ 
+ immediate close
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Notes
+    [!!] websocket    Responses WebSocket closed immediately after handshake - Check proxy, VPN, firewall, DNS, custom CA, and WebSocket policy support.
+@@ -45,7 +45,7 @@ Connectivity
+ --json redacted report
+ 
+ stream failure
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Notes
+    [!!] websocket    Responses WebSocket failed; HTTPS fallback may still work - Check proxy, VPN, firewall, DNS, custom CA, and WebSocket policy support.
+diff --git a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
+index f2a7e97d2b..6db2989523 100644
+--- a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
++++ b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
+@@ -2,7 +2,7 @@
+ source: cli/tests/doctor_enterprise_network.rs
+ expression: stdout
+ ---
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Notes
+    [XX] config       config could not be loaded - Fix the reported config error, then rerun codex doctor.
+diff --git a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap
+index 996f43b992..7ac47a7dc7 100644
+--- a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap
++++ b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap
+@@ -2,7 +2,7 @@
+ source: cli/tests/doctor_enterprise_network.rs
+ expression: stdout
+ ---
+-Codex Doctor v0.0.0
++Codex Doctor v0.165.0-k.2cab11ca
+ 
+ Configuration
+   [ok] config       loaded
 diff --git a/codex-rs/core/src/client.rs b/codex-rs/core/src/client.rs
 index a3a1429ee0..bc4ca35bc1 100644
 --- a/codex-rs/core/src/client.rs
@@ -59,17 +168,19 @@ index d156184403..8a14f7d6ab 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 445fd560dd..dd4b644ef0 100644
+index 108d36429e..9b323c16a6 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -445,12 +445,11 @@ impl CodexErr {
+@@ -448,12 +448,13 @@ impl CodexErr {
              | CodexErrorDetails::CyberPolicy { .. }
              | CodexErrorDetails::BioPolicy { .. }
              | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
--            CodexErrorDetails::ServerOverloaded | CodexErrorDetails::RetryLimit(_) => {
--                self.server_retry_delay()
--            }
-+            CodexErrorDetails::RetryLimit(_) => self.server_retry_delay(),
+-            CodexErrorDetails::ServerOverloaded
+-            | CodexErrorDetails::PolicyCapacityUnavailable
+-            | CodexErrorDetails::RetryLimit(_) => self.server_retry_delay(),
++            CodexErrorDetails::PolicyCapacityUnavailable | CodexErrorDetails::RetryLimit(_) => {
++                self.server_retry_delay()
++            }
              CodexErrorDetails::Stream(..)
              | CodexErrorDetails::ContentFilter
              | CodexErrorDetails::RateLimitExceeded(_)

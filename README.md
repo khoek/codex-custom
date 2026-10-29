@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `2cab11ca40aad193382348a7bda46da2fc47596a`
+repository as a submodule at commit `23934d31b15b1127c83535f84854e5009f7cd51d`
 from upstream `main`. The custom version is `0.165.0-k.2cab11ca`. It carries a
 small, ordered patch series:
 
@@ -192,8 +192,9 @@ the shared file, so concurrent consumers never read a partial token update.
 The auth-file patch keeps the mutation lock across the complete
 reload, authority request, and persistence transaction. A second process then
 reloads the newly issued refresh token instead of replaying a stale one. Codex
-does not create an adjacent `.refresh.lock`; the explicit broker mutation lock
-is the sole managed-credential refresh lock. Invocations without any downstream
+does not create an adjacent `.refresh.lock` or home `auth.lock` for managed
+credentials; the explicit broker mutation lock serializes refresh and persistence,
+including workspace-switch writes. Invocations without any downstream
 credential arguments retain the ordinary Codex auth path and behavior.
 OAuth refresh failures retain response bodies only long enough to classify them internally; logs
 and returned transient errors expose only the HTTP status and a closed, nonsecret failure class.
@@ -231,9 +232,9 @@ The installer supports native arm64 and x86_64 builds on macOS and Linux. It:
    keeping the pinned submodule clean even when Cargo refreshes a release
    lockfile;
 3. uses Codex's canonical package builder to include `codex-code-mode-host`,
-   `rg`, `zsh`, and, on Linux, `bwrap`, with verified Codex-published V8 sandbox
-   archives and bindings;
-4. strips release debug information from the two locally built binaries;
+   `codex-exec-server`, `rg`, `zsh`, and, on Linux, `bwrap`, with verified
+   Codex-published V8 sandbox archives and bindings;
+4. strips release debug information from the three locally built Codex binaries;
 5. restores the submodule to its clean pinned state, including after failures;
 6. installs a timestamped package under
    `~/.local/lib/codex-custom/releases/`; and
@@ -278,7 +279,7 @@ rm -f -- "$patch_bundle"
 ```
 
 Build a native package with the canonical builder, which downloads and verifies
-the matching V8 sandbox archive and bindings before building both binaries:
+the matching V8 sandbox archive and bindings before building all three Codex binaries:
 
 ```sh
 CODEX_REPO_ROOT="$PWD/codex" \
@@ -325,7 +326,7 @@ and testing.
 5. Apply the remaining patches and run `just fmt` from `codex/codex-rs`. Run every
    focused test plus the `codex-tui` and `codex-cli` crate suites, including CLI
    binary and integration tests (`cargo test -p codex-cli`, without `--lib`).
-   Build both installer binaries with the canonical package command above so
+   Build all three installer binaries with the canonical package command above so
    the code-mode host receives the pinned V8 sandbox artifacts. Library-only
    checks do not cover CLI subcommand exit paths. Auth-file
    selection is process-local, so upstream auth tests cannot inherit it from a
