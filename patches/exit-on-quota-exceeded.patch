@@ -99,7 +99,7 @@ index 7b167742ad..24c4113f53 100644
      #[arg(long = "include-non-interactive", default_value_t = false)]
      include_non_interactive: bool,
  
-+    /// Resume the goal and immediately tell Codex to continue the interrupted work.
++    /// Immediately continue interrupted work while preserving manually paused goals.
 +    #[arg(
 +        long = "start-immediately",
 +        default_value_t = false,
@@ -992,7 +992,7 @@ index c2375f91de..d5c083810a 100644
  }
  
 +#[tokio::test]
-+async fn start_immediately_resumes_a_paused_goal() -> Result<()> {
++async fn start_immediately_keeps_a_paused_goal_paused() -> Result<()> {
 +    let mut app = make_test_app().await;
 +    let mut app_server =
 +        crate::start_embedded_app_server_for_picker(app.chat_widget.config_ref()).await?;
@@ -1022,7 +1022,7 @@ index c2375f91de..d5c083810a 100644
 +            .goal
 +            .expect("goal should remain set")
 +            .status,
-+        codex_app_server_protocol::ThreadGoalStatus::Active
++        codex_app_server_protocol::ThreadGoalStatus::Paused
 +    );
 +
 +    app_server.shutdown().await?;
@@ -1432,7 +1432,7 @@ index b964d45195..61e39096c6 100644
          /*state_db*/ None,
          Arc::new(EnvironmentManager::default_for_tests()),
          Duration::ZERO,
-@@ -54,6 +58,142 @@ pub(super) async fn run_startup_for_test(
+@@ -54,6 +58,167 @@ pub(super) async fn run_startup_for_test(
      .await
  }
  
@@ -1442,12 +1442,14 @@ index b964d45195..61e39096c6 100644
 +}
 +
 +#[tokio::test]
-+async fn start_immediately_submits_continuation_with_a_resumed_goal() -> Result<()> {
++async fn start_immediately_preserves_goal_state_while_continuing_work() -> Result<()> {
 +    for status in [
 +        codex_app_server_protocol::ThreadGoalStatus::Paused,
 +        codex_app_server_protocol::ThreadGoalStatus::Blocked,
 +        codex_app_server_protocol::ThreadGoalStatus::UsageLimited,
 +        codex_app_server_protocol::ThreadGoalStatus::Active,
++        codex_app_server_protocol::ThreadGoalStatus::BudgetLimited,
++        codex_app_server_protocol::ThreadGoalStatus::Complete,
 +    ] {
 +        assert_start_immediately_submits_continuation(Some(status)).await?;
 +    }
@@ -1557,6 +1559,29 @@ index b964d45195..61e39096c6 100644
 +    drop(run);
 +    proxy.abort();
 +
++    let mut expected_goal_updates = goal_status
++        .map(|status| vec![serde_json::json!(status)])
++        .unwrap_or_default();
++    if matches!(
++        goal_status,
++        Some(
++            codex_app_server_protocol::ThreadGoalStatus::Blocked
++                | codex_app_server_protocol::ThreadGoalStatus::UsageLimited
++        )
++    ) {
++        expected_goal_updates.push(serde_json::json!(
++            codex_app_server_protocol::ThreadGoalStatus::Active
++        ));
++    }
++    assert_eq!(
++        recorded_params(&requests, "thread/goal/set")
++            .into_iter()
++            .map(|params| params["status"].clone())
++            .collect::<Vec<_>>(),
++        expected_goal_updates,
++        "recovery changed the wrong goal state: {goal_status:?}",
++    );
++
 +    let mut turns = recorded_params(&requests, "turn/start");
 +    turns.extend(recorded_params(&requests, "turn/steer"));
 +    assert_eq!(turns.len(), 1);
@@ -1575,7 +1600,7 @@ index b964d45195..61e39096c6 100644
  #[tokio::test]
  async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
      let home = tempdir()?;
-@@ -81,6 +221,7 @@ async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
+@@ -81,6 +246,7 @@ async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
              allow_embedded_fallback: true,
              endpoint,
          },
@@ -1583,7 +1608,7 @@ index b964d45195..61e39096c6 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -191,6 +332,7 @@ async fn cli_fork_omits_implicit_model_and_effort() -> Result<()> {
+@@ -191,6 +357,7 @@ async fn cli_fork_omits_implicit_model_and_effort() -> Result<()> {
              history_mode: None,
          }),
          AppServerTarget::Embedded,
@@ -1591,7 +1616,7 @@ index b964d45195..61e39096c6 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -233,6 +375,7 @@ async fn run_until_thread_start(
+@@ -233,6 +400,7 @@ async fn run_until_thread_start(
          Some(bootstrap),
          SessionSelection::StartFresh,
          AppServerTarget::Embedded,
@@ -1599,7 +1624,7 @@ index b964d45195..61e39096c6 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -810,6 +953,7 @@ async fn startup_read_failure_exits_before_thread_creation() -> Result<()> {
+@@ -810,6 +978,7 @@ async fn startup_read_failure_exits_before_thread_creation() -> Result<()> {
          Some(bootstrap),
          SessionSelection::StartFresh,
          AppServerTarget::Embedded,
@@ -1607,7 +1632,7 @@ index b964d45195..61e39096c6 100644
      )
      .await;
      insta::assert_snapshot!(result.expect_err("startup read must fail").to_string(), @"config/read failed in TUI");
-@@ -844,6 +988,7 @@ async fn bootstrap_failure_shuts_down_every_initial_backend() -> Result<()> {
+@@ -844,6 +1013,7 @@ async fn bootstrap_failure_shuts_down_every_initial_backend() -> Result<()> {
              /*bootstrap*/ None,
              SessionSelection::StartFresh,
              AppServerTarget::Embedded,
@@ -1619,7 +1644,7 @@ diff --git a/codex-rs/tui/src/app/thread_goal_actions.rs b/codex-rs/tui/src/app/
 index 166e090109..abf3d2a313 100644
 --- a/codex-rs/tui/src/app/thread_goal_actions.rs
 +++ b/codex-rs/tui/src/app/thread_goal_actions.rs
-@@ -85,6 +85,43 @@ impl App {
+@@ -85,6 +85,41 @@ impl App {
          }
      }
  
@@ -1643,16 +1668,14 @@ index 166e090109..abf3d2a313 100644
 +        }
 +
 +        match response.goal.map(|goal| goal.status) {
-+            Some(
-+                ThreadGoalStatus::Paused
-+                | ThreadGoalStatus::Blocked
-+                | ThreadGoalStatus::UsageLimited,
-+            ) => {
++            Some(ThreadGoalStatus::Blocked | ThreadGoalStatus::UsageLimited) => {
 +                self.set_thread_goal_status(app_server, thread_id, ThreadGoalStatus::Active)
 +                    .await
 +            }
++            // A user's pause survives automatic recovery of the interrupted conversation.
 +            Some(
 +                ThreadGoalStatus::Active
++                | ThreadGoalStatus::Paused
 +                | ThreadGoalStatus::BudgetLimited
 +                | ThreadGoalStatus::Complete,
 +            )
@@ -1663,7 +1686,7 @@ index 166e090109..abf3d2a313 100644
      pub(super) async fn open_thread_goal_editor(
          &mut self,
          app_server: &mut AppServerSession,
-@@ -235,7 +272,7 @@ impl App {
+@@ -235,7 +270,7 @@ impl App {
          app_server: &mut AppServerSession,
          thread_id: ThreadId,
          status: ThreadGoalStatus,
@@ -1672,7 +1695,7 @@ index 166e090109..abf3d2a313 100644
          let result = app_server
              .thread_goal_set(
                  thread_id,
-@@ -245,17 +282,22 @@ impl App {
+@@ -245,17 +280,22 @@ impl App {
              )
              .await;
          if self.current_displayed_thread_id() != Some(thread_id) {

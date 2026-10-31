@@ -137,13 +137,16 @@ embedded server, not upstream's shared daemon. This keeps credential selection,
 lock ownership, and shutdown within the supervised process. Input awaiting image
 preparation is returned to the queue before the handoff is saved.
 
-The start-immediately continuation reactivates a paused, blocked, or usage-limited goal,
-then submits `You were interrupted, continue work` as soon as startup quota recovery
-permits. It uses the existing initial-message path, which starts a turn when idle
+The start-immediately continuation preserves manually paused goals and leaves active goals active.
+It reactivates goals stopped by quota exhaustion or a recoverable error (`usage_limited` or
+`blocked`), then submits `You were interrupted, continue work` as soon as startup quota recovery
+permits. A paused goal's interrupted conversation can continue without enabling automatic goal
+turns. Budget-limited and completed goals remain unchanged. This uses the existing initial-message
+path, which starts a turn when idle
 or steers a running turn. Goal activation can start an automatic turn while the
 quota read is pending; treating the continuation as an ordinary queued follow-up
-would leave it waiting for that turn to finish. No recovery interrupt is sent,
-because interrupting a goal turn can also pause the goal in core. Restored follow-ups
+would leave it waiting for that turn to finish. No recovery interrupt is sent, so an
+already-running continuation is not cancelled. Restored follow-ups
 remain queued in order, and the unsent draft remains in the composer.
 
 Recovery arguments use the live primary widget's model, provider, tier, and reasoning
