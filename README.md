@@ -26,6 +26,13 @@ small, ordered patch series:
 7. [`patches/openssl-4.patch`](patches/openssl-4.patch) updates `openssl` to
    `0.10.81` and `openssl-sys` to `0.9.117` so native builds support system
    OpenSSL 4 as well as OpenSSL 3.
+8. [`patches/terminal-theme.patch`](patches/terminal-theme.patch) refreshes the
+   terminal palette and automatic syntax theme on Unix scheme notifications
+   (mode 2031) and focus gain. Leave `tui.theme` unset to follow the terminal;
+   explicit themes remain selected. Tests are in `terminal-theme-tests.patch`.
+   [`prepare-crossterm.sh`](prepare-crossterm.sh) applies the companion Crossterm
+   implementation and test patches to revision `ed1cdab335221515706178d68495bba2aed1924f`
+   in the build checkout's `.cache/crossterm` directory.
 
 The original code patch sets the custom release version, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -272,9 +279,12 @@ cat \
     patches/auth-file.patch \
     patches/cybersecurity-abort-bell.patch \
     patches/writable-file-sandbox.patch \
-    patches/openssl-4.patch >"$patch_bundle"
+    patches/openssl-4.patch \
+    patches/terminal-theme.patch \
+    patches/terminal-theme-tests.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
 git -C codex apply "$patch_bundle"
+sh ./prepare-crossterm.sh "$PWD/codex"
 rm -f -- "$patch_bundle"
 ```
 
@@ -293,6 +303,8 @@ python3 codex/scripts/build_codex_package.py \
 To return the submodule to its pinned clean state:
 
 ```sh
+git -C codex apply --reverse ../patches/terminal-theme-tests.patch
+git -C codex apply --reverse ../patches/terminal-theme.patch
 git -C codex apply --reverse ../patches/openssl-4.patch
 git -C codex apply --reverse ../patches/writable-file-sandbox.patch
 git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
@@ -302,6 +314,7 @@ git -C codex apply --reverse ../patches/codex-customizations-tests.patch
 git -C codex apply --reverse ../patches/codex-customizations.patch
 # Restore Cargo-generated local-package version metadata.
 git -C codex restore -- codex-rs/Cargo.lock
+rm -r -- codex/.cache/crossterm
 ```
 
 ## Bumping Codex

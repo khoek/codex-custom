@@ -1,0 +1,37 @@
+diff --git a/src/event/source/unix/mio.rs b/src/event/source/unix/mio.rs
+index 054fb4d..cb9060d 100644
+--- a/src/event/source/unix/mio.rs
++++ b/src/event/source/unix/mio.rs
+@@ -442,6 +442,32 @@ mod tests {
+     use crate::terminal::sys::file_descriptor::FileDesc;
+     use std::{io::Write, os::unix::net::UnixStream};
+
++    #[cfg(feature = "bracketed-paste")]
++    #[test]
++    fn fragmented_theme_reports_preserve_keys_and_pasted_protocol_text() {
++        use crate::event::{ColorScheme, internal::OscColorPayload};
++        let input = b"a\x1b[?997;2n\x1b[?997;3n\x1b]10;rgb:0000/1111/2222\x1b\\\x1b[200~\x1b[?997;1n\x1b[201~b";
++        for split in 1..input.len() {
++            let mut parser = Parser::default();
++            parser.advance(&input[..split], true);
++            parser.advance(&input[split..], false);
++            assert_eq!(
++                parser.collect::<Vec<_>>(),
++                vec![
++                    InternalEvent::Event(Event::Key(KeyCode::Char('a').into())),
++                    InternalEvent::Event(Event::ColorSchemeChanged(ColorScheme::Light)),
++                    InternalEvent::OscColor {
++                        slot: 10,
++                        payload: OscColorPayload::Rgb { r: 0, g: 17, b: 34 }
++                    },
++                    InternalEvent::Event(Event::Paste("\x1b[?997;1n".into())),
++                    InternalEvent::Event(Event::Key(KeyCode::Char('b').into())),
++                ],
++                "split at {split}"
++            );
++        }
++    }
++
+     fn source_with_input() -> (UnixInternalEventSource, UnixStream) {
+         let (reader, writer) = UnixStream::pair().unwrap();
+         #[cfg(feature = "libc")]
