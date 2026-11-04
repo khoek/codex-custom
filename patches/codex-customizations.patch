@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index b13c02bb5a..ef2b65ec35 100644
+index 7453a47de5..fedf17477b 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -169,7 +169,7 @@ members = [
+@@ -170,7 +170,7 @@ members = [
  resolver = "2"
  
  [workspace.package]
@@ -12,7 +12,7 @@ index b13c02bb5a..ef2b65ec35 100644
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
 diff --git a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
-index 90a4d4bfc3..f3090e7cd5 100644
+index 38a773a2f5..3d43ea8881 100644
 --- a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
 +++ b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
 @@ -2,7 +2,7 @@
@@ -25,7 +25,7 @@ index 90a4d4bfc3..f3090e7cd5 100644
  Notes
     ↑ desktop      build 123 available (ready to install)
 diff --git a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
-index 6077a182c1..f46eff7900 100644
+index 6077a182c1..2d67995251 100644
 --- a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
 +++ b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
 @@ -2,7 +2,7 @@
@@ -38,7 +38,7 @@ index 6077a182c1..f46eff7900 100644
  Notes
     ⚠ mcp          missing inputs
 diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
-index 4974e49533..ee6119a782 100644
+index 4974e49533..6ac771f89e 100644
 --- a/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
 +++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
 @@ -2,7 +2,7 @@
@@ -51,7 +51,7 @@ index 4974e49533..ee6119a782 100644
  Notes
     [!!] terminal     TERM=dumb - colors and cursor control are disabled in this non-interactive run
 diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
-index 3e21aaa6be..a1339d29c3 100644
+index 3e21aaa6be..eaea51b378 100644
 --- a/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
 +++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
 @@ -2,7 +2,7 @@
@@ -64,7 +64,7 @@ index 3e21aaa6be..a1339d29c3 100644
  Notes
     [XX] terminal     3 issues - TERMINFO unreadable - terminal capabilities are unknown; TERM=dumb - colors and cursor control are disabled in this non-interactive run
 diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
-index 06b5cae1b6..e32931241a 100644
+index 06b5cae1b6..a5f2187538 100644
 --- a/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
 +++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
 @@ -3,7 +3,7 @@ source: cli/src/doctor.rs
@@ -95,7 +95,7 @@ index 06b5cae1b6..e32931241a 100644
  Notes
     [!!] websocket    Responses WebSocket failed; HTTPS fallback may still work - Check proxy, VPN, firewall, DNS, custom CA, and WebSocket policy support.
 diff --git a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
-index f2a7e97d2b..6db2989523 100644
+index f2a7e97d2b..dbf301bb52 100644
 --- a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
 +++ b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
 @@ -2,7 +2,7 @@
@@ -108,7 +108,7 @@ index f2a7e97d2b..6db2989523 100644
  Notes
     [XX] config       config could not be loaded - Fix the reported config error, then rerun codex doctor.
 diff --git a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap
-index 996f43b992..7ac47a7dc7 100644
+index 996f43b992..f0a70f061e 100644
 --- a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap
 +++ b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_human_output.snap
 @@ -2,7 +2,7 @@
@@ -121,10 +121,10 @@ index 996f43b992..7ac47a7dc7 100644
  Configuration
    [ok] config       loaded
 diff --git a/codex-rs/core/src/client.rs b/codex-rs/core/src/client.rs
-index a3a1429ee0..bc4ca35bc1 100644
+index e86bb5297f..ca114fb8d8 100644
 --- a/codex-rs/core/src/client.rs
 +++ b/codex-rs/core/src/client.rs
-@@ -1094,11 +1094,9 @@ impl ModelClient {
+@@ -1020,11 +1020,9 @@ impl ModelClient {
              prefix.push(instructions);
          }
          input.splice(0..0, prefix);
@@ -140,10 +140,10 @@ index a3a1429ee0..bc4ca35bc1 100644
          if !is_openai {
              for item in &mut input {
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index d156184403..8a14f7d6ab 100644
+index 064d8e975b..5adcd181e7 100644
 --- a/codex-rs/core/src/session/mod.rs
 +++ b/codex-rs/core/src/session/mod.rs
-@@ -5532,14 +5532,19 @@ impl Session {
+@@ -5786,14 +5786,19 @@ impl Session {
          message: impl Into<String>,
          codex_error: CodexErr,
      ) {
@@ -168,10 +168,10 @@ index d156184403..8a14f7d6ab 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 108d36429e..9b323c16a6 100644
+index 3dff3b4a75..f69079d416 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -448,12 +448,13 @@ impl CodexErr {
+@@ -458,12 +458,13 @@ impl CodexErr {
              | CodexErrorDetails::CyberPolicy { .. }
              | CodexErrorDetails::BioPolicy { .. }
              | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
@@ -189,10 +189,10 @@ index 108d36429e..9b323c16a6 100644
              | CodexErrorDetails::RequestTimeout
              | CodexErrorDetails::UnexpectedStatus(_)
 diff --git a/codex-rs/tui/src/app/background_requests.rs b/codex-rs/tui/src/app/background_requests.rs
-index ad5f6e3d7b..3c05b297f9 100644
+index 6894b98915..06ce3a9fc4 100644
 --- a/codex-rs/tui/src/app/background_requests.rs
 +++ b/codex-rs/tui/src/app/background_requests.rs
-@@ -826,27 +826,45 @@ pub(super) async fn fetch_account_rate_limits(
+@@ -835,27 +835,45 @@ pub(super) async fn fetch_account_rate_limits(
          .request_typed(ClientRequest::GetAccountRateLimits {
              request_id: request_id.clone(),
              params: Some(GetAccountRateLimitsParams {
@@ -244,10 +244,10 @@ index ad5f6e3d7b..3c05b297f9 100644
  
  pub(super) async fn fetch_thread_usage(
 diff --git a/codex-rs/tui/src/app/input.rs b/codex-rs/tui/src/app/input.rs
-index ccf99df963..b3d3c5709d 100644
+index aaae88b7bd..888f8567be 100644
 --- a/codex-rs/tui/src/app/input.rs
 +++ b/codex-rs/tui/src/app/input.rs
-@@ -465,12 +465,11 @@ impl App {
+@@ -511,12 +511,11 @@ impl App {
                  return;
              }
          }
@@ -266,10 +266,10 @@ index ccf99df963..b3d3c5709d 100644
              && self.chat_widget.no_modal_or_popup_active()
              // Alt+Left/Right are also natural word-motion keys in the composer. Keep agent
 diff --git a/codex-rs/tui/src/chatwidget/rate_limits.rs b/codex-rs/tui/src/chatwidget/rate_limits.rs
-index 0e4852767d..550596623a 100644
+index a7162b98b9..9d7104c908 100644
 --- a/codex-rs/tui/src/chatwidget/rate_limits.rs
 +++ b/codex-rs/tui/src/chatwidget/rate_limits.rs
-@@ -534,6 +534,13 @@ impl ChatWidget {
+@@ -537,6 +537,13 @@ impl ChatWidget {
              items,
              ..SelectionViewParams::picker()
          });

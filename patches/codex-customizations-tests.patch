@@ -1,5 +1,5 @@
 diff --git a/codex-rs/codex-api/src/api_bridge_tests.rs b/codex-rs/codex-api/src/api_bridge_tests.rs
-index 0f9417a489..8059ee7fc3 100644
+index b2809a4c0b..7f8a7a3587 100644
 --- a/codex-rs/codex-api/src/api_bridge_tests.rs
 +++ b/codex-rs/codex-api/src/api_bridge_tests.rs
 @@ -34,18 +34,16 @@ async fn http_policy_capacity_preserves_retry_advice_and_terminal_behavior() {
@@ -41,10 +41,10 @@ index 0f9417a489..8059ee7fc3 100644
          (503, "slow_down", CodexErrorInfo::RateLimitExceeded, true),
          (
 diff --git a/codex-rs/codex-api/src/sse/responses_error_tests.rs b/codex-rs/codex-api/src/sse/responses_error_tests.rs
-index 43f6aed886..1116ab2f14 100644
+index a9446c4abd..8e42c8c6f8 100644
 --- a/codex-rs/codex-api/src/sse/responses_error_tests.rs
 +++ b/codex-rs/codex-api/src/sse/responses_error_tests.rs
-@@ -47,22 +47,18 @@ async fn policy_capacity_classification_preserves_overload_retry_behavior() {
+@@ -88,22 +88,18 @@ async fn policy_capacity_classification_preserves_overload_retry_behavior() {
              }))
              .unwrap();
              let error = map_api_error(process_responses_event(event).unwrap_err().into_api_error());
@@ -79,10 +79,10 @@ index 43f6aed886..1116ab2f14 100644
          }
      }
 diff --git a/codex-rs/core/src/guardian/tests.rs b/codex-rs/core/src/guardian/tests.rs
-index 20b0320df8..38e2cf4449 100644
+index e18a9acb10..4a40adfb03 100644
 --- a/codex-rs/core/src/guardian/tests.rs
 +++ b/codex-rs/core/src/guardian/tests.rs
-@@ -3216,6 +3216,12 @@ async fn guardian_review_retries_transient_session_failure_then_approves() -> an
+@@ -2599,6 +2599,12 @@ async fn guardian_review_retries_transient_session_failure_then_approves() -> an
                  "server_is_overloaded",
                  "temporary reviewer overload",
              ),
@@ -95,7 +95,7 @@ index 20b0320df8..38e2cf4449 100644
              sse(vec![
                  ev_response_created("resp-approved"),
                  ev_assistant_message("msg-approved", &approval),
-@@ -3247,7 +3253,7 @@ async fn guardian_review_retries_transient_session_failure_then_approves() -> an
+@@ -2630,7 +2636,7 @@ async fn guardian_review_retries_transient_session_failure_then_approves() -> an
          metadata.guardian_session_kind,
          Some(codex_analytics::GuardianReviewSessionKind::TrunkReused)
      ));
@@ -105,10 +105,10 @@ index 20b0320df8..38e2cf4449 100644
  }
  
 diff --git a/codex-rs/core/tests/suite/client.rs b/codex-rs/core/tests/suite/client.rs
-index 2e192498cb..5abb3b9b72 100644
+index 8455498749..633b6c9664 100644
 --- a/codex-rs/core/tests/suite/client.rs
 +++ b/codex-rs/core/tests/suite/client.rs
-@@ -53,6 +53,7 @@ use codex_protocol::models::ResponseItem;
+@@ -55,6 +55,7 @@ use codex_protocol::models::ResponseItem;
  use codex_protocol::models::WebSearchAction;
  use codex_protocol::openai_models::InputModality;
  use codex_protocol::openai_models::ReasoningEffort;
@@ -116,7 +116,7 @@ index 2e192498cb..5abb3b9b72 100644
  use codex_protocol::protocol::EventMsg;
  use codex_protocol::protocol::Op;
  use codex_protocol::protocol::SessionMeta;
-@@ -71,11 +72,13 @@ use core_test_support::responses::ev_function_call;
+@@ -73,11 +74,13 @@ use core_test_support::responses::ev_function_call;
  use core_test_support::responses::ev_message_item_added;
  use core_test_support::responses::ev_output_text_delta;
  use core_test_support::responses::ev_response_created;
@@ -130,7 +130,7 @@ index 2e192498cb..5abb3b9b72 100644
  use core_test_support::responses::start_mock_server;
  use core_test_support::responses::strip_metadata_from_json;
  use core_test_support::responses::strip_response_item_ids_from_json;
-@@ -91,6 +94,7 @@ use serde_json::json;
+@@ -93,6 +96,7 @@ use serde_json::json;
  use std::io::Write;
  use std::num::NonZeroU64;
  use std::sync::Arc;
@@ -138,7 +138,7 @@ index 2e192498cb..5abb3b9b72 100644
  use tempfile::TempDir;
  use uuid::Uuid;
  use wiremock::Mock;
-@@ -3722,6 +3726,170 @@ async fn usage_limit_error_emits_rate_limit_event() -> anyhow::Result<()> {
+@@ -3731,6 +3735,170 @@ async fn usage_limit_error_emits_rate_limit_event() -> anyhow::Result<()> {
      Ok(())
  }
  
@@ -310,10 +310,10 @@ index 2e192498cb..5abb3b9b72 100644
  async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Result<()> {
      skip_if_no_network!(Ok(()));
 diff --git a/codex-rs/core/tests/suite/client_websockets.rs b/codex-rs/core/tests/suite/client_websockets.rs
-index c48ae76402..ad5f312e86 100755
+index 5880b9e151..38662a9c6a 100755
 --- a/codex-rs/core/tests/suite/client_websockets.rs
 +++ b/codex-rs/core/tests/suite/client_websockets.rs
-@@ -262,6 +262,70 @@ async fn responses_websocket_preserves_raw_tool_metadata_for_openai_custom_endpo
+@@ -265,6 +265,70 @@ async fn responses_websocket_preserves_raw_tool_metadata_for_openai_custom_endpo
      server.shutdown().await;
  }
  
@@ -385,10 +385,10 @@ index c48ae76402..ad5f312e86 100755
  async fn responses_websocket_streams_request() {
      skip_if_no_network!();
 diff --git a/codex-rs/core/tests/suite/compact.rs b/codex-rs/core/tests/suite/compact.rs
-index b3522a09b2..58aebf84f5 100644
+index b522e2dedb..d64d66cc8b 100644
 --- a/codex-rs/core/tests/suite/compact.rs
 +++ b/codex-rs/core/tests/suite/compact.rs
-@@ -6176,10 +6176,19 @@ async fn remote_v2_compaction_refreshes_instructions_and_preserves_them_on_cold_
+@@ -6283,10 +6283,19 @@ async fn remote_v2_compaction_refreshes_instructions_and_preserves_them_on_cold_
      assert_eq!(requests.len(), 4);
      assert_single_instruction_fragment(&requests[3], &new_fragment);
      let resumed_input = requests[3].input();
@@ -411,18 +411,18 @@ index b3522a09b2..58aebf84f5 100644
      let post_compact_input = requests[2].input();
      assert_eq!(
 diff --git a/codex-rs/core/tests/suite/compact_remote.rs b/codex-rs/core/tests/suite/compact_remote.rs
-index 671fe45d2b..802432d8dd 100644
+index 04b846698a..bda0dab2d0 100644
 --- a/codex-rs/core/tests/suite/compact_remote.rs
 +++ b/codex-rs/core/tests/suite/compact_remote.rs
-@@ -22,6 +22,7 @@ use codex_protocol::config_types::ReasoningSummary;
- use codex_protocol::models::ContentItem;
- use codex_protocol::models::ImageReference;
- use codex_protocol::models::ResponseItem;
+@@ -27,6 +27,7 @@ use codex_protocol::models::image_close_tag_text;
+ use codex_protocol::models::image_open_tag_text;
+ use codex_protocol::models::input_text;
+ use codex_protocol::openai_models::InputModality;
 +use codex_protocol::protocol::CodexErrorInfo;
  use codex_protocol::protocol::ConversationStartParams;
  use codex_protocol::protocol::EventMsg;
  use codex_protocol::protocol::InterAgentCommunication;
-@@ -189,6 +190,42 @@ async fn wait_for_turn_complete(codex: &codex_core::CodexThread) {
+@@ -194,6 +195,42 @@ async fn wait_for_turn_complete(codex: &codex_core::CodexThread) {
      .await;
  }
  
@@ -465,7 +465,7 @@ index 671fe45d2b..802432d8dd 100644
  fn amazon_bedrock_test_codex() -> TestCodexBuilder {
      let auth = CodexAuth::BedrockApiKey(BedrockApiKeyAuth {
          api_key: "bedrock-test-api-key".to_string(),
-@@ -1231,6 +1268,137 @@ async fn remote_compact_v2_reuses_compaction_trigger_for_followups() -> Result<(
+@@ -1365,6 +1402,137 @@ async fn remote_compact_v2_reuses_compaction_trigger_for_followups() -> Result<(
      Ok(())
  }
  
@@ -1063,7 +1063,7 @@ index 8fb8ae872d..c31f39543a 100644
          (
              CodexErr::new(CodexErrorDetails::RateLimitExceeded("retry later".into())),
 diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap
-index 4a94611994..8e24f240bb 100644
+index 4a94611994..48767a9d7c 100644
 --- a/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap
 +++ b/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap
 @@ -8,11 +8,11 @@ expression: "render_bottom_popup(&app.chat_widget,\nwidth).replace(r\"C:\\cli-bu
@@ -1082,7 +1082,7 @@ index 4a94611994..8e24f240bb 100644
                  Codex exits to update in this terminal. Relaunch it afterward.
  
 diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap
-index 789d6e4bda..a3bc2729fb 100644
+index 789d6e4bda..528a08eae6 100644
 --- a/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap
 +++ b/codex-rs/tui/src/app/snapshots/codex_tui__app__owned_transcript__empty_state_animation_tests__fresh_thread_header.snap
 @@ -4,7 +4,7 @@ expression: "format!(\"enabled:\\n{}\\n---\\ndisabled:\\n{}\", text(after), text
@@ -1104,7 +1104,7 @@ index 789d6e4bda..a3bc2729fb 100644
  
  
 diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
-index 8aa1bca71b..609e829e37 100644
+index 8aa1bca71b..aedaacd308 100644
 --- a/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
 +++ b/codex-rs/tui/src/app/snapshots/codex_tui__app__tests__app_server_thread_replacement_clears_previous_transcript_before_replay-2.snap
 @@ -4,7 +4,7 @@ assertion_line: 6513
@@ -1117,7 +1117,7 @@ index 8aa1bca71b..609e829e37 100644
  
  
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index cbad3bf375..c2375f91de 100644
+index d6e186086a..d2377ea805 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
 @@ -91,6 +91,8 @@ mod realtime_start;
@@ -1152,10 +1152,10 @@ index 60d8639af6..250013bc67 100644
      }
      session.shutdown().await?;
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index 460b977b3c..4af071c81e 100644
+index 6b0cffaa73..c835ed6d88 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
-@@ -336,7 +336,7 @@ async fn stale_rate_limit_reads_preserve_newer_workspace_hard_stop_for_every_ori
+@@ -341,7 +341,7 @@ async fn stale_rate_limit_reads_preserve_newer_workspace_hard_stop_for_every_ori
  }
  
  #[tokio::test]
@@ -1164,7 +1164,7 @@ index 460b977b3c..4af071c81e 100644
      let (mut app, _app_event_rx, _op_rx) = make_test_app_with_channels().await;
      set_chatgpt_auth(&mut app.chat_widget);
      let mut tui = crate::tui::test_support::make_test_tui()?;
-@@ -364,7 +364,7 @@ async fn stale_rate_limit_read_does_not_dismiss_visible_workspace_advisory() ->
+@@ -369,7 +369,7 @@ async fn stale_rate_limit_read_does_not_dismiss_visible_workspace_advisory() ->
          /*replay_kind*/ None,
      );
      assert!(
@@ -1173,7 +1173,7 @@ index 460b977b3c..4af071c81e 100644
      );
  
      Box::pin(app.handle_event(
-@@ -384,7 +384,7 @@ async fn stale_rate_limit_read_does_not_dismiss_visible_workspace_advisory() ->
+@@ -389,7 +389,7 @@ async fn stale_rate_limit_read_does_not_dismiss_visible_workspace_advisory() ->
      .await?;
  
      assert!(
@@ -1376,10 +1376,10 @@ index 0000000000..319f36fe3a
 +    Ok(())
 +}
 diff --git a/codex-rs/tui/src/app/tests/safety_buffering.rs b/codex-rs/tui/src/app/tests/safety_buffering.rs
-index 8fe1861c74..d24f6e5fab 100644
+index 4719506025..0e12134e04 100644
 --- a/codex-rs/tui/src/app/tests/safety_buffering.rs
 +++ b/codex-rs/tui/src/app/tests/safety_buffering.rs
-@@ -547,7 +547,7 @@ stream_max_retries = 0
+@@ -654,7 +654,7 @@ stream_max_retries = 0
          None
      );
  
@@ -1388,7 +1388,7 @@ index 8fe1861c74..d24f6e5fab 100644
      assert!(
          std::iter::from_fn(|| app_event_rx.try_recv().ok())
              .all(|event| !matches!(event, AppEvent::CodexOp(AppCommand::UserTurn { .. })))
-@@ -1037,7 +1037,7 @@ goals = true
+@@ -1144,7 +1144,7 @@ goals = true
              thread_id: source_thread_id,
              turn_id: active_turn_id.clone(),
              model: FASTER_MODEL.to_string(),
@@ -1397,7 +1397,7 @@ index 8fe1861c74..d24f6e5fab 100644
              prompt: UserMessage::from(RETRY_PROMPT),
          },
      ))
-@@ -1113,35 +1113,12 @@ goals = true
+@@ -1220,35 +1220,12 @@ goals = true
              app.chat_widget
                  .can_retry_safety_buffered_turn(&first_retry_turn_id)
          );
@@ -1440,7 +1440,7 @@ index 8fe1861c74..d24f6e5fab 100644
          let AppCommand::UserTurn { items, .. } = &second_retry.turn else {
              panic!("second safety-buffering retry should retain the user turn");
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap
-index 335071a077..d7c4a09195 100644
+index 335071a077..2d3263fd38 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__active_reconnect__unavailable_conversation.snap
 @@ -4,7 +4,7 @@ expression: "format!(\"{history}\\n{}\",\nrender_bottom_popup(&app.chat_widget,\
@@ -1453,7 +1453,7 @@ index 335071a077..d7c4a09195 100644
  
    gpt-test default · /tmp/project
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap
-index a8997b370e..2a066bbb17 100644
+index a8997b370e..25a12dddda 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__navigation_reconnect__daemon_command_center_vanished_rename.snap
 @@ -25,4 +25,4 @@ expression: "render_bottom_popup(&app.chat_widget, 100)"
@@ -1463,7 +1463,7 @@ index a8997b370e..2a066bbb17 100644
 -  Service v2.0.0 ≠ Codex CLI v0.0.0 · /daemon
 +  Service v2.0.0 ≠ Codex CLI v0.166.1-k.23934d31 · /daemon
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
-index ab3a8c84c9..01c090f721 100644
+index ab3a8c84c9..4080854cd5 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_buffered_replay_reconciles_captions.snap
 @@ -4,7 +4,7 @@ assertion_line: 889
@@ -1476,7 +1476,7 @@ index ab3a8c84c9..01c090f721 100644
  
    To get started, describe a task or try one of these commands:
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
-index 2ecde209a2..e72d3f9912 100644
+index 2ecde209a2..d8f3b6c3d0 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_completed_after_thread_switch.snap
 @@ -4,7 +4,7 @@ assertion_line: 1093
@@ -1489,7 +1489,7 @@ index 2ecde209a2..e72d3f9912 100644
  
    To get started, describe a task or try one of these commands:
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap
-index bfd8b46a63..21a3267fb0 100644
+index bfd8b46a63..cf269aba60 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_partial_completed_after_thread_switch.snap
 @@ -14,7 +14,7 @@ Restored owner:
@@ -1502,7 +1502,7 @@ index bfd8b46a63..21a3267fb0 100644
  
    To get started, describe a task or try one of these commands:
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap
-index 0dfd7333b6..956104f2b6 100644
+index 0dfd7333b6..9d080d2123 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__realtime_requests__voice_replay_reconciles_matching_captions.snap
 @@ -4,7 +4,7 @@ assertion_line: 716
@@ -1528,7 +1528,7 @@ index 0000000000..561c619145
 +
 +  GPT-6-Astra xhigh · /tmp/project
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__session_lifecycle_requests__new_session_tests__widget_replacement_preserves_mention_usage_with_history_disabled.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__session_lifecycle_requests__new_session_tests__widget_replacement_preserves_mention_usage_with_history_disabled.snap
-index 6a47bf2b72..d28765a89c 100644
+index 6a47bf2b72..7f70fc5ccc 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__session_lifecycle_requests__new_session_tests__widget_replacement_preserves_mention_usage_with_history_disabled.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__session_lifecycle_requests__new_session_tests__widget_replacement_preserves_mention_usage_with_history_disabled.snap
 @@ -1,8 +1,9 @@
@@ -1543,7 +1543,7 @@ index 6a47bf2b72..d28765a89c 100644
  
  
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
-index d45000ee78..bd55646539 100644
+index d45000ee78..1a5bd557b5 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
 +++ b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__startup_frame_tests__startup_tip_in_transcript.snap
 @@ -4,7 +4,7 @@ expression: "normalize_snapshot_paths(normalize_agent_center_snapshot(snapshots.
@@ -1650,10 +1650,10 @@ index eb482d5356..7933fae295 100644
 -  the response is ready.
 +  GPT-5.6-Sol default · /tmp/project
 diff --git a/codex-rs/tui/src/chatwidget/tests/app_server.rs b/codex-rs/tui/src/chatwidget/tests/app_server.rs
-index b562a30147..73d2ec6342 100644
+index b9423af615..2b1ed795f2 100644
 --- a/codex-rs/tui/src/chatwidget/tests/app_server.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/app_server.rs
-@@ -205,41 +205,21 @@ fn safety_buffering_notification(
+@@ -256,41 +256,21 @@ fn safety_buffering_notification(
      }
  }
  
@@ -1705,7 +1705,7 @@ index b562a30147..73d2ec6342 100644
      let (thread_id, turn_id, _) = start_safety_buffering_test_turn(&mut chat, &mut op_rx);
  
      let notification = safety_buffering_notification(thread_id, turn_id, Some("faster-model"));
-@@ -254,67 +234,17 @@ async fn safety_buffering_offers_one_retry_with_app_wording() {
+@@ -305,67 +285,17 @@ async fn safety_buffering_offers_one_retry_with_app_wording() {
  
      let popup = render_bottom_popup(&chat, /*width*/ 80);
      assert_chatwidget_snapshot!("safety_buffering_retry_prompt", popup);
@@ -1778,7 +1778,7 @@ index b562a30147..73d2ec6342 100644
          chat.handle_server_notification(
              ServerNotification::ModelSafetyBufferingUpdated(safety_buffering_notification(
                  thread_id,
-@@ -323,7 +253,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
+@@ -374,7 +304,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
              )),
              /*replay_kind*/ None,
          );
@@ -1787,7 +1787,7 @@ index b562a30147..73d2ec6342 100644
  
          chat.handle_key_event(KeyEvent::new(key, KeyModifiers::NONE));
  
-@@ -338,7 +268,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
+@@ -389,7 +319,7 @@ async fn safety_buffering_retry_confirmation_can_keep_waiting() {
  
  #[tokio::test]
  async fn safety_buffering_retry_confirmation_closes_when_turn_completes() {
@@ -1796,7 +1796,7 @@ index b562a30147..73d2ec6342 100644
      let (thread_id, turn_id, turn) = start_safety_buffering_test_turn(&mut chat, &mut op_rx);
      chat.handle_server_notification(
          ServerNotification::ModelSafetyBufferingUpdated(safety_buffering_notification(
-@@ -348,7 +278,7 @@ async fn safety_buffering_retry_confirmation_closes_when_turn_completes() {
+@@ -399,7 +329,7 @@ async fn safety_buffering_retry_confirmation_closes_when_turn_completes() {
          )),
          /*replay_kind*/ None,
      );
@@ -1805,7 +1805,7 @@ index b562a30147..73d2ec6342 100644
  
      handle_turn_completed(&mut chat, turn_id, /*duration_ms*/ None);
      // A queued request to open the confirmation must not reopen it after completion.
-@@ -385,8 +315,8 @@ async fn safety_buffering_does_not_offer_retry_in_side_conversation() {
+@@ -436,8 +366,8 @@ async fn safety_buffering_does_not_offer_retry_in_side_conversation() {
  
  #[tokio::test]
  async fn safety_buffering_retry_confirmation_closes_when_response_starts() {
@@ -1816,7 +1816,7 @@ index b562a30147..73d2ec6342 100644
      chat.handle_server_notification(
          ServerNotification::ModelSafetyBufferingUpdated(safety_buffering_notification(
              thread_id,
-@@ -396,7 +326,7 @@ async fn safety_buffering_retry_confirmation_closes_when_response_starts() {
+@@ -447,7 +377,7 @@ async fn safety_buffering_retry_confirmation_closes_when_response_starts() {
          /*replay_kind*/ None,
      );
      assert!(chat.can_retry_safety_buffered_turn(turn_id));
@@ -1825,7 +1825,7 @@ index b562a30147..73d2ec6342 100644
  
      chat.on_agent_message_delta("Visible response".to_string());
  
-@@ -468,8 +398,8 @@ async fn safety_buffering_without_retry_shows_short_app_message() {
+@@ -519,8 +449,8 @@ async fn safety_buffering_without_retry_shows_short_app_message() {
  
  #[tokio::test]
  async fn safety_buffering_ignores_hidden_stale_and_historical_updates() {
@@ -1836,7 +1836,7 @@ index b562a30147..73d2ec6342 100644
  
      let mut hidden = safety_buffering_notification(thread_id, turn_id, Some("faster-model"));
      hidden.show_buffering_ui = false;
-@@ -501,7 +431,7 @@ async fn safety_buffering_ignores_hidden_stale_and_historical_updates() {
+@@ -552,7 +482,7 @@ async fn safety_buffering_ignores_hidden_stale_and_historical_updates() {
          /*replay_kind*/ None,
      );
      assert!(render_bottom_popup(&chat, /*width*/ 80).contains(SAFETY_BUFFERING_HEADER_TEXT));
@@ -1990,7 +1990,7 @@ index 9074c5ec03..702c43a63a 100644
  
  #[tokio::test]
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
-index a9dd9cac78..8d8c440d7c 100644
+index a9dd9cac78..c0e16d8a95 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
 @@ -2,10 +2,10 @@
@@ -2012,7 +2012,7 @@ index a9dd9cac78..8d8c440d7c 100644
 +│ https://github.com/openai/codex/releases/latest  │
 +╰──────────────────────────────────────────────────╯
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
-index e5cc9a0cec..7e877936c9 100644
+index e5cc9a0cec..ee8ae1d3a4 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__session_info_availability_nux_tooltip_snapshot.snap
 @@ -4,7 +4,7 @@ assertion_line: 778
@@ -2025,7 +2025,7 @@ index e5cc9a0cec..7e877936c9 100644
  
    Tip: Model just became available
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
-index 8f1548cf88..2c2c34dfba 100644
+index 8f1548cf88..27c37240b5 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_unix_update_available_history_cell_snapshot.snap
 @@ -3,7 +3,7 @@ source: tui/src/history_cell/tests.rs
@@ -2038,7 +2038,7 @@ index 8f1548cf88..2c2c34dfba 100644
  │ update.                                                                                                    │
  │                                                                                                            │
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
-index fb15a05775..045dd98154 100644
+index fb15a05775..42567ed40c 100644
 --- a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
 +++ b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__standalone_windows_update_available_history_cell_snapshot.snap
 @@ -3,7 +3,7 @@ source: tui/src/history_cell/tests.rs
@@ -2107,7 +2107,7 @@ index 6065eb8406..3235961ddc 100644
                                                  
                                                  
 diff --git a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap
-index 53c8053051..84356b3aad 100644
+index 53c8053051..ae97d00d38 100644
 --- a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap
 +++ b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_picker_selected_28x12.snap
 @@ -3,11 +3,11 @@ source: tui/src/update_prompt.rs
@@ -2126,7 +2126,7 @@ index 53c8053051..84356b3aad 100644
  › 3. Skip until next version
  
 diff --git a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap
-index b547642270..dfaa914079 100644
+index b547642270..188094b0ce 100644
 --- a/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap
 +++ b/codex-rs/tui/src/snapshots/codex_tui__update_prompt__tests__update_prompt_modal.snap
 @@ -3,7 +3,7 @@ source: tui/src/update_prompt.rs
@@ -2139,7 +2139,7 @@ index b547642270..dfaa914079 100644
  
  › 1. Update now (runs `npm install -g @openai/codex`)                           
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap
-index a00c3ae09e..cc0ad43d63 100644
+index a00c3ae09e..9c976fc6e9 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_not_required.snap
 @@ -4,7 +4,7 @@ expression: rendered
@@ -2152,7 +2152,7 @@ index a00c3ae09e..cc0ad43d63 100644
    Model:           gpt-5.6-sol (reasoning none, summaries auto)
    Model provider:  server-ollama
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap
-index f7be0da370..da5fa48d7c 100644
+index f7be0da370..47472740fc 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_server_auth_required.snap
 @@ -4,7 +4,7 @@ expression: rendered
@@ -2165,7 +2165,7 @@ index f7be0da370..da5fa48d7c 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
-index 0f7605b353..5769755ce7 100644
+index 0f7605b353..4c0901ae46 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_cached_limits_hide_credits_without_flag.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2178,7 +2178,7 @@ index 0f7605b353..5769755ce7 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
-index 6783811c53..788b073eb1 100644
+index 6783811c53..38621b1851 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_credits_and_limits.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2191,7 +2191,7 @@ index 6783811c53..788b073eb1 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
-index 92686ae341..57052259eb 100644
+index 92686ae341..4ec91d25f4 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_enterprise_monthly_credit_limit.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2204,7 +2204,7 @@ index 92686ae341..57052259eb 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
-index 9e2dde9901..f6b64ca581 100644
+index 9e2dde9901..1f0a5a56ee 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_forked_from.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2217,7 +2217,7 @@ index 9e2dde9901..f6b64ca581 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
-index bdf79abd5e..498e4443dd 100644
+index bdf79abd5e..cbfe10f9d5 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_monthly_limit.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2230,7 +2230,7 @@ index bdf79abd5e..498e4443dd 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
-index db8ba4caef..ab7ddd72b4 100644
+index db8ba4caef..ed61458256 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_includes_reasoning_details.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2243,7 +2243,7 @@ index db8ba4caef..ab7ddd72b4 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap
-index c20a53281a..11e4218232 100644
+index c20a53281a..8fc2348fe1 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_local_background_server.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2256,7 +2256,7 @@ index c20a53281a..11e4218232 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap
-index 57c04829f5..ffdcfefb4b 100644
+index 57c04829f5..1a0c52f89d 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_remote_server.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2269,7 +2269,7 @@ index 57c04829f5..ffdcfefb4b 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
-index e21309d2f8..d44f6ea572 100644
+index e21309d2f8..2129cb95f9 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_active_user_defined_profile.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2282,7 +2282,7 @@ index e21309d2f8..d44f6ea572 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
-index a5c7c21c01..f7ebcee3d6 100644
+index a5c7c21c01..795e2d1d68 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_auto_review_permissions.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2295,7 +2295,7 @@ index a5c7c21c01..f7ebcee3d6 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
-index df0b8002fc..06fef1cc33 100644
+index df0b8002fc..91cb1ee109 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_chatgpt_plan_without_email.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2308,7 +2308,7 @@ index df0b8002fc..06fef1cc33 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
-index 8899e4ee37..63af06cb0a 100644
+index 8899e4ee37..58989442ba 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_missing_limits_message.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2321,7 +2321,7 @@ index 8899e4ee37..63af06cb0a 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
-index af4953d845..1ba706cbc9 100644
+index af4953d845..292ff33b40 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_refreshing_limits_notice.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2334,7 +2334,7 @@ index af4953d845..1ba706cbc9 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
-index 2ec2677aac..89f48222d6 100644
+index 2ec2677aac..b58b62bdb4 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_stale_limits_message.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2347,7 +2347,7 @@ index 2ec2677aac..89f48222d6 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
-index d83ee6f2d0..5998f98642 100644
+index d83ee6f2d0..9ea1f13a39 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_shows_unavailable_limits_message.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2360,7 +2360,7 @@ index d83ee6f2d0..5998f98642 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
-index 593ffd201e..ef71d9ef13 100644
+index 593ffd201e..c87f35cd77 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_halfwidth_kana_in_narrow_terminal.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2373,7 +2373,7 @@ index 593ffd201e..ef71d9ef13 100644
    Visit https://chatgpt.com/settings/usage
    for up-to-date
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
-index be5c100eec..16ea353f1f 100644
+index be5c100eec..e533165d40 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_truncates_in_narrow_terminal.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2386,7 +2386,7 @@ index be5c100eec..16ea353f1f 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
-index 8661643e2e..7fa343b45b 100644
+index 8661643e2e..ac1f2f2f23 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_default_reasoning_when_config_empty.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2399,7 +2399,7 @@ index 8661643e2e..7fa343b45b 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
-index 1ba1146d2c..eb1d706141 100644
+index 1ba1146d2c..42c85ab513 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_uses_generic_limit_labels_for_unsupported_windows.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2412,7 +2412,7 @@ index 1ba1146d2c..eb1d706141 100644
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
-index 29cf7973ff..3cf62d4e32 100644
+index 29cf7973ff..dc10e63d0b 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__status_snapshot_wraps_enterprise_monthly_credit_details_in_narrow_terminal.snap
 @@ -4,7 +4,7 @@ expression: sanitized
@@ -2425,7 +2425,7 @@ index 29cf7973ff..3cf62d4e32 100644
    Visit https://chatgpt.com/settings/usage for
    up-to-date
 diff --git a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
-index 51fbff67df..fc4b906849 100644
+index 51fbff67df..780725e1f2 100644
 --- a/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
 +++ b/codex-rs/tui/src/status/snapshots/codex_tui__status__tests__transcript_overlay_status_rate_limit_refresh.snap
 @@ -6,7 +6,7 @@ before:

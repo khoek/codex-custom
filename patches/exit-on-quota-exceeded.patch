@@ -76,7 +76,7 @@ index 1abf467835..9d6422112d 100644
      }
  
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index 7b167742ad..24c4113f53 100644
+index fff4dd4656..ec41ee3db3 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
 @@ -31,6 +31,7 @@ use codex_state::StateRuntime;
@@ -95,7 +95,7 @@ index 7b167742ad..24c4113f53 100644
  use std::sync::Arc;
  use supports_color::Stream;
  
-@@ -375,6 +377,24 @@ struct ResumeCommand {
+@@ -370,6 +372,24 @@ struct ResumeCommand {
      #[arg(long = "include-non-interactive", default_value_t = false)]
      include_non_interactive: bool,
  
@@ -120,7 +120,7 @@ index 7b167742ad..24c4113f53 100644
      #[clap(flatten)]
      remote: InteractiveRemoteOptions,
  
-@@ -769,16 +789,17 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
+@@ -764,13 +784,16 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
  fn handle_app_exit(
      exit_info: AppExitInfo,
      cli_executable: Option<&std::path::Path>,
@@ -133,16 +133,15 @@ index 7b167742ad..24c4113f53 100644
 -            true
 +            (ExitCode::FAILURE, false)
          }
-         ExitReason::UserRequested
-         | ExitReason::Archived(_)
-         | ExitReason::TurnInterrupted
--        | ExitReason::ThreadRemoved => false,
-+        | ExitReason::ThreadRemoved => (ExitCode::SUCCESS, true),
+-        ExitReason::UserRequested | ExitReason::TurnInterrupted => false,
++        ExitReason::UserRequested | ExitReason::TurnInterrupted | ExitReason::ThreadRemoved => {
++            (ExitCode::SUCCESS, true)
++        }
 +        ExitReason::Supervised { .. } => (ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE), false),
      };
  
      let update_action = exit_info.update_action;
-@@ -788,14 +809,11 @@ fn handle_app_exit(
+@@ -780,14 +803,11 @@ fn handle_app_exit(
              println!("{line}");
          }
      }
@@ -160,7 +159,7 @@ index 7b167742ad..24c4113f53 100644
  }
  
  /// Run the update action and print the result.
-@@ -1040,20 +1058,19 @@ fn stage_str(stage: Stage) -> &'static str {
+@@ -1034,22 +1054,23 @@ fn stage_str(stage: Stage) -> &'static str {
      }
  }
  
@@ -169,52 +168,26 @@ index 7b167742ad..24c4113f53 100644
      codex_build_info::initialize!();
      let remote_control_disabled = codex_app_server::take_remote_control_disabled_env();
      arg0_dispatch_or_else(move |arg0_paths: Arg0DispatchPaths| async move {
-         // Keep the CLI dispatcher off the runtime's stack while the TUI rebuilds a thread.
--        Box::pin(cli_main(arg0_paths, remote_control_disabled)).await?;
+         // Finish polling the large subcommand dispatcher before polling interactive TUI events.
+         if let Some(tui) = Box::pin(dispatch_cli(arg0_paths, remote_control_disabled)).await? {
+-            tui.await?;
++            tui.await
++        } else {
++            Ok(ExitCode::SUCCESS)
+         }
 -        Ok(())
-+        Box::pin(cli_main(arg0_paths, remote_control_disabled)).await
      })
  }
  
- async fn cli_main(
+ async fn dispatch_cli(
      arg0_paths: Arg0DispatchPaths,
      remote_control_disabled: bool,
--) -> anyhow::Result<()> {
-+) -> anyhow::Result<ExitCode> {
+-) -> anyhow::Result<Option<impl Future<Output = anyhow::Result<()>>>> {
++) -> anyhow::Result<Option<impl Future<Output = anyhow::Result<ExitCode>>>> {
      let MultitoolCli {
          config_overrides: mut root_config_overrides,
          feature_toggles,
-@@ -1157,10 +1174,10 @@ async fn cli_main(
-                 arg0_paths.clone(),
-             )
-             .await?;
--            handle_app_exit(exit_info, daemon_cli_executable.as_deref())?;
-+            return handle_app_exit(exit_info, daemon_cli_executable.as_deref());
-         }
-         Some(Subcommand::TcpTunnel(args)) => {
--            return codex_tcp_tunnel::run(args).await;
-+            codex_tcp_tunnel::run(args).await?;
-         }
-         Some(Subcommand::Exec(mut exec_cli)) => {
-             reject_remote_mode_for_subcommand(
-@@ -1281,6 +1298,7 @@ async fn cli_main(
-                     startup_config,
-                 )
-                 .await
-+                .map(|()| ExitCode::SUCCESS)
-                 .map_err(Into::into);
-             }
-             match subcommand {
-@@ -1426,7 +1444,7 @@ async fn cli_main(
-                     AppServerDaemonSubcommand::PidUpdateLoop {
-                         check_package_ownership: true,
-                         ..
--                    } => return Ok(()),
-+                    } => return Ok(ExitCode::SUCCESS),
-                     AppServerDaemonSubcommand::Update {
-                         from_cli: false, ..
-                     }
-@@ -1536,6 +1554,8 @@ async fn cli_main(
+@@ -1522,6 +1543,8 @@ async fn dispatch_cli(
              last,
              all,
              include_non_interactive,
@@ -223,71 +196,40 @@ index 7b167742ad..24c4113f53 100644
              remote,
              config_overrides,
          })) => {
-@@ -1549,6 +1569,8 @@ async fn cli_main(
+@@ -1535,6 +1558,8 @@ async fn dispatch_cli(
                  include_non_interactive,
                  config_overrides,
              );
 +            interactive.start_immediately = start_immediately;
 +            interactive.restore_input_handoff = restore_input_handoff;
-             let exit_info = run_interactive_tui(
+             return Ok(Some(launch_tui(
                  interactive,
-                 remote.remote.or(root_remote.clone()),
-@@ -1558,7 +1580,7 @@ async fn cli_main(
-                 arg0_paths.clone(),
-             )
-             .await?;
--            handle_app_exit(exit_info, daemon_cli_executable.as_deref())?;
-+            return handle_app_exit(exit_info, daemon_cli_executable.as_deref());
-         }
-         Some(Subcommand::Archive(cmd)) => {
-             let output = run_session_archive_cli_command(
-@@ -1658,7 +1680,7 @@ async fn cli_main(
-                 arg0_paths.clone(),
-             )
-             .await?;
--            handle_app_exit(exit_info, daemon_cli_executable.as_deref())?;
-+            return handle_app_exit(exit_info, daemon_cli_executable.as_deref());
-         }
-         Some(Subcommand::Login(mut login_cli)) => {
-             reject_remote_mode_for_subcommand(
-@@ -1783,7 +1805,7 @@ async fn cli_main(
-                     .parse_overrides()
-                     .map_err(anyhow::Error::msg)?;
-                 sandbox_setup::run(setup_cli, config_profile.cloned(), cli_overrides).await?;
--                return Ok(());
-+                return Ok(ExitCode::SUCCESS);
-             }
-             reject_remote_mode_for_subcommand(
-                 root_remote.as_deref(),
-@@ -1791,7 +1813,8 @@ async fn cli_main(
-                 "sandbox",
-             )?;
-             if let Some(SandboxSubcommand::Uninstall(command)) = subcommand {
--                return command.run();
-+                command.run()?;
-+                return Ok(ExitCode::SUCCESS);
-             }
-             let loader_overrides = loader_overrides_for_profile(config_profile)?;
-             #[cfg(target_os = "macos")]
-@@ -1971,7 +1994,7 @@ async fn cli_main(
-         },
-     }
- 
--    Ok(())
-+    Ok(ExitCode::SUCCESS)
- }
- 
- fn profile_v2_for_subcommand<'a>(
-@@ -2501,6 +2524,8 @@ async fn run_interactive_tui(
+                 remote.remote.or(root_remote),
+@@ -2496,10 +2521,19 @@ async fn run_interactive_tui(
      remote_auth_token_env: Option<String>,
      arg0_paths: Arg0DispatchPaths,
  ) -> std::io::Result<AppExitInfo> {
+-    if interactive.no_daemon && remote.is_some() {
+-        return Ok(AppExitInfo::fatal(
+-            "--no-daemon cannot be used with --remote.",
+-        ));
 +    // Supervision must own the server lifetime, including shutdown before credential rotation.
 +    interactive.no_daemon |= interactive.exit_on_quota_exceeded;
-     if interactive.no_daemon {
-         if interactive.agents_overview {
-             return Ok(AppExitInfo::fatal(
-@@ -2776,6 +2801,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
++    if interactive.no_daemon {
++        if interactive.agents_overview {
++            return Ok(AppExitInfo::fatal(
++                "--no-daemon cannot be used with codex agents. The agents overview requires a shared server. Use codex --no-daemon to work without it.",
++            ));
++        }
++        if remote.is_some() {
++            return Ok(AppExitInfo::fatal(
++                "--no-daemon cannot be used with --remote.",
++            ));
++        }
+     }
+     if let Some(prompt) = interactive.prompt.take() {
+         // Normalize CRLF/CR to LF so CLI-provided text can't leak `\r` into TUI state.
+@@ -2753,6 +2787,7 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
          web_search,
          no_alt_screen,
          no_daemon,
@@ -295,7 +237,7 @@ index 7b167742ad..24c4113f53 100644
          prompt,
          mut config_overrides,
          ..
-@@ -2797,6 +2823,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
+@@ -2774,6 +2809,9 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
      }
      interactive.no_alt_screen |= no_alt_screen;
      interactive.no_daemon |= no_daemon;
@@ -305,7 +247,7 @@ index 7b167742ad..24c4113f53 100644
      if strict_config {
          interactive.strict_config = true;
      }
-@@ -3040,6 +3069,8 @@ enabled = true
+@@ -2956,6 +2994,8 @@ enabled = true
              last,
              all,
              include_non_interactive,
@@ -314,7 +256,7 @@ index 7b167742ad..24c4113f53 100644
              remote: _,
              config_overrides: resume_cli,
          }) = subcommand.expect("resume present")
-@@ -3048,7 +3079,7 @@ enabled = true
+@@ -2964,7 +3004,7 @@ enabled = true
          };
          let SessionTuiCli(resume_cli) = resume_cli;
  
@@ -323,7 +265,7 @@ index 7b167742ad..24c4113f53 100644
              interactive,
              root_overrides,
              session_id,
-@@ -3056,7 +3087,10 @@ enabled = true
+@@ -2972,7 +3012,10 @@ enabled = true
              all,
              include_non_interactive,
              resume_cli,
@@ -335,8 +277,8 @@ index 7b167742ad..24c4113f53 100644
      }
  
      fn finalize_fork_from_args(args: &[&str]) -> TuiCli {
-@@ -3978,6 +4012,78 @@ enabled = true
-         ");
+@@ -3880,6 +3923,78 @@ enabled = true
+         insta::assert_snapshot!(lines.join("\n"), @"Session ID: 123e4567-e89b-12d3-a456-426614174000");
      }
  
 +    #[test]
@@ -414,7 +356,7 @@ index 7b167742ad..24c4113f53 100644
      #[test]
      fn format_exit_messages_includes_session_id_for_fatal_exit_without_resume_hint() {
          let exit_info = AppExitInfo {
-@@ -4105,6 +4211,26 @@ enabled = true
+@@ -4007,6 +4122,26 @@ enabled = true
          }
      }
  
@@ -441,7 +383,7 @@ index 7b167742ad..24c4113f53 100644
      #[test]
      fn resume_and_fork_preserve_no_alt_screen() {
          for (command, finalize) in [
-@@ -4179,6 +4305,61 @@ enabled = true
+@@ -4081,6 +4216,61 @@ enabled = true
          assert_eq!(interactive.prompt.as_deref(), Some("continue here"));
      }
  
@@ -503,7 +445,7 @@ index 7b167742ad..24c4113f53 100644
      #[test]
      fn resume_all_flag_sets_show_all() {
          let interactive = finalize_resume_from_args(["codex", "resume", "--all"].as_ref());
-@@ -4186,6 +4367,22 @@ enabled = true
+@@ -4088,6 +4278,22 @@ enabled = true
          assert!(interactive.resume_show_all);
      }
  
@@ -527,13 +469,15 @@ index 7b167742ad..24c4113f53 100644
      fn resume_include_non_interactive_flag_sets_source_filter_override() {
          let interactive =
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index fbc109028f..b9f2238c2b 100644
+index ed38e821b5..aa36a3462f 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -500,9 +500,24 @@ pub enum ExitReason {
+@@ -501,9 +501,26 @@ pub(crate) enum AppRunControl {
+ pub enum ExitReason {
+     UserRequested,
      TurnInterrupted,
-     /// The current thread was deleted, rather than disconnected.
-     ThreadRemoved,
++    /// The current thread was deleted, rather than disconnected.
++    ThreadRemoved,
 +    Supervised {
 +        thread_id: ThreadId,
 +        outcome: SupervisedOutcome,
@@ -555,7 +499,7 @@ index fbc109028f..b9f2238c2b 100644
  fn resumable_thread(
      thread_id: Option<ThreadId>,
      thread_name: Option<String>,
-@@ -616,6 +631,17 @@ pub(crate) struct App {
+@@ -623,6 +640,17 @@ pub(crate) struct App {
      /// Retained through all loop exits so shutdown cannot interrupt stop followed by start.
      daemon_restart: Option<JoinHandle<anyhow::Result<codex_app_server_daemon::LifecycleOutput>>>,
  
@@ -573,7 +517,7 @@ index fbc109028f..b9f2238c2b 100644
      /// Tracks the thread we intentionally shut down while exiting the app.
      ///
      /// When this matches the active thread, its `ShutdownComplete` should lead to
-@@ -952,6 +978,11 @@ impl App {
+@@ -963,6 +991,11 @@ impl App {
              return Ok(AppRunControl::Exit(ExitReason::UserRequested));
          }
          let screen_size = tui.screen_size_for_event(&event)?;
@@ -586,7 +530,7 @@ index fbc109028f..b9f2238c2b 100644
              &event,
              TuiEvent::Key(_) | TuiEvent::Mouse(_) | TuiEvent::Paste(_) | TuiEvent::FocusLost
 diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
-index 9b22c93ddb..1be2e71106 100644
+index 87ccb4495d..b932f20e47 100644
 --- a/codex-rs/tui/src/app/app_server_events.rs
 +++ b/codex-rs/tui/src/app/app_server_events.rs
 @@ -2,6 +2,7 @@
@@ -777,18 +721,25 @@ index 9b22c93ddb..1be2e71106 100644
              }
              ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
 diff --git a/codex-rs/tui/src/app/exit_summary.rs b/codex-rs/tui/src/app/exit_summary.rs
-index f9932ced06..71f4168077 100644
+index 4cc843d9b4..2875cc56dd 100644
 --- a/codex-rs/tui/src/app/exit_summary.rs
 +++ b/codex-rs/tui/src/app/exit_summary.rs
-@@ -25,6 +25,7 @@ impl App {
+@@ -23,7 +23,13 @@ pub struct DisconnectInfo {
+ 
+ impl App {
      pub(super) fn exit_info(&self, exit_reason: ExitReason) -> AppExitInfo {
-         let thread_id = match exit_reason {
-             ExitReason::Archived(_) | ExitReason::ThreadRemoved => None,
+-        let thread_id = self.chat_widget.thread_id().or(self.primary_thread_id);
++        let thread_id = match exit_reason {
++            ExitReason::ThreadRemoved => None,
 +            ExitReason::Supervised { thread_id, .. } => Some(thread_id),
-             ExitReason::UserRequested | ExitReason::TurnInterrupted | ExitReason::Fatal(_) => {
-                 self.chat_widget.thread_id().or(self.primary_thread_id)
-             }
-@@ -80,6 +81,21 @@ impl App {
++            ExitReason::UserRequested | ExitReason::TurnInterrupted | ExitReason::Fatal(_) => {
++                self.chat_widget.thread_id().or(self.primary_thread_id)
++            }
++        };
+         let disconnect_info = thread_id.and_then(|_| {
+             let command = match &self.app_server_target {
+                 AppServerTarget::Embedded => return None,
+@@ -75,6 +81,21 @@ impl App {
  impl AppExitInfo {
      /// Format the terminal summary for both the CLI and standalone TUI binaries.
      pub fn format_exit_messages(self, color_enabled: bool) -> Vec<String> {
@@ -810,7 +761,13 @@ index f9932ced06..71f4168077 100644
          let color_command = |command: String| {
              if color_enabled {
                  format!("\u{1b}[36m{command}\u{1b}[39m")
-@@ -100,6 +116,9 @@ impl AppExitInfo {
+@@ -92,9 +113,15 @@ impl AppExitInfo {
+                     "Disconnected from this task. Any running work continues."
+                 }
+                 ExitReason::Fatal(_) => "Disconnected from this task. Work may still be running.",
++                ExitReason::ThreadRemoved => {
++                    "Disconnected from this task. Work may still be running."
++                }
                  ExitReason::TurnInterrupted => {
                      "Disconnected from this task. The current turn was stopped."
                  }
@@ -821,10 +778,10 @@ index f9932ced06..71f4168077 100644
              lines.push(message.to_string());
              let mut resume_command = disconnect.command.clone();
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 21badd2f67..d04c857355 100644
+index c4fb378490..5ea26b7c61 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -240,11 +240,14 @@ impl App {
+@@ -250,11 +250,14 @@ impl App {
          cloud_config_bundle: CloudConfigBundleLoader,
          initial_prompt: Option<String>,
          initial_images: Vec<PathBuf>,
@@ -839,7 +796,7 @@ index 21badd2f67..d04c857355 100644
          state_db: Option<StateDbHandle>,
          environment_manager: Arc<EnvironmentManager>,
          startup_elapsed_before_app: Duration,
-@@ -1028,6 +1031,12 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1045,6 +1048,12 @@ See the Codex keymap documentation for supported actions and examples."
              daemon_cli_executable,
              pending_update_action: None,
              daemon_restart: None,
@@ -852,9 +809,9 @@ index 21badd2f67..d04c857355 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState {
                  prompt_after_trust: should_prompt_windows_sandbox_nux_at_startup
-@@ -1146,7 +1155,39 @@ See the Codex keymap documentation for supported actions and examples."
-                         .add_info_message(notice.to_string(), /*hint*/ None);
-                 }
+@@ -1170,7 +1179,39 @@ See the Codex keymap documentation for supported actions and examples."
+                 app.chat_widget
+                     .add_info_message(notice.to_string(), /*hint*/ None);
              }
 -            if !read_only_thread
 +            if let Some(path) = restore_input_handoff.as_deref()
@@ -893,7 +850,7 @@ index 21badd2f67..d04c857355 100644
                  && should_prompt_for_paused_goal_after_startup_resume
                  && let Err(err) = startup_draft
                      .run_until(
-@@ -1160,6 +1201,16 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1184,6 +1225,16 @@ See the Codex keymap documentation for supported actions and examples."
              {
                  return shutdown_on_startup_error(app_server, &mut other_backends, err).await;
              }
@@ -910,7 +867,7 @@ index 21badd2f67..d04c857355 100644
          }
          if !start_in_agents_overview
              && !pending_startup_thread_start
-@@ -1705,6 +1756,29 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1780,6 +1831,29 @@ See the Codex keymap documentation for supported actions and examples."
                  return Err(err);
              }
          };
@@ -941,10 +898,10 @@ index 21badd2f67..d04c857355 100644
      }
  }
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index a0efb33101..691a96261b 100644
+index 53e3528840..a7dcf1198f 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -85,6 +85,12 @@ pub(crate) async fn make_test_app() -> Box<App> {
+@@ -109,6 +109,12 @@ pub(crate) async fn make_test_app() -> Box<App> {
          daemon_cli_executable: None,
          pending_update_action: None,
          daemon_restart: None,
@@ -958,10 +915,10 @@ index a0efb33101..691a96261b 100644
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index c2375f91de..d5c083810a 100644
+index d2377ea805..1b8e67dd45 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -6473,6 +6473,12 @@ async fn make_test_app() -> Box<App> {
+@@ -7056,6 +7056,12 @@ async fn make_test_app() -> Box<App> {
          daemon_cli_executable: None,
          pending_update_action: None,
          daemon_restart: None,
@@ -974,7 +931,7 @@ index c2375f91de..d5c083810a 100644
          pending_shutdown_exit_thread_id: None,
          windows_sandbox: WindowsSandboxState::default(),
          thread_event_channels: HashMap::new(),
-@@ -6599,6 +6605,12 @@ pub(super) async fn make_test_app_with_channels() -> (
+@@ -7188,6 +7194,12 @@ pub(super) async fn make_test_app_with_channels() -> (
              daemon_cli_executable: None,
              pending_update_action: None,
              daemon_restart: None,
@@ -987,7 +944,7 @@ index c2375f91de..d5c083810a 100644
              pending_shutdown_exit_thread_id: None,
              windows_sandbox: WindowsSandboxState::default(),
              thread_event_channels: HashMap::new(),
-@@ -6854,6 +6866,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
+@@ -7444,6 +7456,44 @@ async fn set_thread_goal_draft_materializes_long_objective_and_confirms_before_p
      Ok(())
  }
  
@@ -1033,10 +990,10 @@ index c2375f91de..d5c083810a 100644
  async fn replace_goal_confirmation_snapshot() {
      let mut app = make_test_app().await;
 diff --git a/codex-rs/tui/src/app/tests/backend_ownership_tests.rs b/codex-rs/tui/src/app/tests/backend_ownership_tests.rs
-index 587a63f7d6..e319f4117e 100644
+index 4dcbc4d671..3a4db7cb53 100644
 --- a/codex-rs/tui/src/app/tests/backend_ownership_tests.rs
 +++ b/codex-rs/tui/src/app/tests/backend_ownership_tests.rs
-@@ -260,6 +260,7 @@ async fn startup_rejects_foreign_resume_and_fork_before_requests() -> Result<()>
+@@ -270,6 +270,7 @@ async fn startup_rejects_foreign_resume_and_fork_before_requests() -> Result<()>
              Some(bootstrap),
              selection,
              app.app_server_target.clone(),
@@ -1045,7 +1002,7 @@ index 587a63f7d6..e319f4117e 100644
          .await;
          assert!(
 diff --git a/codex-rs/tui/src/app/tests/rate_limits.rs b/codex-rs/tui/src/app/tests/rate_limits.rs
-index 4af071c81e..e5ad714b0d 100644
+index c835ed6d88..fb4554148f 100644
 --- a/codex-rs/tui/src/app/tests/rate_limits.rs
 +++ b/codex-rs/tui/src/app/tests/rate_limits.rs
 @@ -105,6 +105,356 @@ fn deliver_usage_limit_error(app: &mut App) {
@@ -1406,7 +1363,7 @@ index 4af071c81e..e5ad714b0d 100644
  async fn backend_banner_state_survives_widget_replacement() -> Result<()> {
      for dismiss in [false, true] {
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index b964d45195..61e39096c6 100644
+index bed5ce30b0..42a432c7c3 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 @@ -23,6 +23,7 @@ pub(super) async fn run_startup_for_test(
@@ -1417,7 +1374,7 @@ index b964d45195..61e39096c6 100644
  ) -> Result<AppExitInfo> {
      App::run(
          tui,
-@@ -35,11 +36,14 @@ pub(super) async fn run_startup_for_test(
+@@ -43,11 +44,14 @@ pub(super) async fn run_startup_for_test(
          CloudConfigBundleLoader::default(),
          /*initial_prompt*/ None,
          Vec::new(),
@@ -1432,7 +1389,7 @@ index b964d45195..61e39096c6 100644
          /*state_db*/ None,
          Arc::new(EnvironmentManager::default_for_tests()),
          Duration::ZERO,
-@@ -54,6 +58,167 @@ pub(super) async fn run_startup_for_test(
+@@ -62,6 +66,167 @@ pub(super) async fn run_startup_for_test(
      .await
  }
  
@@ -1600,7 +1557,7 @@ index b964d45195..61e39096c6 100644
  #[tokio::test]
  async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
      let home = tempdir()?;
-@@ -81,6 +246,7 @@ async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
+@@ -89,6 +254,7 @@ async fn agents_overview_startup_restores_saved_grouping() -> Result<()> {
              allow_embedded_fallback: true,
              endpoint,
          },
@@ -1608,7 +1565,7 @@ index b964d45195..61e39096c6 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -191,6 +357,7 @@ async fn cli_fork_omits_implicit_model_and_effort() -> Result<()> {
+@@ -199,6 +365,7 @@ async fn cli_fork_omits_implicit_model_and_effort() -> Result<()> {
              history_mode: None,
          }),
          AppServerTarget::Embedded,
@@ -1616,7 +1573,7 @@ index b964d45195..61e39096c6 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -233,6 +400,7 @@ async fn run_until_thread_start(
+@@ -241,6 +408,7 @@ async fn run_until_thread_start(
          Some(bootstrap),
          SessionSelection::StartFresh,
          AppServerTarget::Embedded,
@@ -1624,7 +1581,7 @@ index b964d45195..61e39096c6 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -810,6 +978,7 @@ async fn startup_read_failure_exits_before_thread_creation() -> Result<()> {
+@@ -878,6 +1046,7 @@ async fn startup_read_failure_exits_before_thread_creation() -> Result<()> {
          Some(bootstrap),
          SessionSelection::StartFresh,
          AppServerTarget::Embedded,
@@ -1632,7 +1589,7 @@ index b964d45195..61e39096c6 100644
      )
      .await;
      insta::assert_snapshot!(result.expect_err("startup read must fail").to_string(), @"config/read failed in TUI");
-@@ -844,6 +1013,7 @@ async fn bootstrap_failure_shuts_down_every_initial_backend() -> Result<()> {
+@@ -912,6 +1081,7 @@ async fn bootstrap_failure_shuts_down_every_initial_backend() -> Result<()> {
              /*bootstrap*/ None,
              SessionSelection::StartFresh,
              AppServerTarget::Embedded,
@@ -1641,7 +1598,7 @@ index b964d45195..61e39096c6 100644
          async {
              let request = first_commands.recv().await.expect("initial account read");
 diff --git a/codex-rs/tui/src/app/thread_goal_actions.rs b/codex-rs/tui/src/app/thread_goal_actions.rs
-index 166e090109..abf3d2a313 100644
+index 166e090109..581eb441a0 100644
 --- a/codex-rs/tui/src/app/thread_goal_actions.rs
 +++ b/codex-rs/tui/src/app/thread_goal_actions.rs
 @@ -85,6 +85,41 @@ impl App {
@@ -1727,10 +1684,10 @@ index 166e090109..abf3d2a313 100644
      }
  
 diff --git a/codex-rs/tui/src/bottom_pane/chat_composer.rs b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-index cd96134bd0..e3a769125e 100644
+index d23ccfcff7..62d8f7f20c 100644
 --- a/codex-rs/tui/src/bottom_pane/chat_composer.rs
 +++ b/codex-rs/tui/src/bottom_pane/chat_composer.rs
-@@ -550,7 +550,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
+@@ -562,7 +562,8 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
          )
  }
  
@@ -1741,10 +1698,10 @@ index cd96134bd0..e3a769125e 100644
      Plain,
      /// Preserve model-input provenance when paste expansion reveals a leading shell sigil.
 diff --git a/codex-rs/tui/src/bottom_pane/mod.rs b/codex-rs/tui/src/bottom_pane/mod.rs
-index 267653c988..66ed304b1d 100644
+index 7b21db9d3a..af7d701b74 100644
 --- a/codex-rs/tui/src/bottom_pane/mod.rs
 +++ b/codex-rs/tui/src/bottom_pane/mod.rs
-@@ -129,13 +129,13 @@ mod view_stack;
+@@ -132,13 +132,13 @@ mod view_stack;
  pub(crate) use view_stack::CenteredView;
  pub(crate) use view_stack::DialogOverlay;
  
@@ -1761,10 +1718,10 @@ index 267653c988..66ed304b1d 100644
      /// Visible mention sigil (`$` or `@`).
      pub(crate) sigil: char,
 diff --git a/codex-rs/tui/src/chatwidget.rs b/codex-rs/tui/src/chatwidget.rs
-index 68868be0c7..71a8e4d920 100644
+index 310f1e3b92..7a4be3697d 100644
 --- a/codex-rs/tui/src/chatwidget.rs
 +++ b/codex-rs/tui/src/chatwidget.rs
-@@ -289,6 +289,7 @@ mod input_restore;
+@@ -290,6 +290,7 @@ mod input_restore;
  mod input_submission;
  mod interrupts;
  mod questions;
@@ -2159,7 +2116,7 @@ index 42f292b52b..f9c5027ca4 100644
  mod rate_limit_recovery_tests;
  #[path = "tests/reasoning_status_tests.rs"]
 diff --git a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
-index 4b77a7722d..41295ed0e9 100644
+index 88222d0ec0..b878a4c528 100644
 --- a/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/composer_submission.rs
 @@ -384,6 +384,129 @@ async fn parent_owned_thread_restores_pending_initial_prompt() {
@@ -2507,7 +2464,7 @@ index 0000000000..e4b25d69d3
 +    );
 +}
 diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
-index 2cc3331382..4b674d0954 100644
+index 9fa654fb1f..fcbd70394d 100644
 --- a/codex-rs/tui/src/chatwidget/user_messages.rs
 +++ b/codex-rs/tui/src/chatwidget/user_messages.rs
 @@ -29,7 +29,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
@@ -2571,7 +2528,7 @@ index 2cc3331382..4b674d0954 100644
      pub(super) text: String,
      pub(super) local_images: Vec<LocalImageAttachment>,
 diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
-index 29469b295e..9f74b96b36 100644
+index ca006e91b1..8283b44ef1 100644
 --- a/codex-rs/tui/src/cli.rs
 +++ b/codex-rs/tui/src/cli.rs
 @@ -5,6 +5,7 @@ use codex_utils_absolute_path::AbsolutePathBuf;
@@ -2582,10 +2539,14 @@ index 29469b295e..9f74b96b36 100644
  
  #[derive(Parser, Clone, Debug)]
  #[command(version)]
-@@ -50,6 +51,14 @@ pub struct Cli {
+@@ -46,6 +47,18 @@ pub struct Cli {
      #[clap(skip)]
-     pub managed_daemon: bool,
+     pub agents_overview: bool,
  
++    /// Internal: the launching CLI verified that the local daemon has a managed backend.
++    #[clap(skip)]
++    pub managed_daemon: bool,
++
 +    /// Internal: resume an interrupted session without waiting for TUI input.
 +    #[clap(skip)]
 +    pub start_immediately: bool,
@@ -2597,7 +2558,7 @@ index 29469b295e..9f74b96b36 100644
      // Internal controls set by the top-level `codex fork` subcommand.
      // These are not exposed as user flags on the base `codex` command.
      #[clap(skip)]
-@@ -78,6 +87,10 @@ pub struct Cli {
+@@ -74,6 +87,10 @@ pub struct Cli {
      #[arg(long = "search", default_value_t = false)]
      pub web_search: bool,
  
@@ -2609,7 +2570,7 @@ index 29469b295e..9f74b96b36 100644
      ///
      /// Runs the TUI in inline mode, preserving terminal scrollback history.
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 14fe332a4b..a424e8cd42 100644
+index c25fb9ff2e..27fdec0f05 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
 @@ -29,6 +29,9 @@ pub use app::AppExitInfo;
@@ -2622,7 +2583,7 @@ index 14fe332a4b..a424e8cd42 100644
  use app_server_session::AppServerSession;
  use app_server_session::ThreadParamsMode;
  use codex_app_server_client::AppServerClient;
-@@ -2073,9 +2076,12 @@ async fn run_ratatui_app(
+@@ -2134,9 +2137,12 @@ async fn run_ratatui_app(
      let should_prompt_windows_sandbox_nux_at_startup = false;
  
      let Cli {
@@ -2635,7 +2596,7 @@ index 14fe332a4b..a424e8cd42 100644
          ..
      } = cli;
      let images = shared.into_inner().images;
-@@ -2186,11 +2192,14 @@ async fn run_ratatui_app(
+@@ -2248,11 +2254,14 @@ async fn run_ratatui_app(
          cloud_config_bundle,
          prompt,
          images,
@@ -2651,7 +2612,7 @@ index 14fe332a4b..a424e8cd42 100644
          environment_manager,
          startup_elapsed_before_app,
 diff --git a/codex-rs/tui/src/main.rs b/codex-rs/tui/src/main.rs
-index 789c7f15f2..a093eaab19 100644
+index 1e5c8d2513..dd7fe4e5c2 100644
 --- a/codex-rs/tui/src/main.rs
 +++ b/codex-rs/tui/src/main.rs
 @@ -8,9 +8,11 @@ use codex_arg0::arg0_dispatch_or_else;
@@ -2675,7 +2636,7 @@ index 789c7f15f2..a093eaab19 100644
      codex_build_info::initialize!();
      arg0_dispatch_or_else(|arg0_paths: Arg0DispatchPaths| async move {
          let top_cli = TopCli::parse();
-@@ -38,25 +40,23 @@ fn main() -> anyhow::Result<()> {
+@@ -38,22 +40,22 @@ fn main() -> anyhow::Result<()> {
              /*explicit_remote_endpoint*/ None,
          )
          .await?;
@@ -2686,11 +2647,10 @@ index 789c7f15f2..a093eaab19 100644
 -                true
 +                ExitCode::FAILURE
              }
-             ExitReason::UserRequested
-             | ExitReason::Archived(_)
-             | ExitReason::TurnInterrupted
--            | ExitReason::ThreadRemoved => false,
-+            | ExitReason::ThreadRemoved => ExitCode::SUCCESS,
+-            ExitReason::UserRequested | ExitReason::TurnInterrupted => false,
++            ExitReason::UserRequested | ExitReason::TurnInterrupted | ExitReason::ThreadRemoved => {
++                ExitCode::SUCCESS
++            }
 +            ExitReason::Supervised { .. } => ExitCode::from(QUOTA_EXCEEDED_EXIT_CODE),
          };
  

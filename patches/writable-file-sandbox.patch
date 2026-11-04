@@ -1,8 +1,8 @@
 diff --git a/codex-rs/linux-sandbox/src/bwrap.rs b/codex-rs/linux-sandbox/src/bwrap.rs
-index 92ef9dd54b..bde15b43c6 100644
+index b1ae513a60..63bd705d64 100644
 --- a/codex-rs/linux-sandbox/src/bwrap.rs
 +++ b/codex-rs/linux-sandbox/src/bwrap.rs
-@@ -685,7 +685,13 @@ fn create_filesystem_args(
+@@ -684,7 +684,13 @@ fn create_filesystem_args(
              })
              .cloned()
              .collect();
@@ -18,7 +18,7 @@ index 92ef9dd54b..bde15b43c6 100644
              &mut read_only_subpaths,
              root,
 diff --git a/codex-rs/linux-sandbox/src/bwrap_tests.rs b/codex-rs/linux-sandbox/src/bwrap_tests.rs
-index 6de6c97175..a3e3514ef0 100644
+index 9f53e2c9e7..d714d5b6eb 100644
 --- a/codex-rs/linux-sandbox/src/bwrap_tests.rs
 +++ b/codex-rs/linux-sandbox/src/bwrap_tests.rs
 @@ -1227,6 +1227,17 @@ fn split_policy_reenables_writable_files_after_unreadable_parent() {

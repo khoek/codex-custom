@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 3d31b745e9..216d0b4d7a 100644
+index a3ea592f4b..9a17de4761 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -467,6 +467,9 @@ impl App {
+@@ -519,6 +519,9 @@ impl App {
              AppEvent::RawOutputModeChanged { enabled } => {
                  self.apply_raw_output_mode(tui, enabled, /*notify*/ false);
              }
@@ -13,10 +13,10 @@ index 3d31b745e9..216d0b4d7a 100644
                  if self.reject_pending_permission_root_switch() {
                      self.chat_widget.restore_user_message_to_composer(text.into());
 diff --git a/codex-rs/tui/src/app_event.rs b/codex-rs/tui/src/app_event.rs
-index 2adc3036ae..431a6d9fbf 100644
+index 3444d65bd0..047a69b51b 100644
 --- a/codex-rs/tui/src/app_event.rs
 +++ b/codex-rs/tui/src/app_event.rs
-@@ -635,6 +635,9 @@ pub(crate) enum AppEvent {
+@@ -679,6 +679,9 @@ pub(crate) enum AppEvent {
          enabled: bool,
      },
  
@@ -62,10 +62,10 @@ index ef5954a853..1823440fe4 100644
          self.input_queue.submit_pending_steers_after_interrupt = false;
          self.finalize_turn();
 diff --git a/codex-rs/tui/src/notifications/mod.rs b/codex-rs/tui/src/notifications/mod.rs
-index ee6694b357..f009606f4c 100644
+index 260c026ab7..9af8d469d9 100644
 --- a/codex-rs/tui/src/notifications/mod.rs
 +++ b/codex-rs/tui/src/notifications/mod.rs
-@@ -50,6 +50,10 @@ pub fn detect_backend(method: NotificationMethod) -> DesktopNotificationBackend
+@@ -55,6 +55,10 @@ pub fn detect_backend(method: NotificationMethod) -> DesktopNotificationBackend
      DesktopNotificationBackend::for_method(method)
  }
  
@@ -77,10 +77,10 @@ index ee6694b357..f009606f4c 100644
      matches!(
          terminal.name,
 diff --git a/codex-rs/tui/src/tui.rs b/codex-rs/tui/src/tui.rs
-index 48b5b14fd3..7aef4d25d8 100644
+index 25c70c4e51..f50952a02c 100644
 --- a/codex-rs/tui/src/tui.rs
 +++ b/codex-rs/tui/src/tui.rs
-@@ -1051,6 +1051,13 @@ impl Tui {
+@@ -1079,6 +1079,13 @@ impl Tui {
          }
      }
  
