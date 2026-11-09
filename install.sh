@@ -11,6 +11,11 @@ auth_patch_file="$repo_dir/patches/auth-file.patch"
 bell_patch_file="$repo_dir/patches/cybersecurity-abort-bell.patch"
 file_sandbox_patch_file="$repo_dir/patches/writable-file-sandbox.patch"
 openssl_patch_file="$repo_dir/patches/openssl-4.patch"
+theme_patch_file="$repo_dir/patches/terminal-theme.patch"
+theme_test_patch_file="$repo_dir/patches/terminal-theme-tests.patch"
+crossterm_patch_file="$repo_dir/patches/crossterm-terminal-colors.patch"
+crossterm_test_patch_file="$repo_dir/patches/crossterm-terminal-colors-tests.patch"
+crossterm_prepare="$repo_dir/prepare-crossterm.sh"
 install_root="${CODEX_CUSTOM_INSTALL_ROOT:-$HOME/.local/lib/codex-custom}"
 launcher_dir="$HOME/.local/bin"
 launcher="$launcher_dir/codex"
@@ -171,6 +176,11 @@ done
 [ -f "$bell_patch_file" ] || die "missing patch: $bell_patch_file"
 [ -f "$file_sandbox_patch_file" ] || die "missing patch: $file_sandbox_patch_file"
 [ -f "$openssl_patch_file" ] || die "missing patch: $openssl_patch_file"
+[ -f "$theme_patch_file" ] || die "missing patch: $theme_patch_file"
+[ -f "$theme_test_patch_file" ] || die "missing patch: $theme_test_patch_file"
+[ -f "$crossterm_patch_file" ] || die "missing patch: $crossterm_patch_file"
+[ -f "$crossterm_test_patch_file" ] || die "missing patch: $crossterm_test_patch_file"
+[ -f "$crossterm_prepare" ] || die "missing dependency preparation script: $crossterm_prepare"
 
 if [ -n "$(git -C "$codex_dir" status --porcelain)" ]; then
     die "codex submodule has local changes; restore it to the pinned clean state before installing"
@@ -184,7 +194,12 @@ patch_digest=$(sha256_files \
     "$auth_patch_file" \
     "$bell_patch_file" \
     "$file_sandbox_patch_file" \
-    "$openssl_patch_file")
+    "$openssl_patch_file" \
+    "$theme_patch_file" \
+    "$theme_test_patch_file" \
+    "$crossterm_patch_file" \
+    "$crossterm_test_patch_file" \
+    "$crossterm_prepare")
 commit_short=$(printf '%s' "$commit" | cut -c1-12)
 patch_digest_short=$(printf '%s' "$patch_digest" | cut -c1-12)
 commit_display=$(printf '%s' "$commit" | cut -c1-8)
@@ -210,7 +225,9 @@ cat \
     "$auth_patch_file" \
     "$bell_patch_file" \
     "$file_sandbox_patch_file" \
-    "$openssl_patch_file" >"$patch_bundle"
+    "$openssl_patch_file" \
+    "$theme_patch_file" \
+    "$theme_test_patch_file" >"$patch_bundle"
 git -C "$codex_dir" apply --check "$patch_bundle" ||
     die "the customization patch series no longer applies to the pinned codex revision"
 
@@ -264,6 +281,7 @@ package_dir="$stage_dir/package"
 
 git -C "$codex_dir" worktree add --detach "$build_tree" HEAD
 git -C "$build_tree" apply "$patch_bundle"
+sh "$crossterm_prepare" "$build_tree"
 rm -f -- "$patch_bundle"
 patch_bundle=
 

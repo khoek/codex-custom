@@ -1,0 +1,168 @@
+diff --git a/src/event.rs b/src/event.rs
+index 9700858..73cfea7 100644
+--- a/src/event.rs
++++ b/src/event.rs
+@@ -54,6 +54,7 @@
+ //!             #[cfg(feature = "bracketed-paste")]
+ //!             Event::Paste(data) => println!("{:?}", data),
+ //!             Event::Resize(width, height) => println!("New size {}x{}", width, height),
++//!             Event::ColorSchemeChanged(_) | Event::TerminalColor { .. } => {},
+ //!         }
+ //!     }
+ //!     execute!(
+@@ -100,6 +101,7 @@
+ //!                 #[cfg(feature = "bracketed-paste")]
+ //!                 Event::Paste(data) => println!("Pasted {:?}", data),
+ //!                 Event::Resize(width, height) => println!("New size {}x{}", width, height),
++//!                 Event::ColorSchemeChanged(_) | Event::TerminalColor { .. } => {},
+ //!             }
+ //!         } else {
+ //!             // Timeout expired and no `Event` is available
+@@ -591,6 +593,20 @@ pub enum Event {
+     /// A resize event with new dimensions after resize (columns, rows).
+     /// **Note** that resize events can occur in batches.
+     Resize(u16, u16),
++    /// A terminal colour-scheme report (CSI ? 997 ; 1/2 n).
++    /// Subscribe with DEC private mode 2031, or request a report with CSI ? 996 n.
++    ColorSchemeChanged(ColorScheme),
++    /// An OSC colour reply, emitted only by an `EventStream::with_color_events` stream.
++    /// Slot 10 is the default foreground and 11 the background. Unrecognised replies have no RGB.
++    TerminalColor { slot: u8, rgb: Option<(u8, u8, u8)> },
++}
++
++/// The terminal's preferred colour scheme.
++#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
++#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
++pub enum ColorScheme {
++    Dark,
++    Light,
+ }
+
+ impl Event {
+diff --git a/src/event/stream.rs b/src/event/stream.rs
+index 6e4d1bf..04944da 100644
+--- a/src/event/stream.rs
++++ b/src/event/stream.rs
+@@ -15,7 +15,7 @@ use futures_core::stream::Stream;
+
+ use crate::event::{
+     Event,
+-    filter::EventFilter,
++    filter::{EventFilter, Filter},
+     internal::{self, InternalEvent},
+     sys::Waker,
+ };
+@@ -33,6 +33,7 @@ use crate::event::{
+ /// it (`event-stream-*`).
+ #[derive(Debug)]
+ pub struct EventStream {
++    filter: StreamFilter,
+     poll_internal_waker: Waker,
+     stream_wake_task_executed: Arc<AtomicBool>,
+     stream_wake_task_should_shutdown: Arc<AtomicBool>,
+@@ -41,12 +42,37 @@ pub struct EventStream {
+
+ impl Default for EventStream {
+     fn default() -> Self {
++        Self::new_with_filter(StreamFilter {
++            #[cfg(unix)]
++            colors: false,
++        })
++    }
++}
++
++#[derive(Debug, Clone, Copy)]
++struct StreamFilter {
++    #[cfg(unix)]
++    colors: bool,
++}
++
++impl Filter for StreamFilter {
++    fn eval(&self, event: &InternalEvent) -> bool {
++        #[cfg(unix)]
++        if self.colors && matches!(event, InternalEvent::OscColor { .. }) {
++            return true;
++        }
++        EventFilter.eval(event)
++    }
++}
++
++impl EventStream {
++    fn new_with_filter(filter: StreamFilter) -> Self {
+         let (task_sender, receiver) = mpsc::sync_channel::<Task>(1);
+
+         thread::spawn(move || {
+             while let Ok(task) = receiver.recv() {
+                 loop {
+-                    if let Ok(true) = internal::poll(None, &EventFilter) {
++                    if let Ok(true) = internal::poll(None, &filter) {
+                         break;
+                     }
+
+@@ -61,6 +87,7 @@ impl Default for EventStream {
+         });
+
+         EventStream {
++            filter,
+             poll_internal_waker: internal::lock_event_reader().waker(),
+             stream_wake_task_executed: Arc::new(AtomicBool::new(false)),
+             stream_wake_task_should_shutdown: Arc::new(AtomicBool::new(false)),
+@@ -74,6 +101,18 @@ impl EventStream {
+     pub fn new() -> EventStream {
+         EventStream::default()
+     }
++
++    /// Construct a stream that also returns OSC 10/11 replies as [`Event::TerminalColor`].
++    ///
++    /// Applications can write colour queries without blocking and receive replies alongside
++    /// keyboard and paste events through the same reader. Do not mix this stream with the
++    /// blocking `query_foreground_color` or `query_background_color` functions: both would
++    /// compete to consume the same replies. Other streams and synchronous readers retain their
++    /// existing behaviour.
++    #[cfg(unix)]
++    pub fn with_color_events() -> Self {
++        Self::new_with_filter(StreamFilter { colors: true })
++    }
+ }
+
+ struct Task {
+@@ -104,9 +143,18 @@ impl Stream for EventStream {
+     type Item = io::Result<Event>;
+
+     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+-        match internal::poll(Some(Duration::from_secs(0)), &EventFilter) {
+-            Ok(true) => match internal::read(&EventFilter) {
++        match internal::poll(Some(Duration::from_secs(0)), &self.filter) {
++            Ok(true) => match internal::read(&self.filter) {
+                 Ok(InternalEvent::Event(event)) => Poll::Ready(Some(Ok(event))),
++                #[cfg(unix)]
++                Ok(InternalEvent::OscColor { slot, payload }) => {
++                    use crate::event::internal::OscColorPayload;
++                    let rgb = match payload {
++                        OscColorPayload::Rgb { r, g, b } => Some((r, g, b)),
++                        OscColorPayload::Unrecognized(_) => None,
++                    };
++                    Poll::Ready(Some(Ok(Event::TerminalColor { slot, rgb })))
++                }
+                 Err(e) => Poll::Ready(Some(Err(e))),
+                 #[cfg(unix)]
+                 _ => unreachable!(),
+diff --git a/src/event/sys/unix/parse.rs b/src/event/sys/unix/parse.rs
+index 0fabf7f..0e12ae0 100644
+--- a/src/event/sys/unix/parse.rs
++++ b/src/event/sys/unix/parse.rs
+@@ -232,6 +232,14 @@ pub(crate) fn parse_csi(buffer: &[u8]) -> io::Result<Option<InternalEvent>> {
+         // parser consumes completed, unhandled CSI replies without producing keys.
+         b'>' => None,
+         b'?' => match buffer[buffer.len() - 1] {
++            b'n' => {
++                let scheme = match buffer {
++                    b"\x1b[?997;1n" => crate::event::ColorScheme::Dark,
++                    b"\x1b[?997;2n" => crate::event::ColorScheme::Light,
++                    _ => return Ok(None),
++                };
++                Some(Event::ColorSchemeChanged(scheme))
++            }
+             b'u' => return parse_csi_keyboard_enhancement_flags(buffer),
+             b'c' => return parse_csi_primary_device_attributes(buffer),
+             _ => None,
