@@ -104,6 +104,77 @@ index e18a9acb10..4a40adfb03 100644
      Ok(())
  }
  
+diff --git a/codex-rs/core/src/responses_retry_tests.rs b/codex-rs/core/src/responses_retry_tests.rs
+index 65aa29397c..df50e38f97 100644
+--- a/codex-rs/core/src/responses_retry_tests.rs
++++ b/codex-rs/core/src/responses_retry_tests.rs
+@@ -13,6 +13,66 @@ use tokio::sync::Mutex;
+ use tokio::time::Instant;
+ use tracing_test::internal::MockWriter;
+ 
++#[tokio::test]
++async fn api_quota_retries_outlive_stream_budgets_for_sampling_and_compaction() {
++    let (session, turn_context) = make_session_and_context().await;
++    let step_context = StepContext::for_test(Arc::new(turn_context));
++    tokio::time::pause();
++    for request in [
++        ResponsesStreamRequest::Sampling,
++        ResponsesStreamRequest::RemoteCompactionV2,
++    ] {
++        let mut client_session = session.services.model_client.new_session();
++        let mut state = ResponsesStreamRetryState {
++            retries: 2,
++            ..Default::default()
++        };
++        for seconds in [5, 10, 20, 40, 60, 60] {
++            let before = Instant::now();
++            handle_response_stream_error(
++                &mut state,
++                2,
++                CodexErr::QuotaExceeded,
++                &mut client_session,
++                &session,
++                &step_context,
++                request,
++            )
++            .await
++            .unwrap();
++            let elapsed = before.elapsed();
++            let expected = Duration::from_secs(seconds);
++            assert!((expected..=expected + Duration::from_millis(1)).contains(&elapsed));
++            assert_eq!(state.retries, 2);
++        }
++    }
++}
++
++#[tokio::test]
++async fn api_quota_retry_wait_is_cancellable() {
++    use codex_async_utils::OrCancelExt;
++    let (session, turn_context) = make_session_and_context().await;
++    let step_context = StepContext::for_test(Arc::new(turn_context));
++    let mut client_session = session.services.model_client.new_session();
++    let mut state = ResponsesStreamRetryState::default();
++    let cancellation = tokio_util::sync::CancellationToken::new();
++    tokio::time::pause();
++    let retry = handle_response_stream_error(
++        &mut state,
++        0,
++        CodexErr::QuotaExceeded,
++        &mut client_session,
++        &session,
++        &step_context,
++        ResponsesStreamRequest::Sampling,
++    )
++    .or_cancel(&cancellation);
++    tokio::pin!(retry);
++    assert!(futures::poll!(&mut retry).is_pending());
++    cancellation.cancel();
++    assert!(retry.await.is_err());
++}
++
+ #[tokio::test]
+ async fn sampling_retry_logs_stream_error_context() {
+     let (_session, turn_context) = make_session_and_context().await;
 diff --git a/codex-rs/core/tests/suite/client.rs b/codex-rs/core/tests/suite/client.rs
 index 8455498749..633b6c9664 100644
 --- a/codex-rs/core/tests/suite/client.rs
@@ -1050,7 +1121,7 @@ index 81bc8bc349..bbd301a70a 100644
          telemetry.events.try_recv(),
          Err(mpsc::error::TryRecvError::Empty)
 diff --git a/codex-rs/protocol/src/error_tests.rs b/codex-rs/protocol/src/error_tests.rs
-index 8fb8ae872d..c31f39543a 100644
+index 8fb8ae872d..5762144482 100644
 --- a/codex-rs/protocol/src/error_tests.rs
 +++ b/codex-rs/protocol/src/error_tests.rs
 @@ -39,7 +39,7 @@ async fn codex_err_debug_preserves_legacy_shape() {
@@ -1062,6 +1133,44 @@ index 8fb8ae872d..c31f39543a 100644
          (CodexErr::new(CodexErrorDetails::ContentFilter), true),
          (
              CodexErr::new(CodexErrorDetails::RateLimitExceeded("retry later".into())),
+@@ -70,6 +70,7 @@ fn retryability_preserves_error_details_distinctions() {
+             false,
+         ),
+         (CodexErr::InternalServerError, true),
++        (CodexErr::QuotaExceeded, true),
+     ];
+ 
+     for (err, expected) in errors {
+@@ -104,7 +105,7 @@ fn retry_delay_distinguishes_server_advice_backoff_and_terminal_errors() {
+         (Some(advice), Some(advice), Some(advice)),
+     );
+ 
+-    let error = CodexErr::QuotaExceeded.with_retry_after(retry_after);
++    let error = CodexErr::UsageNotIncluded.with_retry_after(retry_after);
+     assert_eq!(
+         (
+             error.retry_delay(/*retry_count*/ 1),
+@@ -114,6 +115,20 @@ fn retry_delay_distinguishes_server_advice_backoff_and_terminal_errors() {
+     );
+ }
+ 
++#[test]
++fn api_quota_backoff_is_bounded_and_honors_retry_advice() {
++    for (attempt, seconds) in [(1, 5), (2, 10), (3, 20), (4, 40), (5, 60), (u64::MAX, 60)] {
++        assert_eq!(
++            CodexErr::QuotaExceeded.retry_delay(attempt),
++            Some(Duration::from_secs(seconds))
++        );
++    }
++    let advice = RetryAfter::from_delay(Duration::from_secs(120)).unwrap();
++    let error = CodexErr::QuotaExceeded.with_retry_after(advice);
++    let delay = error.retry_delay(1).unwrap();
++    assert!((Duration::from_secs(119)..=Duration::from_secs(120)).contains(&delay));
++}
++
+ fn rate_limit_snapshot() -> RateLimitSnapshot {
+     let primary_reset_at = Utc
+         .with_ymd_and_hms(2024, 1, 1, 1, 0, 0)
 diff --git a/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap b/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap
 index 4a94611994..48767a9d7c 100644
 --- a/codex-rs/tui/src/app/snapshots/codex_tui__app__daemon_menu__tests__daemon_cli_confirmation.snap

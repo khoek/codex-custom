@@ -71,6 +71,12 @@ exhausted on the primary thread requests a supervised restart; retry notificatio
 from either the main thread or a subagent do not stop the instance. The final error retains its
 model-capacity classification, separate from quota and usage-limit errors.
 
+API `QuotaExceeded` errors keep retrying the same request and credential until success or
+cancellation. Sampling, streaming remote compaction and local compaction use waits of 5, 10, 20,
+40, then 60 seconds, honoring server retry advice when present. These failures have their own
+retry count and do not exhaust the normal stream retry budget, abort the turn, or trigger Kai
+credential rotation. ChatGPT account `UsageLimitReached` errors retain supervised rotation.
+
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
 expected auto-dismissed UI and `0.167.0-k.b3480806` snapshot output.

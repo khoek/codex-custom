@@ -139,6 +139,119 @@ index e86bb5297f..ca114fb8d8 100644
          }
          if !is_openai {
              for item in &mut input {
+diff --git a/codex-rs/core/src/compact.rs b/codex-rs/core/src/compact.rs
+index 7203b70f16..08bdf91685 100644
+--- a/codex-rs/core/src/compact.rs
++++ b/codex-rs/core/src/compact.rs
+@@ -292,6 +292,7 @@ async fn run_compact_task_inner_impl(
+ 
+     let max_retries = turn_context.provider.info().stream_max_retries();
+     let mut retries = 0;
++    let mut quota_retries = 0;
+     // Reuse one client session so turn-scoped state (sticky routing and websocket incremental
+     // request tracking) survives retries within this compact turn.
+     let mut client_session = sess.services.model_client.new_session();
+@@ -373,6 +374,16 @@ async fn run_compact_task_inner_impl(
+                 sess.set_total_tokens_full(turn_context.as_ref()).await;
+                 return Err(e);
+             }
++            Err(e) if matches!(e.details(), CodexErrorDetails::QuotaExceeded) => {
++                crate::responses_retry::wait_for_quota_retry(
++                    &mut quota_retries,
++                    e,
++                    &sess,
++                    turn_context.as_ref(),
++                    codex_client::RetryOperation::Sampling,
++                )
++                .await?;
++            }
+             Err(e) => {
+                 if retries < max_retries {
+                     retries += 1;
+diff --git a/codex-rs/core/src/responses_retry.rs b/codex-rs/core/src/responses_retry.rs
+index 6a4214609c..429ee14aff 100644
+--- a/codex-rs/core/src/responses_retry.rs
++++ b/codex-rs/core/src/responses_retry.rs
+@@ -1,6 +1,6 @@
+ //! Shared retry and transport fallback decisions for Responses requests.
+ //! Content-filter guidance is recorded for sampling requests before retry decisions.
+-//! Server advice controls timing without extending configured retry limits.
++//! API quota failures wait for recovery; other errors retain configured retry limits.
+ 
+ use std::time::Duration;
+ 
+@@ -31,6 +31,7 @@ pub(crate) enum ResponsesStreamRequest {
+ 
+ pub(crate) struct ResponsesStreamRetryState {
+     retries: u64,
++    quota_retries: u64,
+     connection_retries: u64,
+     connection_retry_delay: Duration,
+ }
+@@ -39,6 +40,7 @@ impl Default for ResponsesStreamRetryState {
+     fn default() -> Self {
+         Self {
+             retries: 0,
++            quota_retries: 0,
+             connection_retries: 0,
+             connection_retry_delay: INITIAL_CONNECTION_RETRY_DELAY,
+         }
+@@ -85,6 +87,17 @@ pub(crate) async fn handle_response_stream_error(
+         ResponsesStreamRequest::Sampling => RetryOperation::Sampling,
+         ResponsesStreamRequest::RemoteCompactionV2 => RetryOperation::RemoteCompactionV2,
+     };
++    if matches!(err.details(), CodexErrorDetails::QuotaExceeded) {
++        wait_for_quota_retry(
++            &mut retry_state.quota_retries,
++            err,
++            sess,
++            turn_context,
++            operation,
++        )
++        .await?;
++        return Ok(());
++    }
+     let retry_count = retry_state.retries.saturating_add(1);
+     let Some(delay) = err.retry_delay(retry_count) else {
+         return Err(err);
+@@ -176,6 +189,37 @@ pub(crate) async fn handle_response_stream_error(
+     Err(err)
+ }
+ 
++/// Callers own cancellation of this wait along with the inference request.
++pub(crate) async fn wait_for_quota_retry(
++    retries: &mut u64,
++    err: CodexErr,
++    sess: &Session,
++    turn_context: &TurnContext,
++    operation: RetryOperation,
++) -> Result<(), CodexErr> {
++    *retries = retries.saturating_add(1);
++    let Some(delay) = err.retry_delay(*retries) else {
++        return Err(err);
++    };
++    let retry_at = err
++        .retry_after()
++        .map(RetryAfter::deadline)
++        .unwrap_or_else(|| Instant::now() + delay);
++    warn!(turn_id = %turn_context.sub_id, retries = *retries, ?delay, "API quota unavailable; waiting to retry");
++    sess.notify_stream_error(
++        turn_context,
++        format!(
++            "API quota unavailable; retrying in {}s (attempt {retries})",
++            delay.as_secs()
++        ),
++        err,
++    )
++    .await;
++    codex_client::record_retry!(*retries, delay, operation);
++    tokio::time::sleep_until(retry_at).await;
++    Ok(())
++}
++
+ fn log_retry(
+     request: ResponsesStreamRequest,
+     turn_context: &TurnContext,
 diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
 index 064d8e975b..5adcd181e7 100644
 --- a/codex-rs/core/src/session/mod.rs
@@ -168,16 +281,30 @@ index 064d8e975b..5adcd181e7 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 3dff3b4a75..f69079d416 100644
+index 3dff3b4a75..c19941b440 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -458,12 +458,13 @@ impl CodexErr {
+@@ -435,7 +435,6 @@ impl CodexErr {
+             | CodexErrorDetails::EnvVar(_)
+             | CodexErrorDetails::Fatal(_)
+             | CodexErrorDetails::UsageNotIncluded
+-            | CodexErrorDetails::QuotaExceeded
+             | CodexErrorDetails::InvalidImageRequest()
+             | CodexErrorDetails::InvalidRequest(_)
+             | CodexErrorDetails::InvalidAudioInput { .. }
+@@ -458,12 +457,19 @@ impl CodexErr {
              | CodexErrorDetails::CyberPolicy { .. }
              | CodexErrorDetails::BioPolicy { .. }
              | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
 -            CodexErrorDetails::ServerOverloaded
 -            | CodexErrorDetails::PolicyCapacityUnavailable
 -            | CodexErrorDetails::RetryLimit(_) => self.server_retry_delay(),
++            CodexErrorDetails::QuotaExceeded => {
++                Some(self.server_retry_delay().unwrap_or_else(|| {
++                    Duration::from_secs(5 << retry_count.saturating_sub(1).min(4))
++                        .min(Duration::from_secs(60))
++                }))
++            }
 +            CodexErrorDetails::PolicyCapacityUnavailable | CodexErrorDetails::RetryLimit(_) => {
 +                self.server_retry_delay()
 +            }
