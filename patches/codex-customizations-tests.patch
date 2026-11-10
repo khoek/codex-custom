@@ -1,5 +1,5 @@
 diff --git a/codex-rs/codex-api/src/api_bridge_tests.rs b/codex-rs/codex-api/src/api_bridge_tests.rs
-index b2809a4c0b..7f8a7a3587 100644
+index 99bd0bc148..be2feddb5d 100644
 --- a/codex-rs/codex-api/src/api_bridge_tests.rs
 +++ b/codex-rs/codex-api/src/api_bridge_tests.rs
 @@ -34,18 +34,16 @@ async fn http_policy_capacity_preserves_retry_advice_and_terminal_behavior() {
@@ -31,6 +31,24 @@ index b2809a4c0b..7f8a7a3587 100644
          }
      }
  }
+@@ -123,7 +121,7 @@ async fn http_retry_deadline_survives_mapping_and_respects_terminal_errors() {
+     for (status, code, retryable) in [
+         (503, "server_is_overloaded", true),
+         (429, "rate_limit_exceeded", true),
+-        (429, "insufficient_quota", false),
++        (429, "insufficient_quota", true),
+         (429, "usage_limit_reached", false),
+         (400, "cyber_policy", false),
+     ] {
+@@ -144,7 +142,7 @@ async fn http_retry_deadline_survives_mapping_and_respects_terminal_errors() {
+             retryable.then_some(Duration::from_secs(6)),
+             "{code}",
+         );
+-        if status == 429 && retryable {
++        if code == "rate_limit_exceeded" {
+             assert_eq!(
+                 (
+                     error.to_codex_protocol_error(),
 @@ -172,7 +170,7 @@ fn map_http_error_classifies_provider_codes() {
              503,
              "server_is_overloaded",
@@ -41,7 +59,7 @@ index b2809a4c0b..7f8a7a3587 100644
          (503, "slow_down", CodexErrorInfo::RateLimitExceeded, true),
          (
 diff --git a/codex-rs/codex-api/src/sse/responses_error_tests.rs b/codex-rs/codex-api/src/sse/responses_error_tests.rs
-index a9446c4abd..8e42c8c6f8 100644
+index 4c31832ea0..f1aceb2e92 100644
 --- a/codex-rs/codex-api/src/sse/responses_error_tests.rs
 +++ b/codex-rs/codex-api/src/sse/responses_error_tests.rs
 @@ -88,22 +88,18 @@ async fn policy_capacity_classification_preserves_overload_retry_behavior() {
@@ -78,6 +96,31 @@ index a9446c4abd..8e42c8c6f8 100644
              );
          }
      }
+@@ -273,16 +269,20 @@ async fn retry_header_survives_other_failed_responses() {
+     }
+ }
+
+-/// An event header cannot make a quota or policy failure retryable.
++/// Quota failures retry while policy failures remain terminal.
+ #[tokio::test(start_paused = true)]
+-async fn retry_header_does_not_override_terminal_errors() {
+-    for code in ["insufficient_quota", "cyber_policy", "bio_policy"] {
++async fn retry_header_preserves_quota_retries_and_terminal_policy_errors() {
++    for (code, delay) in [
++        ("insufficient_quota", Some(Duration::from_secs(5))),
++        ("cyber_policy", None),
++        ("bio_policy", None),
++    ] {
+         let event = serde_json::from_value(json!({
+             "type": "response.failed",
+             "response": {"error": {"code": code, "headers": {"retry-after": "1"}}}
+         }))
+         .unwrap();
+         let error = map_api_error(process_responses_event(event).unwrap_err().into_api_error());
+-        assert_eq!(error.retry_delay(/*retry_count*/ 1), None, "{code}");
++        assert_eq!(error.retry_delay(/*retry_count*/ 1), delay, "{code}");
+     }
+ }
 diff --git a/codex-rs/core/src/guardian/tests.rs b/codex-rs/core/src/guardian/tests.rs
 index e18a9acb10..4a40adfb03 100644
 --- a/codex-rs/core/src/guardian/tests.rs
@@ -1635,7 +1678,7 @@ index 0000000000..561c619145
 +---
 +› Ask Codex to do anything
 +
-+  GPT-6-Astra xhigh · /tmp/project
++  GPT-6-Astra xhigh · /tmp/project · ← for agents
 diff --git a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__session_lifecycle_requests__new_session_tests__widget_replacement_preserves_mention_usage_with_history_disabled.snap b/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__session_lifecycle_requests__new_session_tests__widget_replacement_preserves_mention_usage_with_history_disabled.snap
 index 6a47bf2b72..7f70fc5ccc 100644
 --- a/codex-rs/tui/src/app/tests/snapshots/codex_tui__app__tests__session_lifecycle_requests__new_session_tests__widget_replacement_preserves_mention_usage_with_history_disabled.snap
@@ -1669,7 +1712,7 @@ index d45000ee78..1a5bd557b5 100644
  32 columns
  
 -  >_ OpenAI Codex (v0.0.0)
-+  >_ OpenAI Codex (v0.166.0-k.2…
++  >_ OpenAI Codex (v0.167.1-k.b…
       /tmp/project
  
  • Conversation continues here.
@@ -2028,58 +2071,113 @@ index 5b9ded0f4b..ede0da4424 100644
      assert!(
          !popup.contains(PLAN_IMPLEMENTATION_TITLE),
 diff --git a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
-index 9074c5ec03..702c43a63a 100644
+index f22f70eec8..450dacb972 100644
 --- a/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 +++ b/codex-rs/tui/src/chatwidget/tests/status_and_layout.rs
 @@ -1438,7 +1438,7 @@ async fn rate_limit_switch_prompt_clears_pending_when_workspace_credits_become_u
  }
- 
+
+ #[tokio::test]
+-async fn rate_limit_switch_prompt_clears_when_account_usage_recovers() {
++async fn rate_limit_switch_prompt_stays_dismissed_when_account_usage_recovers() {
+     let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
+     chat.has_chatgpt_account = true;
+
+@@ -1450,43 +1450,40 @@ async fn rate_limit_switch_prompt_clears_when_account_usage_recovers() {
+     chat.start_usage_notice_read(/*request_id*/ 1);
+     chat.on_rolling_rate_limit_snapshot(snapshot(/*percent*/ 95.0));
+     chat.maybe_show_pending_rate_limit_prompt();
+-    assert!(!chat.bottom_pane.no_modal_or_popup_active());
++    assert!(chat.bottom_pane.no_modal_or_popup_active());
+
+     chat.apply_usage_notice_read(/*request_id*/ 1);
+     chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 0.0)));
+-    assert!(!chat.bottom_pane.no_modal_or_popup_active());
++    assert!(chat.bottom_pane.no_modal_or_popup_active());
+
+     chat.start_usage_notice_read(/*request_id*/ 2);
+     chat.apply_usage_notice_read(/*request_id*/ 2);
+     chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 0.0)));
+-    let popup = render_bottom_popup(&chat, /*width*/ 80);
+-    assert_chatwidget_snapshot!("rate_limit_switch_prompt_recovered", popup);
+-    let RateLimitSwitchPromptState::Recovering { deadline, .. } = chat.rate_limit_switch_prompt
+-    else {
+-        panic!("expected recovery countdown");
+-    };
++    assert!(chat.bottom_pane.no_modal_or_popup_active());
++    assert!(matches!(
++        chat.rate_limit_switch_prompt,
++        RateLimitSwitchPromptState::Shown
++    ));
+     chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 0.0)));
+-    chat.tick_rate_limit_recovery_prompt(deadline - Duration::from_secs(/*secs*/ 1));
+-    assert!(render_bottom_popup(&chat, /*width*/ 80).contains("Dismissing in 1 second…"));
+-    chat.tick_rate_limit_recovery_prompt(deadline);
++    chat.tick_rate_limit_recovery_prompt(Instant::now() + Duration::from_secs(/*secs*/ 5));
+     assert!(chat.bottom_pane.no_modal_or_popup_active());
+ }
+
+ #[tokio::test]
+-async fn rate_limit_recovery_prompt_can_be_dismissed_manually() {
++async fn rate_limit_recovery_keeps_dismissed_prompt_closed() {
+     for key in [KeyCode::Enter, KeyCode::Esc] {
+         let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
+         chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 95.0)));
+         chat.maybe_show_pending_rate_limit_prompt();
+         chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 0.0)));
+-        assert!(!chat.bottom_pane.no_modal_or_popup_active());
++        assert!(chat.bottom_pane.no_modal_or_popup_active());
+         chat.handle_key_event(KeyEvent::new(key, KeyModifiers::NONE));
+         assert!(chat.bottom_pane.no_modal_or_popup_active());
+     }
+ }
+
  #[tokio::test]
 -async fn rate_limit_switch_prompt_dismisses_shown_when_workspace_credits_become_usable() {
 +async fn rate_limit_switch_prompt_stays_dismissed_when_workspace_credits_become_usable() {
      let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
      chat.has_chatgpt_account = true;
- 
-@@ -1448,7 +1448,7 @@ async fn rate_limit_switch_prompt_dismisses_shown_when_workspace_credits_become_
+
+@@ -1496,7 +1493,7 @@ async fn rate_limit_switch_prompt_dismisses_shown_when_workspace_credits_become_
          chat.rate_limit_switch_prompt,
          RateLimitSwitchPromptState::Shown
      ));
 -    assert!(!chat.bottom_pane.no_modal_or_popup_active());
 +    assert!(chat.bottom_pane.no_modal_or_popup_active());
- 
+
      let mut funded_snapshot = snapshot(/*percent*/ 95.0);
      funded_snapshot.credits = Some(CreditsSnapshot {
-@@ -1829,7 +1829,7 @@ async fn rate_limit_switch_prompt_shows_once_per_session() {
+@@ -1877,7 +1874,7 @@ async fn rate_limit_switch_prompt_shows_once_per_session() {
  }
- 
+
  #[tokio::test]
 -async fn account_update_clears_derived_usage_limit_state_and_prompt() {
 +async fn account_update_clears_derived_usage_limit_state_after_auto_dismissed_prompt() {
      let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
      set_chatgpt_auth(&mut chat);
      let mut limits = snapshot(/*percent*/ 95.0);
-@@ -1845,7 +1845,7 @@ async fn account_update_clears_derived_usage_limit_state_and_prompt() {
+@@ -1893,7 +1890,7 @@ async fn account_update_clears_derived_usage_limit_state_and_prompt() {
          chat.rate_limit_switch_prompt,
          RateLimitSwitchPromptState::Shown
      ));
 -    assert!(!chat.bottom_pane.no_modal_or_popup_active());
 +    assert!(chat.bottom_pane.no_modal_or_popup_active());
- 
+
      chat.update_account_state(
          /*status_account_display*/ None, /*plan_type*/ None,
-@@ -1899,8 +1899,8 @@ async fn rate_limit_switch_prompt_defers_until_task_complete() {
+@@ -1947,8 +1944,8 @@ async fn rate_limit_switch_prompt_defers_until_task_complete() {
  }
- 
+
  #[tokio::test]
 -async fn rate_limit_switch_prompt_popup_snapshot() {
 -    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5")).await;
 +async fn rate_limit_switch_prompt_is_dismissed_and_disabled_automatically() {
 +    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(Some("gpt-5")).await;
      chat.has_chatgpt_account = true;
- 
+
      chat.on_rate_limit_snapshot(Some(snapshot(/*percent*/ 92.0)));
-@@ -1908,6 +1908,19 @@ async fn rate_limit_switch_prompt_popup_snapshot() {
- 
+@@ -1956,6 +1953,19 @@ async fn rate_limit_switch_prompt_popup_snapshot() {
+
      let popup = render_bottom_popup(&chat, /*width*/ 80);
      assert_chatwidget_snapshot!("rate_limit_switch_prompt_popup", popup);
 +    assert!(!popup.contains("Approaching rate limits"));
@@ -2096,7 +2194,7 @@ index 9074c5ec03..702c43a63a 100644
 +    assert!(hidden_for_session);
 +    assert!(persisted);
  }
- 
+
  #[tokio::test]
 diff --git a/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap b/codex-rs/tui/src/history_cell/snapshots/codex_tui__history_cell__tests__pnpm_update_available_history_cell_snapshot.snap
 index a9dd9cac78..c0e16d8a95 100644
@@ -2555,3 +2653,22 @@ index 51fbff67df..780725e1f2 100644
  
    Visit https://chatgpt.com/settings/usage for up-to-date
    information on rate limits and credits
+diff --git a/codex-rs/tui/src/chatwidget/tests/slash_commands.rs b/codex-rs/tui/src/chatwidget/tests/slash_commands.rs
+--- a/codex-rs/tui/src/chatwidget/tests/slash_commands.rs
++++ b/codex-rs/tui/src/chatwidget/tests/slash_commands.rs
+@@ -2344,14 +2344,7 @@
+         .set_composer_text(String::new(), Vec::new(), Vec::new());
+     chat.bottom_pane
+         .set_composer_text("/daybreak".to_string(), Vec::new(), Vec::new());
+-    insta::assert_snapshot!(
+-        render_bottom_popup(&chat, /*width*/ 80)
+-            .lines()
+-            .filter(|line| line.contains("broader access"))
+-            .collect::<Vec<_>>()
+-            .join("\n"),
+-        @""
+-    );
++    assert!(!render_bottom_popup(&chat, /*width*/ 80).contains("broader access"));
+     chat.has_chatgpt_account = true;
+     chat.status_account_display = None;
+     for (enabled, name) in [

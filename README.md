@@ -1,7 +1,7 @@
 # codex-custom
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
-repository as a submodule at commit `b34808060a51e98b8cb3dcf77824703757737cda`
+repository as a submodule at commit `d2efdf19861bf52782ff04e5fff83f5ef9f7ebf5`
 from upstream `main`. The custom version is `0.167.1-k.b3480806`. It carries a
 small, ordered patch series:
 
@@ -23,9 +23,6 @@ small, ordered patch series:
 6. [`patches/writable-file-sandbox.patch`](patches/writable-file-sandbox.patch)
    keeps exact regular-file write grants usable on Linux without attempting to mount
    repository metadata beneath a file. Directory metadata protections remain unchanged.
-7. [`patches/openssl-4.patch`](patches/openssl-4.patch) updates `openssl` to
-   `0.10.81` and `openssl-sys` to `0.9.117` so native builds support system
-   OpenSSL 4 as well as OpenSSL 3.
 
 The original code patch sets the custom release version, retries typed
 model capacity errors, and suppresses three selection boxes:
@@ -201,7 +198,7 @@ the shared file, so concurrent consumers never read a partial token update.
 The auth-file patch keeps the mutation lock across the complete
 reload, authority request, and persistence transaction. A second process then
 reloads the newly issued refresh token instead of replaying a stale one. Codex
-does not create an adjacent `.refresh.lock` or home `auth.lock` for managed
+does not create adjacent `.refresh.lock` or `.json.lock` files or a home `auth.lock` for managed
 credentials; the explicit broker mutation lock serializes refresh and persistence,
 including workspace-switch writes. Invocations without any downstream
 credential arguments retain the ordinary Codex auth path and behavior.
@@ -280,8 +277,7 @@ cat \
     patches/exit-on-quota-exceeded.patch \
     patches/auth-file.patch \
     patches/cybersecurity-abort-bell.patch \
-    patches/writable-file-sandbox.patch \
-    patches/openssl-4.patch >"$patch_bundle"
+    patches/writable-file-sandbox.patch >"$patch_bundle"
 git -C codex apply --check "$patch_bundle"
 git -C codex apply "$patch_bundle"
 rm -f -- "$patch_bundle"
@@ -302,7 +298,6 @@ python3 codex/scripts/build_codex_package.py \
 To return the submodule to its pinned clean state:
 
 ```sh
-git -C codex apply --reverse ../patches/openssl-4.patch
 git -C codex apply --reverse ../patches/writable-file-sandbox.patch
 git -C codex apply --reverse ../patches/cybersecurity-abort-bell.patch
 git -C codex apply --reverse ../patches/auth-file.patch

@@ -39,3 +39,17 @@ index 9f53e2c9e7..d714d5b6eb 100644
  }
  
  #[test]
+diff --git a/codex-rs/linux-sandbox/tests/suite/root_metadata_tests.rs b/codex-rs/linux-sandbox/tests/suite/root_metadata_tests.rs
+index fe7d4dcc20..f1f153e576 100644
+--- a/codex-rs/linux-sandbox/tests/suite/root_metadata_tests.rs
++++ b/codex-rs/linux-sandbox/tests/suite/root_metadata_tests.rs
+@@ -35,6 +35,9 @@ async fn root_metadata_symlinks_cannot_reopen_approved_denials() {
+     fs::write(private.join("sibling"), "sibling").unwrap();
+     codex_utils_cargo_bin::copy_executable(&codex_linux_sandbox_exe(), &work.join("sandbox"))
+         .unwrap();
++    // Approved full-disk policies need the bundled launcher when the fixture runs as root.
++    fs::create_dir(work.join("codex-resources")).unwrap();
++    codex_utils_cargo_bin::copy_executable(&bwrap, &work.join("codex-resources/bwrap")).unwrap();
+
+     let path_entry = |path: &str, access| {
+         FileSystemSandboxEntry::new(

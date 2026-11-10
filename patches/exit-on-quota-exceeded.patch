@@ -216,14 +216,14 @@ index fff4dd4656..ec41ee3db3 100644
 +    // Supervision must own the server lifetime, including shutdown before credential rotation.
 +    interactive.no_daemon |= interactive.exit_on_quota_exceeded;
 +    if interactive.no_daemon {
-+        if interactive.agents_overview {
-+            return Ok(AppExitInfo::fatal(
-+                "--no-daemon cannot be used with codex agents. The agents overview requires a shared server. Use codex --no-daemon to work without it.",
-+            ));
-+        }
 +        if remote.is_some() {
 +            return Ok(AppExitInfo::fatal(
 +                "--no-daemon cannot be used with --remote.",
++            ));
++        }
++        if interactive.exit_on_quota_exceeded && interactive.agents_overview {
++            return Ok(AppExitInfo::fatal(
++                "--no-daemon cannot be used with codex agents. The agents overview requires a shared server. Use codex --no-daemon to work without it.",
 +            ));
 +        }
      }
@@ -721,7 +721,7 @@ index 87ccb4495d..b932f20e47 100644
              }
              ServerNotificationThreadTarget::InvalidThreadId(thread_id) => {
 diff --git a/codex-rs/tui/src/app/exit_summary.rs b/codex-rs/tui/src/app/exit_summary.rs
-index 4cc843d9b4..2875cc56dd 100644
+index 3b3c8268ea..7c4024637d 100644
 --- a/codex-rs/tui/src/app/exit_summary.rs
 +++ b/codex-rs/tui/src/app/exit_summary.rs
 @@ -23,7 +23,13 @@ pub struct DisconnectInfo {
@@ -738,7 +738,7 @@ index 4cc843d9b4..2875cc56dd 100644
 +        };
          let disconnect_info = thread_id.and_then(|_| {
              let command = match &self.app_server_target {
-                 AppServerTarget::Embedded => return None,
+                 AppServerTarget::Embedded | AppServerTarget::Cloud => return None,
 @@ -75,6 +81,21 @@ impl App {
  impl AppExitInfo {
      /// Format the terminal summary for both the CLI and standalone TUI binaries.
@@ -1363,7 +1363,7 @@ index c835ed6d88..fb4554148f 100644
  async fn backend_banner_state_survives_widget_replacement() -> Result<()> {
      for dismiss in [false, true] {
 diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
-index bed5ce30b0..42a432c7c3 100644
+index b95fffbd50..ea9e332447 100644
 --- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 +++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
 @@ -23,6 +23,7 @@ pub(super) async fn run_startup_for_test(
@@ -1573,7 +1573,7 @@ index bed5ce30b0..42a432c7c3 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -241,6 +408,7 @@ async fn run_until_thread_start(
+@@ -253,6 +420,7 @@ async fn run_until_thread_start(
          Some(bootstrap),
          SessionSelection::StartFresh,
          AppServerTarget::Embedded,
@@ -1581,7 +1581,7 @@ index bed5ce30b0..42a432c7c3 100644
      ));
      tokio::time::timeout(Duration::from_secs(/*secs*/ 15), async {
          loop {
-@@ -878,6 +1046,7 @@ async fn startup_read_failure_exits_before_thread_creation() -> Result<()> {
+@@ -900,6 +1068,7 @@ async fn startup_read_failure_exits_before_thread_creation() -> Result<()> {
          Some(bootstrap),
          SessionSelection::StartFresh,
          AppServerTarget::Embedded,
@@ -1589,14 +1589,14 @@ index bed5ce30b0..42a432c7c3 100644
      )
      .await;
      insta::assert_snapshot!(result.expect_err("startup read must fail").to_string(), @"config/read failed in TUI");
-@@ -912,6 +1081,7 @@ async fn bootstrap_failure_shuts_down_every_initial_backend() -> Result<()> {
+@@ -941,6 +1110,7 @@ async fn startup_failure_shuts_down_every_initial_backend() -> Result<()> {
              /*bootstrap*/ None,
              SessionSelection::StartFresh,
              AppServerTarget::Embedded,
 +            /*restore_input_handoff*/ None,
          ),
          async {
-             let request = first_commands.recv().await.expect("initial account read");
+             let request = first_commands.recv().await.expect("initial config read");
 diff --git a/codex-rs/tui/src/app/thread_goal_actions.rs b/codex-rs/tui/src/app/thread_goal_actions.rs
 index 166e090109..581eb441a0 100644
 --- a/codex-rs/tui/src/app/thread_goal_actions.rs
@@ -2254,7 +2254,7 @@ new file mode 100644
 index 0000000000..e4b25d69d3
 --- /dev/null
 +++ b/codex-rs/tui/src/chatwidget/tests/quota_handoff.rs
-@@ -0,0 +1,208 @@
+@@ -0,0 +1,210 @@
 +use std::fs;
 +#[cfg(unix)]
 +use std::os::unix::fs::PermissionsExt;
@@ -2336,6 +2336,8 @@ index 0000000000..e4b25d69d3
 +        .push_back(UserMessageHistoryRecord::UserMessageText);
 +    chat.input_queue.pending_steers.push_back(PendingSteer {
 +        client_id: "pending-steer".to_string(),
++        admitted_turn_id: None,
++        optimistically_rendered: false,
 +        user_message: UserMessage::from("pending steer"),
 +        history_record: UserMessageHistoryRecord::UserMessageText,
 +        source: UserMessageSource::QuestionAnswer,
@@ -2464,7 +2466,7 @@ index 0000000000..e4b25d69d3
 +    );
 +}
 diff --git a/codex-rs/tui/src/chatwidget/user_messages.rs b/codex-rs/tui/src/chatwidget/user_messages.rs
-index 9fa654fb1f..fcbd70394d 100644
+index eaa2b70c79..6d40ca8300 100644
 --- a/codex-rs/tui/src/chatwidget/user_messages.rs
 +++ b/codex-rs/tui/src/chatwidget/user_messages.rs
 @@ -29,7 +29,7 @@ use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
@@ -2501,8 +2503,8 @@ index 9fa654fb1f..fcbd70394d 100644
 +#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
  pub(super) enum UserMessageSource {
      Prompt,
-     QuestionAnswer,
-@@ -69,13 +70,13 @@ pub(super) enum UserMessageSource {
+     DirectEnter,
+@@ -70,13 +71,13 @@ pub(super) enum UserMessageSource {
  }
  
  /// Whether a recovered message can be submitted without risking a duplicate.
@@ -2518,7 +2520,7 @@ index 9fa654fb1f..fcbd70394d 100644
  pub(super) struct QueuedUserMessage {
      pub(super) user_message: UserMessage,
      pub(super) prepared_images: Option<Vec<UserInput>>,
-@@ -122,7 +123,7 @@ pub(super) enum QueueDrain {
+@@ -130,7 +131,7 @@ pub(super) enum QueueDrain {
      Stop,
  }
  

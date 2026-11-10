@@ -11,89 +11,6 @@ index 7453a47de5..fedf17477b 100644
  # Track the edition for all workspace crates in one place. Individual
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
-diff --git a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
-index 38a773a2f5..3d43ea8881 100644
---- a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
-+++ b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__doctor_human_report_environment_rows.snap
-@@ -2,7 +2,7 @@
- source: cli/src/doctor/output.rs
- expression: "render_human_report(&report, detailed_no_color_unicode_options())"
- ---
--Codex Doctor v0.0.0
-+Codex Doctor v0.167.1-k.b3480806
- 
- Notes
-    ↑ desktop      build 123 available (ready to install)
-diff --git a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
-index 6077a182c1..2d67995251 100644
---- a/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
-+++ b/codex-rs/cli/src/doctor/snapshots/codex__doctor__output__tests__missing_env_diagnostics.snap
-@@ -2,7 +2,7 @@
- source: cli/src/doctor/output.rs
- expression: "render_human_report(&report, detailed_all_no_color_unicode_options())"
- ---
--Codex Doctor v0.0.0
-+Codex Doctor v0.167.1-k.b3480806
- 
- Notes
-    ⚠ mcp          missing inputs
-diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
-index 4974e49533..6ac771f89e 100644
---- a/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
-+++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__doctor_dumb_non_interactive_human.snap
-@@ -2,7 +2,7 @@
- source: cli/src/doctor.rs
- expression: "render_human_report(&report, HumanOutputOptions\n{ show_details: true, show_all: true, ascii: true, color_enabled: false, })"
- ---
--Codex Doctor v0.0.0
-+Codex Doctor v0.167.1-k.b3480806
- 
- Notes
-    [!!] terminal     TERM=dumb - colors and cursor control are disabled in this non-interactive run
-diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
-index 3e21aaa6be..eaea51b378 100644
---- a/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
-+++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__terminal_check_prioritizes_unreadable_terminfo_over_warnings.snap
-@@ -2,7 +2,7 @@
- source: cli/src/doctor.rs
- expression: "render_human_report(&DoctorReport\n{\n    schema_version: 1, generated_at: \"0s since unix epoch\".to_string(),\n    overall_status: check.status, codex_version: \"0.0.0\".to_string(), checks:\n    vec![check],\n}, HumanOutputOptions\n{ show_details: false, show_all: false, ascii: true, color_enabled: false, })"
- ---
--Codex Doctor v0.0.0
-+Codex Doctor v0.167.1-k.b3480806
- 
- Notes
-    [XX] terminal     3 issues - TERMINFO unreadable - terminal capabilities are unknown; TERM=dumb - colors and cursor control are disabled in this non-interactive run
-diff --git a/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap b/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
-index 06b5cae1b6..a5f2187538 100644
---- a/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
-+++ b/codex-rs/cli/src/snapshots/codex__doctor__tests__websocket_probe_human_output.snap
-@@ -3,7 +3,7 @@ source: cli/src/doctor.rs
- expression: rendered
- ---
- successful handshake
--Codex Doctor v0.0.0
-+Codex Doctor v0.167.1-k.b3480806
- 
- Connectivity
-   [ok] network      network environment is readable
-@@ -22,7 +22,7 @@ Connectivity
- --json redacted report
- 
- immediate close
--Codex Doctor v0.0.0
-+Codex Doctor v0.167.1-k.b3480806
- 
- Notes
-    [!!] websocket    Responses WebSocket closed immediately after handshake - Check proxy, VPN, firewall, DNS, custom CA, and WebSocket policy support.
-@@ -45,7 +45,7 @@ Connectivity
- --json redacted report
- 
- stream failure
--Codex Doctor v0.0.0
-+Codex Doctor v0.167.1-k.b3480806
- 
- Notes
-    [!!] websocket    Responses WebSocket failed; HTTPS fallback may still work - Check proxy, VPN, firewall, DNS, custom CA, and WebSocket policy support.
 diff --git a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap b/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
 index f2a7e97d2b..dbf301bb52 100644
 --- a/codex-rs/cli/tests/snapshots/doctor_enterprise_network__network_only_config_failure_human_output.snap
@@ -140,10 +57,10 @@ index e86bb5297f..ca114fb8d8 100644
          if !is_openai {
              for item in &mut input {
 diff --git a/codex-rs/core/src/compact.rs b/codex-rs/core/src/compact.rs
-index 7203b70f16..08bdf91685 100644
+index 4aa7e07adf..081c430c7f 100644
 --- a/codex-rs/core/src/compact.rs
 +++ b/codex-rs/core/src/compact.rs
-@@ -292,6 +292,7 @@ async fn run_compact_task_inner_impl(
+@@ -293,6 +293,7 @@ async fn run_compact_task_inner_impl(
  
      let max_retries = turn_context.provider.info().stream_max_retries();
      let mut retries = 0;
@@ -151,7 +68,7 @@ index 7203b70f16..08bdf91685 100644
      // Reuse one client session so turn-scoped state (sticky routing and websocket incremental
      // request tracking) survives retries within this compact turn.
      let mut client_session = sess.services.model_client.new_session();
-@@ -373,6 +374,16 @@ async fn run_compact_task_inner_impl(
+@@ -357,6 +358,16 @@ async fn run_compact_task_inner_impl(
                  sess.set_total_tokens_full(turn_context.as_ref()).await;
                  return Err(e);
              }
@@ -165,9 +82,9 @@ index 7203b70f16..08bdf91685 100644
 +                )
 +                .await?;
 +            }
-             Err(e) => {
-                 if retries < max_retries {
-                     retries += 1;
+             Err(e) if retries < max_retries => {
+                 retries += 1;
+                 let Some(delay) = e.retry_delay(retries) else {
 diff --git a/codex-rs/core/src/responses_retry.rs b/codex-rs/core/src/responses_retry.rs
 index 6a4214609c..429ee14aff 100644
 --- a/codex-rs/core/src/responses_retry.rs
@@ -281,10 +198,10 @@ index 064d8e975b..5adcd181e7 100644
          self.send_event(turn_context, event).await;
      }
 diff --git a/codex-rs/protocol/src/error.rs b/codex-rs/protocol/src/error.rs
-index 3dff3b4a75..c19941b440 100644
+index ec0292b959..48f892c4ba 100644
 --- a/codex-rs/protocol/src/error.rs
 +++ b/codex-rs/protocol/src/error.rs
-@@ -435,7 +435,6 @@ impl CodexErr {
+@@ -459,7 +459,6 @@ impl CodexErr {
              | CodexErrorDetails::EnvVar(_)
              | CodexErrorDetails::Fatal(_)
              | CodexErrorDetails::UsageNotIncluded
@@ -292,9 +209,9 @@ index 3dff3b4a75..c19941b440 100644
              | CodexErrorDetails::InvalidImageRequest()
              | CodexErrorDetails::InvalidRequest(_)
              | CodexErrorDetails::InvalidAudioInput { .. }
-@@ -458,12 +457,19 @@ impl CodexErr {
-             | CodexErrorDetails::CyberPolicy { .. }
-             | CodexErrorDetails::BioPolicy { .. }
+@@ -486,12 +485,19 @@ impl CodexErr {
+             | CodexErrorDetails::WorkspaceAccessDenied(_)
+             | CodexErrorDetails::AccessProgramNotEnabled(_)
              | CodexErrorDetails::MisalignmentPolicyViolation { .. } => None,
 -            CodexErrorDetails::ServerOverloaded
 -            | CodexErrorDetails::PolicyCapacityUnavailable
