@@ -10,6 +10,47 @@ index 6b9ad62907..ca36182a75 100644
   "oauth2",
   "once_cell",
   "opentelemetry_sdk",
+diff --git a/codex-rs/app-server/src/request_processors/thread_processor.rs b/codex-rs/app-server/src/request_processors/thread_processor.rs
+index 734563f903..2638c22608 100644
+--- a/codex-rs/app-server/src/request_processors/thread_processor.rs
++++ b/codex-rs/app-server/src/request_processors/thread_processor.rs
+@@ -6028,9 +6028,13 @@ impl ThreadRequestProcessor {
+     }
+ 
+     /// Local discovery matches each recorded creator ID to the current login. Threads with
+-    /// no creator IDs or predating enforcement are shared; API-key logins see all local history.
++    /// no creator IDs or predating enforcement are shared; API-key logins and broker-managed
++    /// credentials see all local history.
+     fn local_history_account(&self, current_account_only: bool) -> Option<LocalHistoryAccount> {
+-        if !current_account_only || !self.thread_store.as_any().is::<LocalThreadStore>() {
++        if codex_login::managed_credential_is_configured()
++            || !current_account_only
++            || !self.thread_store.as_any().is::<LocalThreadStore>()
++        {
+             return None;
+         }
+         let auth = self.auth_manager.auth_cached();
+diff --git a/codex-rs/app-server/src/request_processors/thread_resume_account.rs b/codex-rs/app-server/src/request_processors/thread_resume_account.rs
+index 85e6bc85c2..24b67248b1 100644
+--- a/codex-rs/app-server/src/request_processors/thread_resume_account.rs
++++ b/codex-rs/app-server/src/request_processors/thread_resume_account.rs
+@@ -1,5 +1,5 @@
+ //! Applies the rollout-gated CLI account check before resuming or attaching to a local thread.
+-//! Creator tags are immutable; untagged threads and other clients retain existing behavior.
++//! Creator tags are immutable; broker-managed credentials share local history across accounts.
+ 
+ use crate::error_code::invalid_request;
+ use codex_app_server_protocol::JSONRPCErrorError;
+@@ -15,7 +15,8 @@ pub(super) fn check(
+     auth_manager: &AuthManager,
+     thread: &StoredThread,
+ ) -> Result<(), JSONRPCErrorError> {
+-    if !features.enabled(Feature::CliResumeAccountCheck)
++    if codex_login::managed_credential_is_configured()
++        || !features.enabled(Feature::CliResumeAccountCheck)
+         || !matches!(client_name, Some("codex-tui" | "codex_exec"))
+         || thread.rollout_path.is_none()
+         || (thread.creator_user_id.is_none() && thread.creator_account_id.is_none())
 diff --git a/codex-rs/cli/src/doctor.rs b/codex-rs/cli/src/doctor.rs
 index 87792d5f5d..a4b5897eda 100644
 --- a/codex-rs/cli/src/doctor.rs
@@ -447,10 +488,10 @@ index 03ee83418d..8f0afb6c2f 100644
  os_info = { workspace = true }
 diff --git a/codex-rs/login/src/auth/credential_lock.rs b/codex-rs/login/src/auth/credential_lock.rs
 new file mode 100644
-index 0000000000..e1ccfe2306
+index 0000000000..ba1132a852
 --- /dev/null
 +++ b/codex-rs/login/src/auth/credential_lock.rs
-@@ -0,0 +1,370 @@
+@@ -0,0 +1,371 @@
 +//! Consumer-side participation in the broker-managed credential lock protocol.
 +//!
 +//! A configured process retains the transferred use lock for its entire lifetime. Every
@@ -671,7 +712,8 @@ index 0000000000..e1ccfe2306
 +        .transpose()
 +}
 +
-+pub(super) fn is_configured() -> bool {
++/// Whether this process joined the broker-managed credential protocol.
++pub fn is_configured() -> bool {
 +    PROCESS_CREDENTIAL_LOCKS.get().is_some()
 +}
 +
@@ -1483,15 +1525,16 @@ index bec42f3b12..a18d74a1e7 100644
      if storage.load_account_grant()?.as_ref() != Some(expected) {
          return Err(io::Error::new(
 diff --git a/codex-rs/login/src/auth/mod.rs b/codex-rs/login/src/auth/mod.rs
-index e629be9e6a..77efd5e12f 100644
+index 7ea499ff3c..1ecd6f0a02 100644
 --- a/codex-rs/login/src/auth/mod.rs
 +++ b/codex-rs/login/src/auth/mod.rs
-@@ -13,10 +13,48 @@ mod storage;
+@@ -13,10 +13,49 @@ mod storage;
  mod util;
  mod workload_identity;
  
 +mod credential_lock;
 +pub use credential_lock::CredentialUseLockMode;
++pub use credential_lock::is_configured as managed_credential_is_configured;
 +pub use credential_lock::managed_credential_is_invalid;
  mod external_bearer;
  mod manager;
@@ -1659,7 +1702,7 @@ index 7da2c9c011..0424e837aa 100644
  async fn file_storage_round_trips_agent_identity_auth() -> anyhow::Result<()> {
      let codex_home = tempdir()?;
 diff --git a/codex-rs/login/src/lib.rs b/codex-rs/login/src/lib.rs
-index ab98e892df..5d15433d89 100644
+index ab98e892df..e31f021bec 100644
 --- a/codex-rs/login/src/lib.rs
 +++ b/codex-rs/login/src/lib.rs
 @@ -53,6 +53,7 @@ pub use auth::CLIENT_ID_OVERRIDE_ENV_VAR;
@@ -1679,10 +1722,11 @@ index ab98e892df..5d15433d89 100644
  pub use auth::default_client;
  pub use auth::enforce_login_restrictions;
  pub use auth::is_workload_identity_selected;
-@@ -73,10 +76,12 @@ pub use auth::login_with_bedrock_access_keys;
+@@ -73,10 +76,13 @@ pub use auth::login_with_bedrock_access_keys;
  pub use auth::login_with_bedrock_api_key;
  pub use auth::logout;
  pub use auth::logout_with_revoke;
++pub use auth::managed_credential_is_configured;
 +pub use auth::managed_credential_is_invalid;
  pub use auth::oauth_client_id;
  pub use auth::read_codex_access_token_from_env;

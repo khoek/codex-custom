@@ -206,6 +206,19 @@ OAuth refresh failures retain response bodies only long enough to classify them 
 and returned transient errors expose only the HTTP status and a closed, nonsecret failure class.
 No backend body, error code, or free-form message is emitted.
 
+Broker-managed credentials share local conversation history across accounts and workspaces.
+The auth-file patch disables the app server's current-account discovery filter and optional CLI
+resume account check only after the process joins the managed credential protocol. Kai's resume
+picker, searches, and exact-session recovery can therefore use existing account-scoped transcripts
+after credential rotation. Creator IDs and transcript headers remain intact; no migration is needed.
+Ordinary logins retain upstream account filtering and resume checks.
+
+Run the broker and history regression against a built or installed custom CLI:
+
+```sh
+python3 tests/managed-history.py --codex "$HOME/.local/bin/codex"
+```
+
 The cybersecurity-abort-bell patch emits an unconditional terminal BEL when a
 typed `CyberPolicy` rejection reaches the dedicated abort notice. It does not
 depend on desktop-notification settings or whether the terminal is focused.
