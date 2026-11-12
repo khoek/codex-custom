@@ -2,7 +2,7 @@
 
 This repository pins the upstream [OpenAI Codex](https://github.com/openai/codex)
 repository as a submodule at commit `d2efdf19861bf52782ff04e5fff83f5ef9f7ebf5`
-from upstream `main`. The custom version is `0.168.0-k.d2efdf19`. It carries a
+from upstream `main`. The custom version is `0.168.1-k.d2efdf19`. It carries a
 small, ordered patch series:
 
 1. [`patches/codex-customizations.patch`](patches/codex-customizations.patch)
@@ -76,7 +76,7 @@ credential rotation. ChatGPT account `UsageLimitReached` errors retain supervise
 
 The companion test patch has no runtime effect. It keeps the original
 customizations' tests separate from their implementation and records the
-expected auto-dismissed UI and `0.168.0-k.d2efdf19` snapshot output.
+expected auto-dismissed UI and `0.168.1-k.d2efdf19` snapshot output.
 
 The quota patch adds `--exit-on-quota-exceeded` to interactive Codex. With the
 flag present, a terminal typed `UsageLimitExceeded` error from the primary

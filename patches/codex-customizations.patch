@@ -7,7 +7,7 @@ index 7453a47de5..fedf17477b 100644
  
  [workspace.package]
 -version = "0.0.0"
-+version = "0.168.0-k.d2efdf19"
++version = "0.168.1-k.d2efdf19"
  # Track the edition for all workspace crates in one place. Individual
  # crates can still override this value, but keeping it here means new
  # crates created with `cargo new -w ...` automatically inherit the 2024
@@ -20,7 +20,7 @@ index f2a7e97d2b..dbf301bb52 100644
  expression: stdout
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.168.0-k.d2efdf19
++Codex Doctor v0.168.1-k.d2efdf19
  
  Notes
     [XX] config       config could not be loaded - Fix the reported config error, then rerun codex doctor.
@@ -33,7 +33,7 @@ index 996f43b992..f0a70f061e 100644
  expression: stdout
  ---
 -Codex Doctor v0.0.0
-+Codex Doctor v0.168.0-k.d2efdf19
++Codex Doctor v0.168.1-k.d2efdf19
  
  Configuration
    [ok] config       loaded
